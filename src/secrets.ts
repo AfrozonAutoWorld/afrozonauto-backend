@@ -1,0 +1,47 @@
+import dotenv from "dotenv";
+dotenv.config({ path: ".env" });
+
+export const PORT =  process.env.PORT!;
+export const DB_NAME =  process.env.DB_NAME!;
+export const JWT_SECRET =  process.env.JWT_SECRET!;
+export const NODE_ENV =  process.env.NODE_ENV! || 'development';
+export const MAIL_HOST = process.env.MAIL_HOST!;
+export const MAIL_USERNAME = process.env.MAIL_USERNAME!;
+export const MAIL_PASSWORD = process.env.MAIL_PASSWORD!;
+export const MAIL_PORT = process.env.MAIL_PORT! || 587;
+export const FROM_EMAIL = process.env.FROM_EMAIL!;
+export const ADMIN_DASH = process.env.ADMIN_DASH!;
+export const APP_SECRET = process.env.APP_SECRET!;
+export const CLOUDINARY_NAME = process.env.CLOUDINARY_NAME!;
+export const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY!;
+export const CLOUDINARY_SECRET = process.env.CLOUDINARY_SECRET!;
+export const CLOUDINARY_FOLDER = process.env.CLOUDINARY_FOLDER!;
+export const GOOGLE_PROFILE = process.env.GOOGLE_PROFILE!;
+export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
+export const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
+export const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI!;
+export const GOOGLE_LOGIN_FAILURE_REDIRECT = process.env.GOOGLE_LOGIN_FAILURE_REDIRECT!;
+export const PUBLIC_URL = process.env.PUBLIC_URL!;
+export const MONGODB_URI = process.env.MONGODB_URI!;
+export const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!; 
+export const PAYSTACK_WEBHOOK_SECRET_KEY = process.env.PAYSTACK_WEBHOOK_SECRET_KEY!;
+export const FLUTTERWAVE_SECRET_KEY = process.env.FLUTTERWAVE_SECRET_KEY!;
+export const FLUTTERWAVE_SECRET_HASH=process.env.FLUTTERWAVE_SECRET_HASH!;
+export const APP_URL= process.env.APP_URL!;
+export const STRIPE_LINK= process.env.STRIPE_LINK!;
+export const SEND_MAIL_API_KEY= process.env.SEND_MAIL_API_KEY!;
+export const SEND_MAIL_SMS_PHONE= process.env.SEND_MAIL_SMS_PHONE!;
+export const FRONT_END_URL= process.env.FRONT_END_URL!;
+export const EXPIRES_IN_SHORT= process.env.EXPIRES_IN_SHORT!;
+export const EXPIRES_IN_LONG= process.env.EXPIRES_IN_LONG!;
+export const STRIPE_API_KEY = process.env.STRIPE_API_KEY!;
+export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET!;
+export const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY!;
+export const ENCRYPTION_ALGO = process.env.ENCRYPTION_ALGO!;
+export const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL! || 'localhost:3000/auth/google';
+export const FRONTEND_URL = process.env.FRONTEND_URL! || 'localhost:3000/auth/google';
+export const APPLE_CLIENT_ID = process.env.APPLE_CLIENT_ID!
+export const APPLE_TEAM_ID = process.env.APPLE_TEAM_ID!
+export const APPLE_PRIVATE_KEY = process.env.APPLE_PRIVATE_KEY!
+export const APPLE_KEY_IDENTIFIER = process.env.APPLE_KEY_IDENTIFIER!
+export const APPLE_REDIRECT_URI = process.env.APPLE_REDIRECT_URI!

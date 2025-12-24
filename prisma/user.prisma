@@ -1,0 +1,39 @@
+model User {
+    id          String    @id @map("_id") @db.ObjectId
+    userID      String    @unique
+    email       String    @unique
+    password    String
+    firstName   String?
+    lastName    String?
+    phoneNumber String?
+    isDeleted   Boolean   @default(false)
+    createdAt   DateTime  @default(now())
+    updatedAt   DateTime  @updatedAt
+    role        userRoles @default(CUSTOMER)
+
+    profile Profile?
+    token   Token[]
+
+    @@map("users")
+}
+
+enum userRoles {
+    ADMIN
+    CUSTOMER
+}
+
+model Profile {
+    id        String    @id @map("_id") @db.ObjectId
+    userId    String    @unique @db.ObjectId
+    firstName String?
+    lastName  String?
+    photo     String?
+    dob       DateTime?
+    address   String?
+
+    user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+    files FileInfo[]
+    addresses Address[] 
+
+    @@map("profiles")
+}

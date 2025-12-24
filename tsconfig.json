@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    // "module": "es2022",
+    "moduleResolution": "node",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "target": "es6",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "resolveJsonModule": true,
+    "types": ["node"],
+    "typeRoots": [
+      "./utils/types",
+      "./node_modules/@types",
+      "./src/types"
+    ],
+    "paths": {
+      "*": [
+        "./node_modules/*",
+        "./src/utils/types/*"
+      ]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/**/*.ts",
+    "src/**/*.js",
+    "package.json"
+, "src/repositories/NotificationRepository.ts"  ],
+  "exclude": [
+    "node_modules",
+    "build"
+  ],
+  "ts-node": {
+    "esm": true,
+    "experimentalSpecifierResolution": "node"
+  }
+}

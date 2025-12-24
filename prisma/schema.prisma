@@ -1,0 +1,894 @@
+
+
+// AFROZON AutoGlobal - MongoDB Schema with Prisma
+// Designed for flexibility, multi-country support, and API integration
+
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER & AUTHENTICATION
+// ============================================
+
+model User {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  passwordHash  String?  // For custom auth, or use external auth service
+  fullName      String?
+  phone         String?
+  
+  // Location (flexible for multi-country)
+  country       String   @default("Nigeria")
+  state         String?
+  city          String?
+  address       String?
+  postalCode    String?
+  
+  // Role & Permissions (hierarchical)
+  role          UserRole @default(BUYER)
+  isActive      Boolean  @default(true)
+  isSuspended   Boolean  @default(false)
+  suspensionReason String?
+  suspensionUntil DateTime?
+  
+  // Financial
+  walletBalance Float    @default(0) // In USD
+  currency      String   @default("USD") // Primary currency preference
+  
+  // Preferences
+  language      String   @default("en")
+  timezone      String   @default("Africa/Lagos")
+  notificationPreferences Json? // { email: true, sms: false, push: true }
+  
+  // Metadata
+  lastLoginAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  profile       Profile?
+  orders        Order[]
+  payments      Payment[]
+  savedVehicles SavedVehicle[]
+  messages      Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+  activityLogs ActivityLog[]
+  adminNotes    AdminNote[]
+  
+  @@index([email])
+  @@index([role])
+  @@index([country])
+  @@index([isActive])
+  @@map("users")
+}
+
+enum UserRole {
+  BUYER
+  OPERATIONS_ADMIN
+  SUPER_ADMIN
+}
+
+model Profile {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String   @unique @db.ObjectId
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Extended profile data
+  avatar          String?
+  dateOfBirth     DateTime?
+  identificationNumber String? // For KYC
+  identificationType   String? // passport, national_id, etc.
+  identificationDocument String? // URL to document
+  
+  // Business info (if applicable)
+  businessName    String?
+  taxId           String?
+  
+  // Verification
+  isVerified      Boolean  @default(false)
+  verifiedAt      DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("profiles")
+}
+
+// ============================================
+// VEHICLES (API + Manual)
+// ============================================
+
+model Vehicle {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  vin           String   @unique // VIN is always unique
+  slug          String   @unique // SEO-friendly URL slug (e.g., "2021-toyota-camry-abc123")
+  
+  // Basic Info
+  make          String
+  model         String
+  year          Int
+  vehicleType   VehicleType
+  
+  // Pricing (flexible for price changes)
+  priceUsd      Float
+  originalPriceUsd Float? // Original price when first added
+  priceHistory  Json[] // [{ date, price, reason }] for tracking changes
+  
+  // Vehicle Details
+  mileage       Int?
+  engineSize    String?
+  transmission  String?
+  fuelType      String?
+  drivetrain    String? // AWD, FWD, RWD
+  exteriorColor String?
+  interiorColor String?
+  bodyStyle     String?
+  
+  // Location
+  dealerName    String?
+  dealerState   String?
+  dealerCity    String?
+  dealerZipCode String?
+  dealerCountry String  @default("USA")
+  dealerPhone   String?
+  dealerWebsite String?
+  
+  // Media
+  images        String[] @default([])
+  videos        String[] @default([])
+  thumbnail     String? // Primary image URL
+  
+  // Features & Specs
+  features      String[] @default([])
+  specifications Json? // Flexible spec storage
+  
+  // API Integration (Auto.dev)
+  source        VehicleSource @default(API)
+  apiProvider   String? // "autodev", "other"
+  apiListingId  String? // External API listing ID
+  apiData       Json? // Full API response cache
+  lastApiSync   DateTime? // Last time synced from API
+  apiSyncStatus ApiSyncStatus @default(PENDING)
+  apiSyncError  String? // Error message if sync failed
+  
+  // Manual Listing Fields
+  addedBy       String? @db.ObjectId // Admin user ID
+  addedByName   String?
+  manualNotes   String?
+  
+  // Status & Availability
+  status        VehicleStatus @default(AVAILABLE)
+  availability  VehicleAvailability @default(IN_STOCK)
+  featured      Boolean  @default(false)
+  featuredUntil DateTime?
+  
+  // Admin Controls
+  isActive      Boolean  @default(true)
+  isHidden      Boolean  @default(false)
+  hideReason    String?
+  
+  // Metadata
+  viewCount     Int      @default(0)
+  saveCount     Int      @default(0) // How many users saved this
+  requestCount  Int      @default(0) // How many requests for this vehicle
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  orders        Order[]
+  savedVehicles SavedVehicle[]
+
+  
+  
+  @@index([slug])
+  @@index([make, model])
+  @@index([year])
+  @@index([vehicleType])
+  @@index([priceUsd])
+  @@index([status])
+  @@index([source])
+  @@index([apiListingId])
+  @@index([featured])
+  @@index([isActive, isHidden])
+  @@index([dealerState])
+  @@map("vehicles")
+}
+
+enum VehicleType {
+  CAR
+  SUV
+  TRUCK
+  VAN
+  COUPE
+  SEDAN
+  HATCHBACK
+  WAGON
+  CONVERTIBLE
+  MOTORCYCLE
+  OTHER
+}
+
+enum VehicleSource {
+  API
+  MANUAL
+  IMPORTED
+}
+
+enum ApiSyncStatus {
+  PENDING
+  SYNCED
+  FAILED
+  OUTDATED
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  PENDING
+  SOLD
+  UNAVAILABLE
+  RESERVED
+}
+
+enum VehicleAvailability {
+  IN_STOCK
+  IN_TRANSIT
+  AT_PORT
+  READY_FOR_PICKUP
+  OUT_OF_STOCK
+}
+
+model SavedVehicle {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicleId String   @db.ObjectId
+  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([userId, vehicleId])
+  @@index([userId])
+  @@index([vehicleId])
+  @@map("saved_vehicles")
+}
+
+// ============================================
+// ORDERS & REQUESTS
+// ============================================
+
+model Order {
+  id                String      @id @default(auto()) @map("_id") @db.ObjectId
+  requestNumber     String      @unique // AFZ-YY-XXXXXX format
+  
+  // Relations
+  userId            String      @db.ObjectId
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicleId         String      @db.ObjectId
+  vehicle           Vehicle     @relation(fields: [vehicleId], references: [id])
+  
+  // Status (flexible workflow)
+  status            OrderStatus  @default(PENDING_QUOTE)
+  previousStatus    String[]     @default([]) // Status history
+  statusChangedAt   DateTime?
+  statusChangedBy   String?      @db.ObjectId // Admin who changed it
+  
+  // Pricing (snapshot at time of quote)
+  quotedPriceUsd    Float?
+  depositAmountUsd  Float?
+  totalLandedCostUsd Float?
+  totalLandedCostLocal Float? // In destination country currency
+  localCurrency     String? // NGN, GHS, etc.
+  exchangeRate      Float? // Rate used for calculation
+  exchangeRateDate  DateTime? // When rate was fetched
+  
+  // Cost Breakdown (embedded document)
+  costBreakdown     Json? // {
+  //   vehicle_price, sourcing_fee, inspection_fee, 
+  //   shipping_cost, customs_duty, vat, levy, etc.
+  // }
+  
+  // Shipping
+  shippingMethod    ShippingMethod?
+  originPort        String?
+  destinationPort   String?
+  destinationCountry String @default("Nigeria")
+  destinationState  String?
+  destinationCity   String?
+  destinationAddress String?
+  deliveryInstructions String?
+  
+  // Timeline
+  estimatedDeliveryDate DateTime?
+  actualDeliveryDate    DateTime?
+  quoteExpiresAt         DateTime?
+  
+  // Admin Notes (internal)
+  adminNotes        AdminNote[]
+  
+  // Customer Notes
+  customerNotes     String?
+  specialRequests   String?
+  
+  // Cancellation & Refunds
+  cancelledAt       DateTime?
+  cancelledBy       String? // user_id or admin_id
+  cancellationReason String?
+  refundRequested   Boolean  @default(false)
+  refundApproved    Boolean  @default(false)
+  refundAmount      Float?
+  
+  // Metadata
+  priority          OrderPriority @default(NORMAL)
+  tags              String[] @default([]) // For filtering/organization
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  payments          Payment[]
+  inspection        Inspection?
+  shipment          Shipment?
+  messages          Message[]
+  activityLogs      ActivityLog[]
+  
+  @@index([userId])
+  @@index([vehicleId])
+  @@index([status])
+  @@index([requestNumber])
+  @@index([destinationCountry])
+  @@index([createdAt])
+  @@index([status, destinationCountry])
+  @@map("orders")
+}
+
+enum OrderStatus {
+  PENDING_QUOTE
+  QUOTE_SENT
+  QUOTE_ACCEPTED
+  QUOTE_REJECTED
+  QUOTE_EXPIRED
+  DEPOSIT_PENDING
+  DEPOSIT_PAID
+  INSPECTION_PENDING
+  INSPECTION_COMPLETE
+  INSPECTION_FAILED
+  AWAITING_APPROVAL
+  APPROVED
+  REJECTED
+  PURCHASE_IN_PROGRESS
+  PURCHASED
+  EXPORT_PENDING
+  SHIPPED
+  IN_TRANSIT
+  ARRIVED_PORT
+  CUSTOMS_CLEARANCE
+  CUSTOMS_HOLD
+  CLEARED
+  DELIVERY_SCHEDULED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum ShippingMethod {
+  RORO
+  CONTAINER
+  AIR_FREIGHT
+  EXPRESS
+}
+
+enum OrderPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+// ============================================
+// PAYMENTS
+// ============================================
+
+model Payment {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  orderId         String        @db.ObjectId
+  order           Order         @relation(fields: [orderId], references: [id])
+  userId          String        @db.ObjectId
+  user            User          @relation(fields: [userId], references: [id])
+  
+  // Amount
+  amountUsd       Float
+  amountLocal     Float? // In local currency
+  localCurrency   String?
+  exchangeRate    Float? // Rate at time of payment
+  
+  // Payment Details
+  paymentType     PaymentType
+  paymentMethod   PaymentMethod?
+  paymentProvider String? // stripe, paystack, flutterwave, etc.
+  
+  // Status
+  status          PaymentStatus @default(PENDING)
+  escrowStatus    EscrowStatus  @default(HELD)
+  
+  // Transaction Info
+  transactionRef  String? // External payment reference
+  providerTransactionId String? // Payment gateway transaction ID
+  receiptUrl       String?
+  
+  // Refund Info
+  refundAmount    Float?
+  refundReason    String?
+  refundedAt      DateTime?
+  refundedBy      String? @db.ObjectId
+  
+  // Metadata
+  description     String?
+  metadata        Json? // Additional payment data
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  completedAt     DateTime?
+  
+  @@index([orderId])
+  @@index([userId])
+  @@index([status])
+  @@index([transactionRef])
+  @@index([paymentProvider])
+  @@index([createdAt])
+  @@map("payments")
+}
+
+enum PaymentType {
+  DEPOSIT
+  FULL_PAYMENT
+  BALANCE
+  REFUND
+  PARTIAL_REFUND
+}
+
+enum PaymentMethod {
+  CARD
+  BANK_TRANSFER
+  WALLET
+  MOBILE_MONEY
+  CRYPTO
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum EscrowStatus {
+  HELD
+  RELEASED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+// ============================================
+// INSPECTIONS
+// ============================================
+
+model Inspection {
+  id                    String   @id @default(auto()) @map("_id") @db.ObjectId
+  orderId               String   @unique @db.ObjectId
+  order                 Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  // Inspector Info
+  inspectorName         String?
+  inspectorCompany      String?
+  inspectorLicense      String?
+  inspectionDate        DateTime?
+  inspectionLocation    String?
+  
+  // Reports
+  vinReportUrl          String?
+  inspectionReportUrl   String?
+  photos                String[] @default([])
+  videos                String[] @default([])
+  
+  // Findings
+  overallCondition      InspectionCondition?
+  findings              Json[] // [{ category, item, condition, notes }]
+  recommended           Boolean  @default(true)
+  recommendationNotes   String?
+  
+  // Approval
+  customerApproved      Boolean?
+  approvedAt            DateTime?
+  rejectedAt            DateTime?
+  rejectionReason       String?
+  
+  // Metadata
+  estimatedValue        Float? // Inspector's estimated value
+  repairCostEstimate    Float? // If repairs needed
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  @@map("inspections")
+}
+
+enum InspectionCondition {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+  DAMAGED
+}
+
+// ============================================
+// SHIPMENTS & LOGISTICS
+// ============================================
+
+model Shipment {
+  id                  String          @id @default(auto()) @map("_id") @db.ObjectId
+  orderId             String          @unique @db.ObjectId
+  order               Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  // Shipping Method
+  shippingMethod      ShippingMethod?
+  carrier             String? // Shipping company name
+  carrierTrackingNumber String?
+  
+  // Ports
+  originPort          String?
+  destinationPort     String?
+  originCountry       String  @default("USA")
+  destinationCountry  String  @default("Nigeria")
+  
+  // Vessel/Container Info
+  vesselName          String?
+  vesselNumber        String?
+  containerNumber     String?
+  billOfLading        String?
+  bookingNumber       String?
+  
+  // Status
+  status              ShipmentStatus  @default(PENDING)
+  previousStatus      String[]        @default([])
+  
+  // Dates
+  bookedAt            DateTime?
+  departedDate        DateTime?
+  etaPort             DateTime?
+  arrivedPortDate     DateTime?
+  clearedCustomsDate   DateTime?
+  outForDeliveryDate  DateTime?
+  deliveredDate       DateTime?
+  
+  // Tracking Updates (embedded)
+  trackingUpdates     Json[] // [{ date, status, location, description }]
+  
+  // Delivery Info
+  deliveryAddress     String?
+  deliveryContactName  String?
+  deliveryContactPhone String?
+  deliveryInstructions String?
+  
+  // Customs
+  customsStatus       String?
+  customsHoldReason   String?
+  customsDocuments    String[] @default([])
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  @@map("shipments")
+}
+
+enum ShipmentStatus {
+  PENDING
+  BOOKED
+  AT_PORT
+  LOADED
+  IN_TRANSIT
+  ARRIVED
+  CUSTOMS_HOLD
+  CLEARED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  DELAYED
+  LOST
+  DAMAGED
+}
+
+// ============================================
+// MESSAGING
+// ============================================
+
+model Message {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  orderId       String?  @db.ObjectId
+  order         Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  
+  senderId      String   @db.ObjectId
+  sender        User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  recipientId   String?  @db.ObjectId
+  recipient     User?    @relation("ReceivedMessages", fields: [recipientId], references: [id], onDelete: SetNull)
+  
+  subject       String?
+  content       String
+  isFromAdmin   Boolean  @default(false)
+  isRead        Boolean  @default(false)
+  readAt        DateTime?
+  
+  // Attachments
+  attachments   String[] @default([])
+  
+  createdAt      DateTime @default(now())
+  
+  @@index([orderId])
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+// ============================================
+// ADMIN & OPERATIONS
+// ============================================
+
+model AdminNote {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  orderId       String?  @db.ObjectId
+  order         Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  userId        String?  @db.ObjectId
+  user          User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdById   String   @db.ObjectId
+  createdBy     User     @relation(fields: [createdById], references: [id])
+  
+  note          String
+  isInternal    Boolean  @default(true) // Internal vs customer-visible
+  category      String? // issue, follow_up, payment, etc.
+  
+  createdAt      DateTime @default(now())
+  
+  @@index([orderId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("admin_notes")
+}
+
+model ActivityLog {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String?  @db.ObjectId
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  orderId       String?  @db.ObjectId
+  order         Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  
+  action        String // order_created, status_changed, payment_received, etc.
+  entityType    String // order, payment, vehicle, user, etc.
+  entityId      String?
+  description   String
+  metadata      Json? // Additional context
+  
+  performedBy   String?  @db.ObjectId // Admin who performed action
+  ipAddress     String?
+  userAgent     String?
+  
+  createdAt      DateTime @default(now())
+  
+  @@index([userId])
+  @@index([orderId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+// ============================================
+// CONFIGURATION & SETTINGS
+// ============================================
+
+model PricingConfig {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  country       String   @default("Nigeria")
+  isActive      Boolean  @default(true)
+  
+  // Pricing Structure (flexible JSON)
+  config        Json // {
+  //   sourcing_fee_percent, sourcing_fee_min_usd,
+  //   inspection_fee_usd, shipping_roro_base_usd,
+  //   customs_duty_percent, vat_percent, etc.
+  // }
+  
+  // Exchange Rates
+  exchangeRates  Json? // { USD: { NGN: 1550, GHS: 12.5 }, ... }
+  lastRateUpdate DateTime?
+  
+  // Timelines
+  estimatedTimelines Json? // { roro: 45, container: 60 }
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  updatedBy     String?  @db.ObjectId
+  
+  @@unique([country, isActive])
+  @@index([country])
+  @@index([isActive])
+  @@map("pricing_configs")
+}
+
+model SystemSetting {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  key           String   @unique
+  value         Json
+  category      String? // payment, shipping, api, notification, etc.
+  description   String?
+  isPublic      Boolean  @default(false) // Can be accessed without auth
+  
+  updatedAt     DateTime @updatedAt
+  updatedBy     String?  @db.ObjectId
+  
+  @@index([key])
+  @@index([category])
+  @@map("system_settings")
+}
+
+// ============================================
+// API INTEGRATION TRACKING
+// ============================================
+
+model ApiIntegration {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  provider      String   // autodev, etc.
+  apiKey        String?  // Encrypted
+  apiSecret     String?  // Encrypted
+  baseUrl       String
+  isActive      Boolean  @default(true)
+  
+  // Rate Limiting
+  rateLimit     Int? // Requests per minute
+  rateLimitWindow Int? // Window in seconds
+  currentRequests Int @default(0)
+  lastResetAt   DateTime?
+  
+  // Monitoring
+  totalRequests Int      @default(0)
+  successfulRequests Int @default(0)
+  failedRequests Int    @default(0)
+  lastRequestAt DateTime?
+  lastError      String?
+  lastErrorAt    DateTime?
+  
+  // Configuration
+  config        Json? // Provider-specific config
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([provider])
+  @@index([isActive])
+  @@map("api_integrations")
+}
+
+model ApiRequestLog {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  integrationId String  @db.ObjectId
+  integration   ApiIntegration @relation(fields: [integrationId], references: [id])
+  
+  endpoint      String
+  method        String
+  statusCode    Int?
+  success       Boolean
+  responseTime  Int? // milliseconds
+  errorMessage  String?
+  
+  requestData   Json?
+  responseData  Json? // Truncated for storage
+  
+  createdAt     DateTime @default(now())
+  
+  @@index([integrationId])
+  @@index([success])
+  @@index([createdAt])
+  @@map("api_request_logs")
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String   @db.ObjectId
+  orderId       String?  @db.ObjectId
+  
+  type          NotificationType
+  title         String
+  message       String
+  isRead        Boolean  @default(false)
+  readAt        DateTime?
+  
+  // Action
+  actionUrl     String?
+  actionLabel   String?
+  
+  createdAt     DateTime @default(now())
+  
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  ORDER_CREATED
+  ORDER_STATUS_CHANGED
+  PAYMENT_RECEIVED
+  PAYMENT_FAILED
+  INSPECTION_COMPLETE
+  SHIPMENT_UPDATE
+  DELIVERY_SCHEDULED
+  ORDER_DELIVERED
+  REFUND_PROCESSED
+  QUOTE_EXPIRED
+  SYSTEM_ALERT
+}
+
+// ============================================
+// CONTENT MANAGEMENT (Phase 3)
+// ============================================
+
+model Content {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  type          ContentType
+  slug          String   @unique
+  title         String
+  content       String
+  excerpt       String?
+  
+  // SEO
+  metaTitle     String?
+  metaDescription String?
+  
+  // Status
+  isPublished   Boolean  @default(false)
+  publishedAt   DateTime?
+  
+  // Localization
+  language      String   @default("en")
+  country       String?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  updatedBy     String?  @db.ObjectId
+  
+  @@index([type])
+  @@index([slug])
+  @@index([isPublished])
+  @@map("contents")
+}
+
+enum ContentType {
+  FAQ
+  POLICY
+  TERMS
+  PRIVACY
+  ABOUT
+  BLOG_POST
+  HELP_ARTICLE
+  HOMEPAGE_SECTION
+}
+
