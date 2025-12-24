@@ -1,0 +1,87 @@
+
+// ============================================
+// PAYMENTS
+// ============================================
+
+model Payment {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  orderId         String        @db.ObjectId
+  order           Order         @relation(fields: [orderId], references: [id])
+  userId          String        @db.ObjectId
+  user            User          @relation(fields: [userId], references: [id])
+  
+  // Amount
+  amountUsd       Float
+  amountLocal     Float? // In local currency
+  localCurrency   String?
+  exchangeRate    Float? // Rate at time of payment
+  
+  // Payment Details
+  paymentType     PaymentType
+  paymentMethod   PaymentMethod?
+  paymentProvider String? // stripe, paystack, flutterwave
+  
+  // Status
+  status          PaymentStatus @default(PENDING)
+  escrowStatus    EscrowStatus  @default(HELD)
+  
+  // Transaction Info
+  transactionRef  String? // External payment reference
+  providerTransactionId String? // Payment gateway transaction ID
+  receiptUrl       String?
+  
+  // Refund Info
+  refundAmount    Float?
+  refundReason    String?
+  refundedAt      DateTime?
+  refundedBy      String? @db.ObjectId
+  
+  // Metadata
+  description     String?
+  metadata        Json? // Additional payment data
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  completedAt     DateTime?
+  
+  @@index([orderId])
+  @@index([userId])
+  @@index([status])
+  @@index([transactionRef])
+  @@index([paymentProvider])
+  @@index([createdAt])
+  @@map("payments")
+}
+
+enum PaymentType {
+  DEPOSIT
+  FULL_PAYMENT
+  BALANCE
+  REFUND
+  PARTIAL_REFUND
+}
+
+enum PaymentMethod {
+  CARD
+  BANK_TRANSFER
+  WALLET
+  MOBILE_MONEY
+  CRYPTO
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum EscrowStatus {
+  HELD
+  RELEASED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}

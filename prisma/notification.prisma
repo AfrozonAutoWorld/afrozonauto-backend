@@ -1,0 +1,87 @@
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String   @db.ObjectId
+  orderId       String?  @db.ObjectId
+  
+  type          NotificationType
+  title         String
+  message       String
+  isRead        Boolean  @default(false)
+  readAt        DateTime?
+  
+  // Action
+  actionUrl     String?
+  actionLabel   String?
+  
+  createdAt     DateTime @default(now())
+  
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  ORDER_CREATED
+  ORDER_STATUS_CHANGED
+  PAYMENT_RECEIVED
+  PAYMENT_FAILED
+  INSPECTION_COMPLETE
+  SHIPMENT_UPDATE
+  DELIVERY_SCHEDULED
+  ORDER_DELIVERED
+  REFUND_PROCESSED
+  QUOTE_EXPIRED
+  SYSTEM_ALERT
+}
+
+// ============================================
+// CONTENT MANAGEMENT (Phase 3)
+// ============================================
+
+model Content {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  type          ContentType
+  slug          String   @unique
+  title         String
+  content       String
+  excerpt       String?
+  
+  // SEO
+  metaTitle     String?
+  metaDescription String?
+  
+  // Status
+  isPublished   Boolean  @default(false)
+  publishedAt   DateTime?
+  
+  // Localization
+  language      String   @default("en")
+  country       String?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  updatedBy     String?  @db.ObjectId
+  
+  @@index([type])
+  @@index([slug])
+  @@index([isPublished])
+  @@map("contents")
+}
+
+enum ContentType {
+  FAQ
+  POLICY
+  TERMS
+  PRIVACY
+  ABOUT
+  BLOG_POST
+  HELP_ARTICLE
+  HOMEPAGE_SECTION
+}
+

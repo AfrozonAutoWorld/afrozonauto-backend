@@ -1,0 +1,132 @@
+// ============================================
+// ORDERS & REQUESTS
+// ============================================
+model Order {
+  id                String      @id @default(auto()) @map("_id") @db.ObjectId
+  requestNumber     String      @unique // AFZ-YY-XXXXXX format
+  
+  // Relations
+  userId            String      @db.ObjectId
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicleId         String      @db.ObjectId
+  vehicle           Vehicle     @relation(fields: [vehicleId], references: [id])
+  
+  // Status (flexible workflow)
+  status            OrderStatus  @default(PENDING_QUOTE)
+  previousStatus    String[]     @default([]) // Status history
+  statusChangedAt   DateTime?
+  statusChangedBy   String?      @db.ObjectId // Admin who changed it
+  
+  // Pricing (snapshot at time of quote)
+  quotedPriceUsd    Float?
+  depositAmountUsd  Float?
+  totalLandedCostUsd Float?
+  totalLandedCostLocal Float? // In destination country currency
+  localCurrency     String? // NGN, GHS, etc.
+  exchangeRate      Float? // Rate used for calculation
+  exchangeRateDate  DateTime? // When rate was fetched
+  
+  // Cost Breakdown (embedded document)
+  costBreakdown     Json? // {
+  //   vehicle_price, sourcing_fee, inspection_fee, 
+  //   shipping_cost, customs_duty, vat, levy, etc.
+  // }
+  
+  // Shipping
+  shippingMethod    ShippingMethod?
+  originPort        String?
+  destinationPort   String?
+  destinationCountry String @default("Nigeria")
+  destinationState  String?
+  destinationCity   String?
+  destinationAddress String?
+  deliveryInstructions String?
+  
+  // Timeline
+  estimatedDeliveryDate DateTime?
+  actualDeliveryDate    DateTime?
+  quoteExpiresAt         DateTime?
+  
+  // Admin Notes (internal)
+  adminNotes        AdminNote[]
+  
+  // Customer Notes
+  customerNotes     String?
+  specialRequests   String?
+  
+  // Cancellation & Refunds
+  cancelledAt       DateTime?
+  cancelledBy       String? // user_id or admin_id
+  cancellationReason String?
+  refundRequested   Boolean  @default(false)
+  refundApproved    Boolean  @default(false)
+  refundAmount      Float?
+  
+  // Metadata
+  priority          OrderPriority @default(NORMAL)
+  tags              String[] @default([]) // For filtering/organization
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  payments          Payment[]
+  inspection        Inspection?
+  shipment          Shipment?
+  messages          Message[]
+  activityLogs      ActivityLog[]
+  
+  @@index([userId])
+  @@index([vehicleId])
+  @@index([status])
+  @@index([requestNumber])
+  @@index([destinationCountry])
+  @@index([createdAt])
+  @@index([status, destinationCountry])
+  @@map("orders")
+}
+
+enum OrderStatus {
+  PENDING_QUOTE
+  QUOTE_SENT
+  QUOTE_ACCEPTED
+  QUOTE_REJECTED
+  QUOTE_EXPIRED
+  DEPOSIT_PENDING
+  DEPOSIT_PAID
+  INSPECTION_PENDING
+  INSPECTION_COMPLETE
+  INSPECTION_FAILED
+  AWAITING_APPROVAL
+  APPROVED
+  REJECTED
+  PURCHASE_IN_PROGRESS
+  PURCHASED
+  EXPORT_PENDING
+  SHIPPED
+  IN_TRANSIT
+  ARRIVED_PORT
+  CUSTOMS_CLEARANCE
+  CUSTOMS_HOLD
+  CLEARED
+  DELIVERY_SCHEDULED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum ShippingMethod {
+  RORO
+  CONTAINER
+  AIR_FREIGHT
+  EXPRESS
+}
+
+enum OrderPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}

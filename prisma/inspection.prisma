@@ -1,0 +1,51 @@
+// ============================================
+// INSPECTIONS
+// ============================================
+
+model Inspection {
+  id                    String   @id @default(auto()) @map("_id") @db.ObjectId
+  orderId               String   @unique @db.ObjectId
+  order                 Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  // Inspector Info
+  inspectorName         String?
+  inspectorCompany      String?
+  inspectorLicense      String?
+  inspectionDate        DateTime?
+  inspectionLocation    String?
+  
+  // Reports
+  vinReportUrl          String?
+  inspectionReportUrl   String?
+  photos                String[] @default([])
+  videos                String[] @default([])
+  
+  // Findings
+  overallCondition      InspectionCondition?
+  findings              Json[] // [{ category, item, condition, notes }]
+  recommended           Boolean  @default(true)
+  recommendationNotes   String?
+  
+  // Approval
+  customerApproved      Boolean?
+  approvedAt            DateTime?
+  rejectedAt            DateTime?
+  rejectionReason       String?
+  
+  // Metadata
+  estimatedValue        Float? // Inspector's estimated value
+  repairCostEstimate    Float? // If repairs needed
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  @@map("inspections")
+}
+
+enum InspectionCondition {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+  DAMAGED
+}

@@ -1,0 +1,32 @@
+// ============================================
+// MESSAGING
+// ============================================
+
+model Message {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  orderId       String?  @db.ObjectId
+  order         Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  
+  senderId      String   @db.ObjectId
+  sender        User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  recipientId   String?  @db.ObjectId
+  recipient     User?    @relation("ReceivedMessages", fields: [recipientId], references: [id], onDelete: SetNull)
+  
+  subject       String?
+  content       String
+  isFromAdmin   Boolean  @default(false)
+  isRead        Boolean  @default(false)
+  readAt        DateTime?
+  
+  // Attachments
+  attachments   String[] @default([])
+  
+  createdAt      DateTime @default(now())
+  
+  @@index([orderId])
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("messages")
+}
