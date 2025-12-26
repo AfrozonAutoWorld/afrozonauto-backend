@@ -1,63 +1,110 @@
 import { inject, injectable } from 'inversify';
-import { AddressType, IAddress } from '@prisma/client';
+import { Address, AddressType } from '../generated/prisma/client';
 import { TYPES } from '../config/types';
 import { AddressRepository } from '../repositories/AddressRepository';
-import { Types } from 'mongoose';
-
+import { CreateAddressDto } from '../validation/dtos/address.dto';
 
 @injectable()
-export class AddressService   {
+export class AddressService {
   constructor(
-    @inject(TYPES.AddressRepository) private addressRepository: AddressRepository
-  ) {}
-  async createAddress(addressData: IAddress): Promise<IAddress> {
-    // If setting as default, ensure no other defaults exist for this type
+    @inject(TYPES.AddressRepository)
+    private readonly addressRepository: AddressRepository
+  ) { }
+
+  /**
+   * Create a new address for a profile
+   */
+  async createAddress(
+    profileId: string,
+    addressData: CreateAddressDto
+  ): Promise<Address> {
+  
+    const addressType = addressData.type ?? AddressType.NORMAL;
+  
     if (addressData.isDefault) {
       await this.addressRepository.updateMany(
-        { 
-          userId: new Types.ObjectId(addressData.userId), 
-          type: addressData.type 
+        {
+          profileId,
+          type: addressType,
         },
-        { $set: { isDefault: false } }
+        {
+          isDefault: false,
+        }
       );
     }
-    return this.addressRepository.create(addressData);
+  
+    return this.addressRepository.create({
+      profileId,
+      type: addressType,
+  
+      street: addressData.street ?? null,
+      firstName: addressData.firstName ?? null,
+      lastName: addressData.lastName ?? null,
+      city: addressData.city,
+      state: addressData.state ?? null,
+      postalCode: addressData.postalCode ?? null,
+      country: addressData.country ?? null,
+      isDefault: addressData.isDefault ?? false,
+      additionalInfo: addressData.additionalInfo ?? null,
+      phoneNumber: addressData.phoneNumber ?? null,
+      additionalPhoneNumber: addressData.additionalPhoneNumber ?? null,
+    });
+  }
+  
+  /**
+   * Get all addresses for a profile
+   */
+  async getProfileAddresses(profileId: string): Promise<Address[]> {
+    return this.addressRepository.findByProfileId(profileId);
   }
 
-  async getUserAddresses(userId: string): Promise<IAddress[]> {
-    return this.addressRepository.findByUserId(userId);
+  /**
+   * Get default address by profile & type
+   */
+  async getDefaultAddress(
+    profileId: string,
+    type: AddressType
+  ): Promise<Address | null> {
+    return this.addressRepository.findDefaultByProfileId(profileId, type);
   }
 
-  async getDefaultAddress(userId: string, type: AddressType): Promise<IAddress | null> {
-    return this.addressRepository.findDefaultByUserId(userId, type);
+  /**
+   * Get single address by ID
+   */
+  async getAddressById(id: string): Promise<Address | null> {
+    return this.addressRepository.findById(id);
   }
 
-  async updateAddress(id: string, addressData: Partial<IAddress>): Promise<IAddress | null> {
-    // Handle default address change
+  /**
+   * Update an address
+   */
+  async updateAddress(
+    id: string,
+    addressData: Partial<Omit<Address, 'id' | 'createdAt' | 'updatedAt'>>
+  ): Promise<Address | null> {
+    // Handle change to default
     if (addressData.isDefault) {
-      const existingAddress = await this.addressRepository.findById(id);
-      if (existingAddress) {
-        await this.addressRepository.updateMany(
-          { 
-            userId: existingAddress.userId, 
-            type: existingAddress.type, 
-            _id: { $ne: new Types.ObjectId(id) } 
-          },
-          { $set: { isDefault: false } }
-        );
-      }
+      const existing = await this.addressRepository.findById(id);
+      if (!existing) return null;
+
+      await this.addressRepository.updateMany(
+        {
+          profileId: existing.profileId,
+          type: existing.type,
+        },
+        {
+          isDefault: false,
+        }
+      );
     }
-    return this.addressRepository.findByIdAndUpdate(
-      id,
-      { $set: addressData },
-      { new: true }
-    );
+
+    return this.addressRepository.update(id, addressData);
   }
 
+  /**
+   * Delete address
+   */
   async deleteAddress(id: string): Promise<boolean> {
     return this.addressRepository.delete(id);
-  }
-  async getAddressById(id: string) {
-    return await this.addressRepository.findById(id);
   }
 }

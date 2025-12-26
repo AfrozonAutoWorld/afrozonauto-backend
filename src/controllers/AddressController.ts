@@ -3,7 +3,8 @@ import { Response } from 'express';
 import { TYPES } from '../config/types';
 import { AuthenticatedRequest } from '../types/customRequest';
 import { AddressService } from '../services/AddressService';
-import { AddressType } from '@prisma/client';
+import { AddressType } from '../generated/prisma/client';
+
 import { defaultAddressQuerySchema } from "../validations/addressValidations";
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiResponse } from '../utils/ApiResponse';

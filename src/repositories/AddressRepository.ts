@@ -1,7 +1,6 @@
 import { injectable } from 'inversify';
 import prisma from '../db';
-import { Address, AddressType } from '@prisma/client';
-
+import { Address, AddressType} from '../generated/prisma/client';
 
 @injectable()
 export class AddressRepository {
