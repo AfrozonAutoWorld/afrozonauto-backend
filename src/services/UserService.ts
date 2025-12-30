@@ -17,7 +17,7 @@ export class UserService {
     lastName?: string;
   }) {
     // Hash password
-    const hashedPassword = await bcrypt.hash(data.password, 10);
+    const hashedPassword = await this.hashing(data.password);
 
     return this.userRepository.create({
       ...data,
@@ -28,6 +28,11 @@ export class UserService {
   async getUserById(id: string) {
     return this.userRepository.findById(id);
   }
+
+  async hashing (password: string){
+   return await bcrypt.hash(password, 10) 
+  }
+
 
   async getUserByEmail(email: string) {
     return this.userRepository.findByEmail(email);
@@ -50,8 +55,12 @@ export class UserService {
   async updateUser(id: string, data: Partial<any>) {
     return this.userRepository.update(id, data);
   }
+  async updateUserPassword(id: string, data: Partial<any>) {
+    return await this.userRepository.update(id, {...data, passwordHash: await this.hashing(data.password), });
+  }
 
   async deleteUser(id: string) {
     return this.userRepository.delete(id);
   }
+
 }

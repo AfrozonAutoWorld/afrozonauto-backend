@@ -5,7 +5,7 @@ import { AuthService } from '../services/AuthService';
 import { TYPES } from '../config/types';
 import Jtoken from '../middleware/Jtoken';
 import { AuthenticatedRequest, TokenType } from '../types/customRequest';
-import { UserModel, UserRole, UserStatus } from '../models/User';
+import { User, UserRole, } from '../generated/prisma/client';
 import { SessionService } from '../services/SessionService';
 import { ActivityLogService } from '../services/ActivityLogService';
 import { ActivityIcon, ActivityType, AlertLevel } from '../models/ActivityLog';
@@ -20,14 +20,11 @@ import { ApiError } from '../utils/ApiError';
 import loggers from '../utils/loggers';
 import oauthConfig from '../config/oauth.config';
 import { GOOGLE_CLIENT_ID, FRONTEND_URL, NODE_ENV } from '../secrets';
-import Profile from '../models/Profile';
-import { WalletService } from '../services/WalletService';
+import {Profile} from '../generated/prisma/client';
 import { GoogleAuthService } from '../services/GoogleAuthService';
 import { decryptData, encryptData } from '../utils/encryption';
 import JwtAuth from "../middleware/Jtoken"
-import { Types } from 'mongoose';
 import { IUserRepository } from '../interfaces/IUserRepository';
-import { log } from 'console';
 import { AppleAuthService } from '../services/AppleAuthService';
 
 @injectable()
@@ -42,7 +39,6 @@ export class AuthController {
     @inject(TYPES.TokenService) private tokenService: TokenService,
     @inject(TYPES.ActivityLogService) private activityService: ActivityLogService,
     @inject(TYPES.UserRepository) private userRepo: IUserRepository,
-    @inject(TYPES.WalletService) private walletService: WalletService,
     @inject(TYPES.GoogleAuthService) private googleAuthService: GoogleAuthService,
     @inject(TYPES.SessionService) private sessionService: SessionService
   ) { }
@@ -587,6 +583,7 @@ export class AuthController {
 
     res.json(new ApiResponse(200, { userId: result.userId }, 'Logout successful'));
   });
+  
   refreshToken = asyncHandler(async (req: Request, res: Response) => {
     const refreshToken = req.body.token;
 

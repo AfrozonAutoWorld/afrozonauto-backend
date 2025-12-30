@@ -1,6 +1,6 @@
 import { injectable } from 'inversify';
 import prisma from '../db';
-import { User } from '@prisma/client';
+import { User } from  '../generated/prisma/client';
 
 @injectable()
 export class UserRepository {

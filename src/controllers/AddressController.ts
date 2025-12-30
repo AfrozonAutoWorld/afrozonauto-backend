@@ -4,8 +4,7 @@ import { TYPES } from '../config/types';
 import { AuthenticatedRequest } from '../types/customRequest';
 import { AddressService } from '../services/AddressService';
 import { AddressType } from '../generated/prisma/client';
-
-import { defaultAddressQuerySchema } from "../validations/addressValidations";
+import { createAddressSchema } from "../validation/schema/address.validation";
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiResponse } from '../utils/ApiResponse';
 import { ApiError } from '../utils/ApiError';
@@ -31,7 +30,7 @@ export class AddressController {
 
   getDefaultAddress = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     // Validate query parameters
-    const { error, value } = defaultAddressQuerySchema.validate(req.query);
+    const { error, value } = createAddressSchema.validate(req.query);
     
     if (error) {
       return res.status(400).json( ApiError.badRequest(

@@ -1,23 +1,37 @@
 import { Request } from 'express';
-import { User, userRoles } from '@prisma/client';
-
-
+import { User, UserRole } from '../generated/prisma/client';
+import { Prisma } from '../generated/prisma/client';
 
 export type JWTPayload = {
-  id: string;              // Prisma ObjectId
-  role: userRoles;
+  id: string;         
+  role: UserRole;
   email: string;
 };
 
 
-export interface AuthenticatedRequest extends Request {
-  user: User;
-  files?: {
-    [fieldname: string]: Express.Multer.File[];
+// export interface AuthenticatedRequest extends Request {
+//   user: User;
+//   files?: {
+//     [fieldname: string]: Express.Multer.File[];
+//   };
+//   params: {
+//     [key: string]: string | undefined;
+//   };
+// }
+
+
+
+export type UserWithProfile = Prisma.UserGetPayload<{
+  include: {
+    profile: true;
   };
-  params: {
-    [key: string]: string | undefined;
-  };
+}>;
+
+
+export interface AuthenticatedRequest<
+  P = Record<string, string>
+> extends Request<P> {
+  user: UserWithProfile;
 }
 
 

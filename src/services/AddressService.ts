@@ -102,6 +102,12 @@ export class AddressService {
   }
 
   /**
+   * get all user address
+   */
+  async getUserAddresses(id: string) {
+    return this.addressRepository.findByProfileId(id);
+  }
+  /**
    * Delete address
    */
   async deleteAddress(id: string): Promise<boolean> {

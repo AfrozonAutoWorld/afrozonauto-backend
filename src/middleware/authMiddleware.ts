@@ -1,11 +1,9 @@
 import { Response, NextFunction } from 'express';
-import { container } from '../config/inversify.config';
 import Jtoken from '../middleware/Jtoken';
 import { UserRepository } from '../repositories/UserRepository';
-import { ActionType, UserModel, UserRole } from '../models/User';
+import { User, Address, UserRole } from '../generated/prisma/client';
 import { AuthenticatedRequest } from '../types/customRequest';
 import { TYPES } from '../config/types';
-import { Address, User} from '@prisma/client';
 import { ApiError } from '../utils/ApiError';
 import { asyncHandler } from '../utils/asyncHandler';
 
@@ -70,6 +68,6 @@ export const authorize = (requiredRoles: UserRole[]) => {
 export const requireRoles = (roles: UserRole[]) => authorize(roles);
 
 // Pre-defined role-based middlewares
-export const requireAdmin = authorize([UserRole.ADMIN, UserRole.SUPER_ADMIN]);
-export const requireCustomer = authorize([UserRole.CUSTOMER]);
+export const requireAdmin = authorize([UserRole.SUPER_ADMIN, UserRole.OPERATIONS_ADMIN]);
+export const requireCustomer = authorize([UserRole.BUYER]);
 export const requireSuperAdmin = authorize([UserRole.SUPER_ADMIN]);

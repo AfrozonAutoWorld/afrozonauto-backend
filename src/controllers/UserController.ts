@@ -34,7 +34,7 @@ export class UserController {
       throw ApiError.badRequest('User ID parameter is required');
     }
 
-    const result = await this.userService.verifyUser(userId);
+    const result = await this.userService.getUserById(userId);
     
     if (!result) {
       throw ApiError.internal('Verification failed');
@@ -50,7 +50,7 @@ export class UserController {
       throw ApiError.badRequest('User ID parameter is required');
     }
 
-    const result = await this.userService.deactivateUser(userId);
+    const result = await this.userService.deleteUser(userId);
     
     if (!result) {
       throw ApiError.internal('Deactivation failed');
@@ -84,9 +84,5 @@ export class UserController {
     res.json(new ApiResponse(200, { updated: true }, 'Password updated successfully'));
   });
 
-  getActiveUsers = asyncHandler(async (req: Request, res: Response) => {
-    const users = await this.userService.getAllActiveUsers();
-    
-    res.json(new ApiResponse(200, users, 'Active users retrieved successfully'));
-  });
+
 }

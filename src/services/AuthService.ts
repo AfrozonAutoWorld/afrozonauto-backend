@@ -1,19 +1,15 @@
 import { inject, injectable } from 'inversify';
-import { IUserDocument, UserModel, UserRole, UserStatus } from '../models/User';
 import { Types } from "mongoose";
-import { TokenModel } from '../models/Token';
 import { MailService } from './MailService';
 import { TYPES } from '../config/types';
 import { randomInt } from 'node:crypto';
-import { IUserRepository } from '../interfaces/IUserRepository';
 import TokenService from './TokenService';
-import Vendor, { IVendor } from '../models/Vendor';
 import { TokenType } from '../types/customRequest';
 import bcrypt from 'bcrypt';
-import Profile, { IProfile } from '../models/Profile';
 import { ProfileService } from './ProfileService';
 import { ApiError } from '../utils/ApiError';
-import { PinService } from './PinService';
+import prisma from '../db';
+import { User, UserRole } from '../generated/prisma/client';
 
 @injectable()
 export class AuthService {
@@ -33,17 +29,9 @@ export class AuthService {
 
     let newUser: IUserDocument;
 
-    if (vendorData) {
-      const result = await this.userRepository.createVendor(
-        userData as Omit<IUserDocument, 'createdAt' | 'updatedAt'>,
-        vendorData
-      );
-      newUser = result.user;
-    } else {
       newUser = await this.userRepository.create(
         { ...userData, verified: true } as Omit<IUserDocument, 'createdAt' | 'updatedAt'>
       );
-    }
     // create user profile
     return newUser;
   }
@@ -61,7 +49,6 @@ export class AuthService {
     if (!tokenRecord) {
       throw ApiError.badRequest('Invalid or expired token');
     }
-
 
     // If verification for registered user, mark user as verified
     if (registered) {
@@ -91,18 +78,9 @@ export class AuthService {
       throw ApiError.badRequest('Your account has been suspended. Contact support for assistance.');
     }
 
-    const match = await (user as IUserDocument).comparePassword(password);
+    const match = await (user as User).comparePassword(password);
     if (!match) throw ApiError.badRequest('Invalid credentials');
 
-    // Check if the user is a vendor and if the vendor document was created
-    if (user?.role === UserRole.VENDOR) {
-      const vendor = await Vendor.findOne({ user: user?._id });
-      if (!vendor) {
-          await UserModel.deleteOne({ _id: user?._id });
-          await Profile.deleteOne({ user: user?._id });
-          throw ApiError.notFound('Vendor account not found');
-      }
-      // if (!vendor.verified) throw ApiError.badRequest('Vendor not verified by admin');
     }
 
     // Update user status to active
@@ -112,14 +90,33 @@ export class AuthService {
     return user;
   }
 
+
   async sendResetToken(email: string) {
     const user = await this.userRepository.findByEmail(email);
     if (!user) throw ApiError.notFound('User not found');
+  
+    const profile = await this.profileService.findUserById(user.id);
+  
     const token = await this.tokenService.generateToken();
+  
     await this.tokenService.deleteToken(email);
-    await new TokenModel({ email, token }).save();
-    await this.mailService.sendPasswordReset(email, token);
-    return user
+  
+    // Prisma version (recommended)
+    await prisma.token.create({
+      data: {
+        email,
+        token,
+        type: TokenType.PASSWORD_RESET_EMAIL,
+      },
+    });
+  
+    await this.mailService.sendPasswordReset(
+      email,
+      token,
+      profile ?? undefined
+    );
+  
+    return user;
   }
 
   async resetPassword(email: string, token: number, newPassword: string, securityAnswer?: string) {
@@ -181,32 +178,5 @@ export class AuthService {
 
   logout = async (refreshToken: string) => {
     return await this.userRepository.logout(refreshToken)
-  }
-
-  async setTransactionPin(userId: Types.ObjectId, pin: string) {
-    const hashedPin = await PinService.hashPin(pin);
-
-    await UserModel.findByIdAndUpdate(userId, {
-      transactionPin: hashedPin
-    });
-
-    return { message: 'Transaction PIN set successfully' };
-  }
-
-  async verifyPin(userId: Types.ObjectId, pin: string) {
-    const user = await UserModel.findById(userId).select('+transactionPin');
-
-    if (!user || !user.transactionPin) {
-      throw ApiError.badRequest(
-        'You must set a transaction PIN before proceeding'
-      );
-    }
-
-    const isValid = await PinService.comparePin(pin, user.transactionPin);
-
-    if (!isValid) {
-      throw ApiError.unauthorized('Invalid transaction PIN');
-    }
-    return true;
   }
 }

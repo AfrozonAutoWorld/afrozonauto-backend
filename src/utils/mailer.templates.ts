@@ -1,155 +1,187 @@
 
-
-export const newsletterSubscriptionTemplate = (
-    email: string,
-    preferences: {
-        productUpdates: boolean;
-        promotions: boolean;
-        news: boolean;
-        events: boolean;
-    },
-    organizationName: string
-): string => {
-    const getPreferenceText = (pref: boolean) => pref ? '✅ Enabled' : '❌ Disabled';
-
-    return `
+interface BaseEmailProps {
+    subject: string;
+    description?: string;
+    recipientName?: string;
+  }
+  
+  interface OtpEmailProps extends BaseEmailProps {
+    otp: string;
+    expirationMinutes: number;
+  }
+  
+  interface WelcomeEmailProps {
+    recipientName: string;
+    ctaText: string;
+    ctaUrl: string;
+  }
+  
+  /* ---------------------------------------------------
+     Base Layout (shared wrapper)
+  --------------------------------------------------- */
+  const baseLayout = (content: string) => `
   <!DOCTYPE html>
-  <html>
+  <html lang="en">
   <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title> ${organizationName} Newsletter Subscription Confirmation</title>
-      <style>
-          body {
-              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-              line-height: 1.6;
-              color: #333;
-              margin: 0;
-              padding: 0;
-              background-color: #f9f9f9;
-          }
-          .container {
-              max-width: 600px;
-              margin: 0 auto;
-              background-color: #ffffff;
-              border-radius: 10px;
-              overflow: hidden;
-              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-          }
-          .header {
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              padding: 30px 20px;
-              text-align: center;
-              color: white;
-          }
-          .header h1 {
-              margin: 0;
-              font-size: 28px;
-              font-weight: 600;
-          }
-          .content {
-              padding: 30px;
-          }
-          .welcome-text {
-              font-size: 16px;
-              margin-bottom: 25px;
-              color: #555;
-          }
-          .preferences {
-              background-color: #f8f9fa;
-              border-radius: 8px;
-              padding: 20px;
-              margin: 20px 0;
-              border-left: 4px solid #667eea;
-          }
-          .preferences h3 {
-              margin-top: 0;
-              color: #333;
-              font-size: 18px;
-          }
-          .preference-item {
-              display: flex;
-              justify-content: space-between;
-              padding: 8px 0;
-              border-bottom: 1px solid #e9ecef;
-          }
-          .preference-item:last-child {
-              border-bottom: none;
-          }
-          .footer {
-              background-color: #f8f9fa;
-              padding: 20px;
-              text-align: center;
-              color: #666;
-              font-size: 14px;
-          }
-          .footer a {
-              color: #667eea;
-              text-decoration: none;
-          }
-          .cta-button {
-              display: inline-block;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              color: white;
-              padding: 12px 30px;
-              text-decoration: none;
-              border-radius: 5px;
-              margin: 20px 0;
-              font-weight: 600;
-          }
-          .divider {
-              height: 1px;
-              background-color: #e9ecef;
-              margin: 25px 0;
-          }
-      </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Email</title>
   </head>
-  <body>
-      <div class="container">
-          <div class="header">
-              <h1>🎉 Welcome to ${organizationName} Newsletter!</h1>
-          </div>
-          
-          <div class="content">
-              <div class="welcome-text">
-                  <p>Hello there!</p>
-                  <p>Thank you for subscribing to our newsletter. We're excited to have you on board!</p>
-                  <p>You'll receive updates based on your preferences below. You can always manage your subscription settings anytime.</p>
-              </div>
+  <body style="margin:0;padding:0;background:#f6f8fb;font-family:Arial,Helvetica,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td align="center" style="padding:30px 15px;">
+          <table width="100%" max-width="600" style="background:#ffffff;border-radius:10px;overflow:hidden;">
+            
+            <!-- Header -->
+            <tr>
+              <td style="background:#0d47a1;padding:20px;text-align:center;">
+                <h1 style="color:#ffffff;margin:0;font-size:22px;">
+                  AfrozonAuto
+                </h1>
+              </td>
+            </tr>
   
-              <div class="preferences">
-                  <h3>📋 Your Subscription Preferences</h3>
-                  <div class="preference-item">
-                      <span><strong>Product Updates:</strong></span>
-                      <span>${getPreferenceText(preferences.productUpdates)}</span>
-                  </div>
-                  <div class="preference-item">
-                      <span><strong>Promotions & Offers:</strong></span>
-                      <span>${getPreferenceText(preferences.promotions)}</span>
-                  </div>
-                  <div class="preference-item">
-                      <span><strong>News & Announcements:</strong></span>
-                      <span>${getPreferenceText(preferences.news)}</span>
-                  </div>
-                  <div class="preference-item">
-                      <span><strong>Events & Webinars:</strong></span>
-                      <span>${getPreferenceText(preferences.events)}</span>
-                  </div>
-              </div>
+            <!-- Body -->
+            <tr>
+              <td style="padding:30px;color:#333;">
+                ${content}
+              </td>
+            </tr>
   
+            <!-- Footer -->
+            <tr>
+              <td style="background:#f1f1f1;padding:15px;text-align:center;font-size:12px;color:#777;">
+                © ${new Date().getFullYear()} AfrozonAuto. All rights reserved.
+              </td>
+            </tr>
   
-              <div class="divider"></div>
-  
-              <p style="text-align: center; color: #666; font-size: 14px;">
-                  If you didn't request this subscription or wish to unsubscribe, you can contact our support team: anoradev@support.com
-              </p>
-          </div>
-          
-          <div class="footer">
-              <p>© ${new Date().getFullYear()} AnoraDevs. All rights reserved.</p>
-          </div>
-      </div>
+          </table>
+        </td>
+      </tr>
+    </table>
   </body>
   </html>
-    `;
-};
+  `;
+  
+  /* ---------------------------------------------------
+     OTP Display (simple)
+  --------------------------------------------------- */
+  export const otpDisplay = (otp: string) =>
+    baseLayout(`
+      <h2 style="margin-top:0;">Verification Code</h2>
+      <p>Please use the code below to continue:</p>
+  
+      <div style="
+        margin:20px 0;
+        font-size:28px;
+        font-weight:bold;
+        letter-spacing:6px;
+        background:#e3f2fd;
+        padding:15px;
+        width:fit-content;
+        border-radius:8px;
+        color:#0d47a1;
+      ">
+        ${otp}
+      </div>
+  
+      <p style="color:#666;">
+        This code will expire shortly. Do not share it with anyone.
+      </p>
+    `);
+  
+  /* ---------------------------------------------------
+     OTP-based Emails (reset, recovery)
+  --------------------------------------------------- */
+  const otpTemplate = ({
+    subject,
+    description,
+    recipientName,
+    otp,
+    expirationMinutes,
+  }: OtpEmailProps) =>
+    baseLayout(`
+      <h2 style="margin-top:0;">${subject}</h2>
+  
+      <p>Hello <strong>${recipientName ?? 'User'}</strong>,</p>
+  
+      <p>${description}</p>
+  
+      <div style="
+        margin:20px 0;
+        font-size:26px;
+        font-weight:bold;
+        background:#fff3e0;
+        padding:15px;
+        border-radius:8px;
+        color:#e65100;
+        width:fit-content;
+      ">
+        ${otp}
+      </div>
+  
+      <p style="color:#666;">
+        This code will expire in <strong>${expirationMinutes} minutes</strong>.
+      </p>
+  
+      <p style="font-size:13px;color:#999;">
+        If you did not initiate this request, you can safely ignore this email.
+      </p>
+    `);
+  
+  /* ---------------------------------------------------
+     Welcome Email (Vendor / Buyer)
+  --------------------------------------------------- */
+  const welcomeTemplate = ({
+    recipientName,
+    ctaText,
+    ctaUrl,
+  }: WelcomeEmailProps) =>
+    baseLayout(`
+      <h2 style="margin-top:0;">Welcome to AfrozonAuto 🎉</h2>
+  
+      <p>Hello <strong>${recipientName}</strong>,</p>
+  
+      <p>
+        We’re excited to have you on AfrozonAuto. Your account has been
+        successfully created and you can now start exploring our platform.
+      </p>
+  
+      <a href="${ctaUrl}" style="
+        display:inline-block;
+        margin:20px 0;
+        padding:12px 22px;
+        background:#0d47a1;
+        color:#ffffff;
+        text-decoration:none;
+        border-radius:6px;
+        font-weight:bold;
+      ">
+        ${ctaText}
+      </a>
+  
+      <p style="font-size:13px;color:#777;">
+        If the button doesn’t work, copy and paste this link into your browser:
+        <br/>
+        <span style="word-break:break-all;">${ctaUrl}</span>
+      </p>
+    `);
+  
+  /* ---------------------------------------------------
+     Exported Templates
+  --------------------------------------------------- */
+  export const emailTemplates = {
+    passwordReset: (props: OtpEmailProps) =>
+      otpTemplate(props),
+  
+    accountRecovery: (props: OtpEmailProps) =>
+      otpTemplate(props),
+  
+    welcomeVendor: (props: WelcomeEmailProps) =>
+      welcomeTemplate(props),
+  
+    welcomeBuyer: (props: WelcomeEmailProps) =>
+      welcomeTemplate(props),
+  };
+  
