@@ -1,11 +1,13 @@
 import jwt, { SignOptions, Secret } from "jsonwebtoken";
 import { JWTPayload } from "../types/customRequest";
 import { JWT_SECRET, EXPIRES_IN_SHORT, EXPIRES_IN_LONG } from "../secrets";
-import {UserRepository} from "../repositories/UserRepository";
-import {UserModel} from '../models/User';
-import { AddressModel } from "../models/Address";
+import { UserRepository } from "../repositories/UserRepository";
 import { ApiError } from "../utils/ApiError";
+import { injectable, inject } from "inversify";
+import { TYPES } from "../config/types";
+
 const SHORT_EXPIRES_IN = "2m";
+
 /**
  * Valid time units for JWT token expiration
  * @typedef {'ms'|'s'|'m'|'h'|'d'|'y'} ValidTimeUnit
@@ -36,18 +38,22 @@ type JwtExpiresIn = number | `${number} ${ValidTimeUnit}`;
  * @property {JwtExpiresIn} accessTokenExpiresIn - Expiration time for access tokens
  * @property {JwtExpiresIn} refreshTokenExpiresIn - Expiration time for refresh tokens
  */
+@injectable()
 export default class Jtoken {
     private readonly secret: Secret;
     private readonly accessTokenExpiresIn: JwtExpiresIn;
     private readonly refreshTokenExpiresIn: JwtExpiresIn;
-    private userService: UserRepository
 
     /**
      * @constructor
+     * @param {UserRepository} userRepository - Injected user repository instance
      * @throws {Error} If required environment variables are missing
      * @description Initializes JWT service with configuration from environment variables
      */
-    constructor() {
+    constructor(
+        @inject(TYPES.UserRepository) private userRepository: UserRepository
+        
+    ) {
         if (!JWT_SECRET) throw new Error("JWT_SECRET environment variable is not set");
         if (!EXPIRES_IN_SHORT) throw new Error("EXPIRES_IN_SHORT environment variable is not set");
         if (!EXPIRES_IN_LONG) throw new Error("EXPIRES_IN_LONG environment variable is not set");
@@ -55,7 +61,6 @@ export default class Jtoken {
         this.secret = JWT_SECRET;
         this.accessTokenExpiresIn = this.parseExpiration(EXPIRES_IN_SHORT);
         this.refreshTokenExpiresIn = this.parseExpiration(EXPIRES_IN_LONG);
-        this.userService = new UserRepository(UserModel, AddressModel);
     }
 
     /**
@@ -100,7 +105,7 @@ export default class Jtoken {
      * @throws {Error} If token generation fails
      * 
      * @example
-     * await createToken({ _id: "123", role: "admin" })
+     * await createToken({ id: "123", role: "BUYER", email: "user@example.com" })
      * // returns { accessToken: "xxx", refreshToken: "yyy" }
      */
     async createToken(payload: JWTPayload): Promise<{ accessToken: string; refreshToken: string }> {
@@ -156,7 +161,7 @@ export default class Jtoken {
      * 
      * @example
      * await verifyToken("xxx.yyy.zzz")
-     * // returns { _id: "123", role: "admin", ... } or null if invalid
+     * // returns { id: "123", role: "BUYER", email: "user@example.com", ... } or null if invalid
      */
     async verifyToken(token: string): Promise<JWTPayload | null> {
         return new Promise((resolve) => {
@@ -178,7 +183,7 @@ export default class Jtoken {
      * Refreshes an access token using a valid refresh token
      * @async
      * @param {string} refreshToken - Valid refresh token
-     * @returns {Promise<{accessToken: string, refreshToken: string, user: Omit<User, 'password'>}|null>} 
+     * @returns {Promise<{accessToken: string, refreshToken: string, user: Omit<User, 'passwordHash'>}|null>} 
      *          New token pair with user data or null if refresh fails
      * 
      * @example
@@ -187,18 +192,19 @@ export default class Jtoken {
      */
     async refreshAccessToken(refreshToken: string) {
         const decoded = await this.verifyToken(refreshToken);
-        if (!decoded) return null;
+        if (!decoded) {
+            throw ApiError.unauthorized("Invalid refresh token");
+        }
 
-
-        const user = await this.userService.findById(decoded._id);
+        const user = await this.userRepository.findById(decoded.id);
         if (!user) {
             throw ApiError.unauthorized("User not found");
         }
 
         try {
-            const { password: _, ...userData } = user;
+            const { passwordHash, ...userData } = user;
             const payload: JWTPayload = {
-                _id: user._id.toString(),
+                id: user.id,
                 role: user.role,
                 email: user.email
             };
@@ -214,7 +220,17 @@ export default class Jtoken {
         }
     }
 
-    createShortLivedToken = async(payload: JWTPayload): Promise<string> => {
+    /**
+     * Creates a short-lived token for temporary operations
+     * @async
+     * @param {JWTPayload} payload - The payload to include in token
+     * @returns {Promise<string>} Short-lived JWT token
+     * 
+     * @example
+     * await createShortLivedToken({ id: "123", role: "BUYER", email: "user@example.com" })
+     * // returns "xxx.yyy.zzz" (expires in 2 minutes)
+     */
+    createShortLivedToken = async (payload: JWTPayload): Promise<string> => {
         return jwt.sign(payload, this.secret, { expiresIn: SHORT_EXPIRES_IN });
     };
 }

@@ -16,13 +16,29 @@ export class AddressController {
   ) { }
 
   createAddress = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const userId = req.user._id;
-    const address = await this.addressService.createAddress({ ...req.body, userId });
-    
-    res.status(201).json(new ApiResponse(201, address, 'Address created successfully'));
+    if (!req.user) {
+      throw ApiError.unauthorized('User not authenticated');
+  }
+    if (!req.user.profile) {
+      throw ApiError.badRequest('User profile not found');
+    }
+  
+    const userId = req.user.id;
+    const address = await this.addressService.createAddress(req.user.profile.id, {
+      ...req.body,
+      userId,
+    });
+  
+    res
+      .status(201)
+      .json(new ApiResponse(201, address, 'Address created successfully'));
   });
+  
 
   getUserAddresses = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    if (!req.user) {
+      throw ApiError.unauthorized('User not authenticated');
+  }
     const addresses = await this.addressService.getUserAddresses(req.user.id);
     
     res.json(new ApiResponse(200, addresses, 'User addresses retrieved successfully'));
@@ -30,6 +46,9 @@ export class AddressController {
 
   getDefaultAddress = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     // Validate query parameters
+    if (!req.user) {
+      throw ApiError.unauthorized('User not authenticated');
+  }
     const { error, value } = createAddressSchema.validate(req.query);
     
     if (error) {

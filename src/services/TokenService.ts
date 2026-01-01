@@ -24,7 +24,7 @@ export default class TokenService {
   /* ----------------------------------------------------
      SEND EMAIL VERIFICATION TOKEN
   ---------------------------------------------------- */
-  async sendVerificationToken(userId: string, email: string) {
+  async sendVerificationToken(userId: string | undefined, email: string) {
     const token = await this.createVerificationToken(
       TokenType.EMAIL,
       userId,

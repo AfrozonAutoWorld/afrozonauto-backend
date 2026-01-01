@@ -1,10 +1,10 @@
 import { injectable } from 'inversify';
 import prisma from '../db';
-import { User } from  '../generated/prisma/client';
+import {  Prisma, User, UserRole } from '../generated/prisma/client';
 
 @injectable()
 export class UserRepository {
-  private prisma = prisma ;
+  private prisma = prisma;
 
   async create(data: {
     userID: string;
@@ -12,31 +12,96 @@ export class UserRepository {
     password: string;
     firstName?: string;
     lastName?: string;
-  }): Promise<User> {
+  }){
     return this.prisma.user.create({
       data,
       include: { profile: true },
     });
   }
 
-  async findById(id: string): Promise<User | null> {
-    return this.prisma.user.findUnique({
-      where: { id },
+  async createUser(
+    userData: {
+      email: string;
+      googleId?: string;
+      password?: string;
+      role: UserRole;
+      verified?: boolean;
+    },
+    profileData?: {
+      firstName?: string;
+      lastName?: string;
+      photo?: Prisma.FileInfoCreateWithoutProfileInput[];
+    }
+  ): Promise<User> {
+    return this.prisma.user.create({
+      data: {
+        email: userData.email,
+        googleId: userData.googleId,
+        role: userData.role,
+        emailVerified: userData.verified ?? false,
+        passwordHash: userData.password,
+
+        profile: profileData
+          ? {
+            create: {
+              lastName: profileData.lastName,
+              firstName: profileData.firstName,
+              files: profileData.photo
+                ? {
+                  createMany: {
+                    data: profileData.photo,
+                  },
+                }
+                : undefined,
+            },
+          }
+          : undefined,
+      },
       include: {
-        profile: true,
-        orders: true,
+        profile: {
+          include: { files: true },
+        },
       },
     });
   }
 
-  async findByEmail(email: string): Promise<User | null> {
+
+  async findById(id: string) {
+    return this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        profile: {
+          include: {
+            files: true,
+          },
+        },
+      },
+    });
+  }
+  async findByGoogleId(googleId: string) {
+    return this.prisma.user.findFirst({
+      where: {
+        googleId,
+        isDeleted: false,
+      },
+      include: {
+        profile: {
+          include: { files: true },
+        },
+      },
+    });
+  }
+  
+
+
+  async findByEmail(email: string) {
     return this.prisma.user.findUnique({
       where: { email },
       include: { profile: true },
     });
   }
 
-  async findAll(skip: number = 0, take: number = 10): Promise<User[]> {
+  async findAll(skip: number = 0, take: number = 10){
     return this.prisma.user.findMany({
       where: { isDeleted: false },
       include: { profile: true },
@@ -46,7 +111,7 @@ export class UserRepository {
     });
   }
 
-  async update(id: string, data: Partial<User>): Promise<User> {
+  async update(id: string, data: Partial<User>){
     return this.prisma.user.update({
       where: { id },
       data,
@@ -54,7 +119,28 @@ export class UserRepository {
     });
   }
 
-  async delete(id: string): Promise<User> {
+  async updateUserInfo(
+    userId: string,
+    data: {
+      googleId?: string;
+      verified?: boolean;
+    }
+  ){
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+                // Only include fields that exist in your schema
+                ...(data.googleId !== undefined && { googleId: data.googleId }),
+                ...(data.verified !== undefined && { emailVerified: data.verified }),
+      },
+      include: {
+        profile: true,
+      },
+    });
+  }
+
+
+  async delete(id: string) {
     return this.prisma.user.update({
       where: { id },
       data: { isDeleted: true },

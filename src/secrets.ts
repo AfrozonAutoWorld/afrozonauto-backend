@@ -38,6 +38,7 @@ export const STRIPE_API_KEY = process.env.STRIPE_API_KEY!;
 export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET!;
 export const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY!;
 export const ENCRYPTION_ALGO = process.env.ENCRYPTION_ALGO!;
+export const ENCRYPTION_SECRET = process.env.ENCRYPTION_SECRET!;
 export const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL! || 'localhost:3000/auth/google';
 export const FRONTEND_URL = process.env.FRONTEND_URL! || 'localhost:3000/auth/google';
 export const APPLE_CLIENT_ID = process.env.APPLE_CLIENT_ID!

@@ -4,8 +4,8 @@ import cors from 'cors';
 import { errors as celebrateErrors } from 'celebrate';
 import { MONGODB_URI } from "./secrets"
 import { ApiError } from './utils/ApiError';
-import UserRoutes from './routes/UserRoutes';
-import ProfileRoutes from './routes/ProfileRoutes';
+// import UserRoutes from './routes/UserRoutes';
+// import ProfileRoutes from './routes/ProfileRoutes';
 import AuthRoutes from './routes/AuthRoutes';
 
 import helmet from 'helmet';
@@ -61,8 +61,8 @@ class App {
       return res.send("welcome to Qartt");
     });
 
-    this.app.use('/api/users', UserRoutes);
-    this.app.use('/api/profile', ProfileRoutes);
+    // this.app.use('/api/users', UserRoutes);
+    // this.app.use('/api/profile', ProfileRoutes);
     this.app.use('/api/auth', AuthRoutes);
 
     // 404 handler

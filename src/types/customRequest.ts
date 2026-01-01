@@ -21,6 +21,7 @@ export type JWTPayload = {
 
 
 
+
 export type UserWithProfile = Prisma.UserGetPayload<{
   include: {
     profile: true;
@@ -31,7 +32,7 @@ export type UserWithProfile = Prisma.UserGetPayload<{
 export interface AuthenticatedRequest<
   P = Record<string, string>
 > extends Request<P> {
-  user: UserWithProfile;
+  user?: UserWithProfile;
 }
 
 

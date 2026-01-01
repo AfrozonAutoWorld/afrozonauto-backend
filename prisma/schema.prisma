@@ -214,8 +214,9 @@ enum DocumentName {
   storeLogo
 }
 
+
 model FileInfo {
-  id           String        @id @map("_id") @db.ObjectId
+  id           String        @id @default(auto()) @map("_id") @db.ObjectId
   url          String
   fileSize     Int
   fileType     String
@@ -224,13 +225,14 @@ model FileInfo {
   imageName    String?
   documentName DocumentName?
 
-  profileId String  @db.ObjectId
-  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId String   @db.ObjectId
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
   @@map("file_infos")
 }
+
 
 // ============================================
 // INSPECTIONS
@@ -730,6 +732,9 @@ model User {
   role             UserRole  @default(BUYER)
   isActive         Boolean   @default(true)
   isSuspended      Boolean   @default(false)
+  googleId        String?   @unique
+  appleId         String?   @unique
+  isDeleted       Boolean   @default(false)
   suspensionReason String?
   suspensionUntil  DateTime?
 

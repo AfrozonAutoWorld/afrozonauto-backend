@@ -63,4 +63,16 @@ export class UserService {
     return this.userRepository.delete(id);
   }
 
+  getUserByGoogleId(googleId: string) {
+    return this.userRepository.findByGoogleId(googleId);
+  }
+
+
+  findById(id: string) {
+    return this.userRepository.findById(id);
+  }
+
+  updateUserInfo(userId: string, data: any) {
+    return this.userRepository.updateUserInfo(userId, data);
+  }
 }

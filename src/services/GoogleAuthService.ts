@@ -2,17 +2,21 @@ import passport from 'passport';
 import {
   Strategy as GoogleStrategy,
   Profile as GoogleProfile,
+  VerifyCallback
 } from "passport-google-oauth20";
+
 import Jtoken from '../middleware/Jtoken';
 import { inject, injectable } from 'inversify';
 import {GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_CALLBACK_URL} from "../secrets"
-import { UserRole } from '../models/User';
+
 import { JWTPayload } from "../types/customRequest";
 import { TYPES } from '../config/types';
 import { UserService } from './UserService';
-import { Types } from 'mongoose';
-import { IUserRepository } from '../interfaces/IUserRepository';
 import loggers from '../utils/loggers';
+import { UserRepository } from '../repositories/UserRepository';
+import { UserRole } from '../generated/prisma/enums';
+import { ApiError } from '../utils/ApiError';
+import { Prisma } from '../generated/prisma/client';
 
 
 @injectable()
@@ -21,7 +25,7 @@ export class GoogleAuthService {
 
   constructor(
     @inject(TYPES.UserService) private userServices: UserService,
-    @inject(TYPES.IUserRepository) private userRepo: IUserRepository,
+    @inject(TYPES.UserRepository) private userRepo: UserRepository,
   ) {
     this.initializePassport();
     this.tokenService = new Jtoken();
@@ -37,81 +41,92 @@ export class GoogleAuthService {
           scope: ['profile', 'email'],
           passReqToCallback: true, 
         },
-        async (req: any, accessToken: string, refreshToken: string, profile: GoogleProfile, done: any) => {
+        async (req: any, accessToken: string, refreshToken: string, profile: GoogleProfile,    done: VerifyCallback) => {
           try {
             const user = await this.handleGoogleUser(profile);
             return done(null, user);
           } catch (error) {
-            return done(error, null);
+            return done(error, undefined);
           }
         }
       )
     );
 
     // Serialize user for session
-    passport.serializeUser((user: any, done) => {
+    passport.serializeUser((user: any,   done: VerifyCallback) => {
       done(null, user._id);
     });
 
     // Deserialize user from session
-    passport.deserializeUser(async (id: string, done) => {
+    passport.deserializeUser(async (id: string,    done: VerifyCallback) => {
       try {
-        const user = await this.userServices.findById(new Types.ObjectId(id));
+        const user = await this.userServices.findById(id);
         done(null, user);
       } catch (error) {
-        done(error, null);
+        done(error, undefined);
       }
     });
   }
 
   private async handleGoogleUser(profile: GoogleProfile) {
-    const email = profile.emails[0].value;
+    let email: string | null = null;
+  
+    if (profile.emails && profile.emails.length > 0) {
+      email = profile.emails[0].value;
+    }
+  
+    if (!email) {
+      throw ApiError.badRequest("Email not found linked");
+    }
+  
     const googleId = profile.id;
-
-    loggers.info(profile)
   
     let user = await this.userServices.getUserByGoogleId(googleId);
+  
     if (!user) {
       user = await this.userServices.getUserByEmail(email);
   
       if (user) {
         // Link Google account
-        user = await this.userServices.updateUserInfo(user._id, {
+        user = await this.userServices.updateUserInfo(user.id, {
           googleId,
           verified: true,
         });
-  
       } else {
-        const googlePhoto = {
-          url: profile.photos[0]?.value || "",
+        const firstName = profile.name?.givenName ?? "";
+        const lastName = profile.name?.familyName ?? "";
+  
+        const googlePhoto: Prisma.FileInfoCreateWithoutProfileInput = {
+          url: profile.photos?.[0]?.value ?? "",
           fileSize: 0,
           fileType: "image",
           format: "jpeg",
           publicId: googleId,
           imageName: "google-profile-photo",
-          documentName: "storeLogo"
+          documentName: "storeLogo",
         };
-  
-        // Create new user
+        
         user = await this.userRepo.createUser(
           {
             email,
             googleId,
-            role: UserRole.CUSTOMER,
+            role: UserRole.BUYER,
             verified: true,
             password: this.generateRandomPassword(),
           },
           {
-            firstName: profile.name.givenName,
-            lastName: profile.name.familyName,
-            photo: [googlePhoto],
+            firstName,
+            lastName,
+            photo: [googlePhoto]
           }
         );
+        
       }
     }
   
     return user;
   }
+  
   
 
   private generateRandomPassword(): string {
@@ -120,7 +135,7 @@ export class GoogleAuthService {
 
   async generateTokens(user: any): Promise<string> {
     const payload: JWTPayload = {
-      _id: user._id.toString(),
+      id: user.id.toString(),
       role: user.role,
       email: user.email,
     };
