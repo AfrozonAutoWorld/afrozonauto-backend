@@ -6,7 +6,6 @@ import { inject, injectable } from 'inversify';
 import { ApiError } from '../utils/ApiError';
 import { TYPES } from '../config/types';
 import { UserRepository } from '../repositories/UserRepository';
-import TokenService from './TokenService';
 import { ProfileService } from './ProfileService';
 import { TokenType } from '../types/customRequest';
 import { Profile } from '../generated/prisma/client';
@@ -19,8 +18,6 @@ export class MailService {
     private readonly userRepository: UserRepository,
     @inject(TYPES.ProfileService)
     private readonly profileService: ProfileService,
-    @inject(TYPES.TokenService)
-    private readonly tokenService: TokenService,
   ) { }
 
   async sendVerification(email: string, token: number) {

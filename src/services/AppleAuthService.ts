@@ -35,7 +35,8 @@ export class AppleAuthService {
       redirectUri: APPLE_REDIRECT_URI || ''
     };
 
-    
+    // Log warning if Apple auth is not configured, but don't throw
+    // This allows the app to start without Apple Sign-In configured
     if (
       !this.options.clientID ||
       !this.options.teamID ||
@@ -43,14 +44,30 @@ export class AppleAuthService {
       !this.options.keyIdentifier ||
       !this.options.redirectUri
     ) {
-      throw ApiError.notFound('Missing Apple authentication environment variables');
+      logger.warn('Apple authentication environment variables are missing. Apple Sign-In will be disabled.');
     }
+  }
+
+  /**
+   * Check if Apple auth is configured
+   */
+  private isConfigured(): boolean {
+    return !!(
+      this.options.clientID &&
+      this.options.teamID &&
+      this.options.privateKey &&
+      this.options.keyIdentifier &&
+      this.options.redirectUri
+    );
   }
 
   /**
    * Get Apple authorization URL
    */
   getAuthorizationUrl(state?: string, scope?: string): string {
+    if (!this.isConfigured()) {
+      throw ApiError.badRequest('Apple authentication is not configured');
+    }
     try {
       const authUrl = appleSignin.getAuthorizationUrl({
         clientID: this.options.clientID,

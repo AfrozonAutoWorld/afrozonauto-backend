@@ -46,4 +46,6 @@ export const APPLE_TEAM_ID = process.env.APPLE_TEAM_ID!
 export const APPLE_PRIVATE_KEY = process.env.APPLE_PRIVATE_KEY!
 export const APPLE_KEY_IDENTIFIER = process.env.APPLE_KEY_IDENTIFIER!
 export const APPLE_REDIRECT_URI = process.env.APPLE_REDIRECT_URI!
+export const AUTO_DEV_API_KEY = process.env.AUTO_DEV_API_KEY || '';
+export const AUTO_DEV_BASE_URL = process.env.AUTO_DEV_BASE_URL || 'https://api.auto.dev';
 export const TOKEN_EXPIRY_MINUTES = process.env.TOKEN_EXPIRY_MINUTES!

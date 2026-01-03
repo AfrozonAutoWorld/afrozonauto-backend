@@ -1,0 +1,919 @@
+{
+	"info": {
+		"_postman_id": "afrozon-auto-api-2025",
+		"name": "Afrozon AutoGlobal API",
+		"description": "Complete API collection for Afrozon AutoGlobal platform. Includes Authentication, Vehicles, Addresses, and User management endpoints.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "afrozon-auto"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Register Start (Check User)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    pm.environment.set(\"userEmail\", pm.response.json().data.email);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"user@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/register-start",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "auth", "register-start"]
+						},
+						"description": "Check if user exists and send verification token to email"
+					},
+					"response": []
+				},
+				{
+					"name": "Register",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    console.log(\"Registration successful\");",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"fullName\": \"John Doe\",\n  \"phone\": \"+1234567890\",\n  \"role\": \"BUYER\",\n  \"isActive\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/register",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "auth", "register"]
+						},
+						"description": "Register a new user. Requires email verification token to be validated first."
+					},
+					"response": []
+				},
+				{
+					"name": "Verify Email",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"user@example.com\",\n  \"token\": \"123456\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/verify",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "auth", "verify"]
+						},
+						"description": "Verify email with token sent to email"
+					},
+					"response": []
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.accessToken) {",
+									"        pm.environment.set(\"accessToken\", response.data.accessToken);",
+									"        pm.environment.set(\"refreshToken\", response.data.refreshToken);",
+									"        pm.environment.set(\"userId\", response.data.user.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "auth", "login"]
+						},
+						"description": "Login with email and password. Returns accessToken and refreshToken."
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.accessToken) {",
+									"        pm.environment.set(\"accessToken\", response.data.accessToken);",
+									"        pm.environment.set(\"refreshToken\", response.data.refreshToken);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"token\": \"{{refreshToken}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/refresh-token",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "auth", "refresh-token"]
+						},
+						"description": "Refresh access token using refresh token"
+					},
+					"response": []
+				},
+				{
+					"name": "Forgot Password",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"user@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/forgot-password",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "auth", "forgot-password"]
+						},
+						"description": "Send password reset token to email"
+					},
+					"response": []
+				},
+				{
+					"name": "Token Validation (Reset)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"user@example.com\",\n  \"token\": \"123456\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/token-validation-reset",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "auth", "token-validation-reset"]
+						},
+						"description": "Validate reset token before password reset"
+					},
+					"response": []
+				},
+				{
+					"name": "Reset Password",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"user@example.com\",\n  \"token\": \"123456\",\n  \"newPassword\": \"newPassword123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/reset-password",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "auth", "reset-password"]
+						},
+						"description": "Reset password with validated token"
+					},
+					"response": []
+				},
+				{
+					"name": "Send Recovery Email Token",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"recoveryEmail\": \"recovery@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/send-token-recovery-email",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "auth", "send-token-recovery-email"]
+						},
+						"description": "Send verification token to recovery email"
+					},
+					"response": []
+				},
+				{
+					"name": "Google Auth Verify",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"code\": \"google_oauth_code_here\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/google-auth-verify",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "auth", "google-auth-verify"]
+						},
+						"description": "Verify Google OAuth code and login/register user"
+					},
+					"response": []
+				},
+				{
+					"name": "Apple Auth Initiate",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/apple-auth-initiate",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "auth", "apple-auth-initiate"]
+						},
+						"description": "Initiate Apple Sign-In flow. Returns authUrl to redirect user."
+					},
+					"response": []
+				}
+			],
+			"description": "Authentication endpoints for user registration, login, password reset, and OAuth"
+		},
+		{
+			"name": "Vehicles",
+			"item": [
+				{
+					"name": "Get Vehicles (List with Filters)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/vehicles?make=Toyota&model=Camry&yearMin=2020&yearMax=2024&priceMin=10000&priceMax=50000&mileageMax=50000&vehicleType=CAR&status=AVAILABLE&state=CA&featured=true&search=camry&page=1&limit=50&includeApi=true",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "vehicles"],
+							"query": [
+								{
+									"key": "make",
+									"value": "Toyota",
+									"description": "Vehicle make (e.g., Toyota, Honda)"
+								},
+								{
+									"key": "model",
+									"value": "Camry",
+									"description": "Vehicle model"
+								},
+								{
+									"key": "yearMin",
+									"value": "2020",
+									"description": "Minimum year"
+								},
+								{
+									"key": "yearMax",
+									"value": "2024",
+									"description": "Maximum year"
+								},
+								{
+									"key": "priceMin",
+									"value": "10000",
+									"description": "Minimum price in USD"
+								},
+								{
+									"key": "priceMax",
+									"value": "50000",
+									"description": "Maximum price in USD"
+								},
+								{
+									"key": "mileageMax",
+									"value": "50000",
+									"description": "Maximum mileage"
+								},
+								{
+									"key": "vehicleType",
+									"value": "CAR",
+									"description": "Vehicle type: CAR, SUV, TRUCK, VAN, COUPE, SEDAN, HATCHBACK, WAGON, CONVERTIBLE"
+								},
+								{
+									"key": "status",
+									"value": "AVAILABLE",
+									"description": "Vehicle status: AVAILABLE, SOLD, PENDING, RESERVED"
+								},
+								{
+									"key": "state",
+									"value": "CA",
+									"description": "Dealer state"
+								},
+								{
+									"key": "featured",
+									"value": "true",
+									"description": "Filter featured vehicles"
+								},
+								{
+									"key": "search",
+									"value": "camry",
+									"description": "Search in make, model, or VIN"
+								},
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number (default: 1)"
+								},
+								{
+									"key": "limit",
+									"value": "50",
+									"description": "Items per page (default: 50, max: 100)"
+								},
+								{
+									"key": "includeApi",
+									"value": "true",
+									"description": "Include API results if DB results insufficient (default: true)"
+								}
+							]
+						},
+						"description": "Get list of vehicles with filters. Uses DB-first search with Auto.dev API fallback. Returns paginated results."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Vehicle by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/vehicles/:id?vin=1HGBH41JXMN109186",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "vehicles", ":id"],
+							"query": [
+								{
+									"key": "vin",
+									"value": "1HGBH41JXMN109186",
+									"description": "Optional VIN to try Auto.dev if ID not found",
+									"disabled": true
+								}
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "vehicle_id_here",
+									"description": "Vehicle ID"
+								}
+							]
+						},
+						"description": "Get vehicle by ID. If not found and VIN provided, will fetch from Auto.dev API and auto-save."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Vehicle (Admin Only)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"vin\": \"1HGBH41JXMN109186\",\n  \"slug\": \"2024-toyota-camry-109186\",\n  \"make\": \"Toyota\",\n  \"model\": \"Camry\",\n  \"year\": 2024,\n  \"vehicleType\": \"SEDAN\",\n  \"priceUsd\": 25000,\n  \"originalPriceUsd\": 28000,\n  \"mileage\": 15000,\n  \"transmission\": \"Automatic\",\n  \"fuelType\": \"Gasoline\",\n  \"images\": [\n    \"https://example.com/image1.jpg\",\n    \"https://example.com/image2.jpg\"\n  ],\n  \"source\": \"MANUAL\",\n  \"status\": \"AVAILABLE\",\n  \"availability\": \"IN_STOCK\",\n  \"featured\": true,\n  \"isActive\": true,\n  \"isHidden\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/vehicles",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "vehicles"]
+						},
+						"description": "Create a new vehicle manually. Requires SUPER_ADMIN or OPERATIONS_ADMIN role."
+					},
+					"response": []
+				},
+				{
+					"name": "Sync Vehicle from Auto.dev",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/vehicles/sync/:vin",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "vehicles", "sync", ":vin"],
+							"variable": [
+								{
+									"key": "vin",
+									"value": "1HGBH41JXMN109186",
+									"description": "17-character VIN"
+								}
+							]
+						},
+						"description": "Sync vehicle from Auto.dev API by VIN. Fetches listing, photos, and specifications. Requires authentication."
+					},
+					"response": []
+				},
+				{
+					"name": "Save Vehicle from API",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"vin\": \"1HGBH41JXMN109186\",\n  \"listing\": {\n    \"vin\": \"1HGBH41JXMN109186\",\n    \"make\": \"Toyota\",\n    \"model\": \"Camry\",\n    \"year\": 2024,\n    \"price\": 25000,\n    \"mileage\": 15000,\n    \"bodyStyle\": \"Sedan\",\n    \"transmission\": \"Automatic\",\n    \"fuelType\": \"Gasoline\",\n    \"exteriorColor\": \"Blue\",\n    \"interiorColor\": \"Black\",\n    \"dealerName\": \"ABC Motors\",\n    \"dealerState\": \"CA\",\n    \"dealerCity\": \"Los Angeles\",\n    \"dealerZipCode\": \"90001\",\n    \"features\": [\"Bluetooth\", \"Navigation\"]\n  },\n  \"photos\": [\n    \"https://example.com/photo1.jpg\",\n    \"https://example.com/photo2.jpg\"\n  ],\n  \"specs\": {\n    \"engine\": \"2.5L 4-Cylinder\",\n    \"horsepower\": 203,\n    \"torque\": 184\n  }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/vehicles/save-from-api",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "vehicles", "save-from-api"]
+						},
+						"description": "Save a temporary API vehicle to database when user interacts with it. Requires authentication."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Vehicle (Admin Only)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"priceUsd\": 24000,\n  \"status\": \"SOLD\",\n  \"featured\": false,\n  \"isActive\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/vehicles/:id",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "vehicles", ":id"],
+							"variable": [
+								{
+									"key": "id",
+									"value": "vehicle_id_here",
+									"description": "Vehicle ID"
+								}
+							]
+						},
+						"description": "Update vehicle. Requires SUPER_ADMIN or OPERATIONS_ADMIN role."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Vehicle (Admin Only)",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/vehicles/:id",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "vehicles", ":id"],
+							"variable": [
+								{
+									"key": "id",
+									"value": "vehicle_id_here",
+									"description": "Vehicle ID"
+								}
+							]
+						},
+						"description": "Soft delete vehicle (sets isActive=false, isHidden=true). Requires SUPER_ADMIN or OPERATIONS_ADMIN role."
+					},
+					"response": []
+				}
+			],
+			"description": "Vehicle management endpoints. Supports DB-first search with Auto.dev API fallback."
+		},
+		{
+			"name": "Addresses",
+			"item": [
+				{
+					"name": "Create Address",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"type\": \"NORMAL\",\n  \"street\": \"123 Main St\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"city\": \"Los Angeles\",\n  \"state\": \"CA\",\n  \"postalCode\": \"90001\",\n  \"country\": \"USA\",\n  \"isDefault\": true,\n  \"additionalInfo\": \"Apt 4B\",\n  \"phoneNumber\": \"+1234567890\",\n  \"additionalPhoneNumber\": \"+1987654321\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/addresses",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "addresses"]
+						},
+						"description": "Create a new address for authenticated user. Requires user profile to exist."
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Addresses",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/addresses",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "addresses"]
+						},
+						"description": "Get all addresses for authenticated user"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Default Address",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/addresses/default?type=NORMAL",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "addresses", "default"],
+							"query": [
+								{
+									"key": "type",
+									"value": "NORMAL",
+									"description": "Address type: NORMAL, BILLING, SHIPPING"
+								}
+							]
+						},
+						"description": "Get default address for authenticated user by type"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Address",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"street\": \"456 Oak Ave\",\n  \"city\": \"San Francisco\",\n  \"state\": \"CA\",\n  \"postalCode\": \"94102\",\n  \"isDefault\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/addresses/:id",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "addresses", ":id"],
+							"variable": [
+								{
+									"key": "id",
+									"value": "address_id_here",
+									"description": "Address ID"
+								}
+							]
+						},
+						"description": "Update address by ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Address",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/addresses/:id",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "addresses", ":id"],
+							"variable": [
+								{
+									"key": "id",
+									"value": "address_id_here",
+									"description": "Address ID"
+								}
+							]
+						},
+						"description": "Delete address by ID"
+					},
+					"response": []
+				}
+			],
+			"description": "Address management endpoints. All require authentication."
+		},
+		{
+			"name": "Users",
+			"item": [
+				{
+					"name": "Get User by Email",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/users/email/:email",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "users", "email", ":email"],
+							"variable": [
+								{
+									"key": "email",
+									"value": "user@example.com",
+									"description": "User email"
+								}
+							]
+						},
+						"description": "Get user by email address"
+					},
+					"response": []
+				},
+				{
+					"name": "Verify User",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/users/verify/:userId",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "users", "verify", ":userId"],
+							"variable": [
+								{
+									"key": "userId",
+									"value": "user_id_here",
+									"description": "User ID"
+								}
+							]
+						},
+						"description": "Verify user by ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Deactivate Account",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/users/deactivate/:userId",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "users", "deactivate", ":userId"],
+							"variable": [
+								{
+									"key": "userId",
+									"value": "user_id_here",
+									"description": "User ID"
+								}
+							]
+						},
+						"description": "Deactivate user account"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Password",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"newPassword\": \"newSecurePassword123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users/password/:userId",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "users", "password", ":userId"],
+							"variable": [
+								{
+									"key": "userId",
+									"value": "user_id_here",
+									"description": "User ID"
+								}
+							]
+						},
+						"description": "Update user password. Password must be at least 6 characters."
+					},
+					"response": []
+				}
+			],
+			"description": "User management endpoints. Note: These routes may not be registered in app.ts currently."
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3000",
+			"type": "string"
+		},
+		{
+			"key": "accessToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refreshToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "userId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "userEmail",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
+

@@ -54,9 +54,17 @@ export default class Jtoken {
         @inject(TYPES.UserRepository) private userRepository: UserRepository
         
     ) {
-        if (!JWT_SECRET) throw new Error("JWT_SECRET environment variable is not set");
-        if (!EXPIRES_IN_SHORT) throw new Error("EXPIRES_IN_SHORT environment variable is not set");
-        if (!EXPIRES_IN_LONG) throw new Error("EXPIRES_IN_LONG environment variable is not set");
+        const missingVars: string[] = [];
+        if (!JWT_SECRET) missingVars.push('JWT_SECRET');
+        if (!EXPIRES_IN_SHORT) missingVars.push('EXPIRES_IN_SHORT');
+        if (!EXPIRES_IN_LONG) missingVars.push('EXPIRES_IN_LONG');
+
+        if (missingVars.length > 0) {
+            throw new Error(
+                `Missing required JWT environment variables: ${missingVars.join(', ')}. ` +
+                `Please add these to your .env file.`
+            );
+        }
 
         this.secret = JWT_SECRET;
         this.accessTokenExpiresIn = this.parseExpiration(EXPIRES_IN_SHORT);

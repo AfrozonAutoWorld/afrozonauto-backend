@@ -7,6 +7,7 @@ import { ApiError } from './utils/ApiError';
 // import UserRoutes from './routes/UserRoutes';
 // import ProfileRoutes from './routes/ProfileRoutes';
 import AuthRoutes from './routes/AuthRoutes';
+import VehicleRoutes from './routes/VehicleRoutes';
 
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -58,16 +59,21 @@ class App {
   private setupRoutes(): void {
  
     this.app.get('/', (_, res) => {
-      return res.send("welcome to Qartt");
+      return res.send("welcome to Afrozon AutoGlobal");
     });
 
     // this.app.use('/api/users', UserRoutes);
     // this.app.use('/api/profile', ProfileRoutes);
     this.app.use('/api/auth', AuthRoutes);
+    this.app.use('/api/vehicles', VehicleRoutes);
 
-    // 404 handler
-    this.app.use('*', (_, res) => {
-      res.status(404).json({ error: 'Route not found' });
+    // 404 handler - catch all unmatched routes
+    this.app.use((req: Request, res: Response) => {
+      res.status(404).json({ 
+        success: false,
+        error: 'Route not found',
+        path: req.path 
+      });
     });
 
     // Validation error handler (celebrate/joi)

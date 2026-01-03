@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../generated/prisma/client';
 import logger from '../utils/loggers';
 
 let prismaInstance: PrismaClient | null = null;
@@ -14,20 +14,14 @@ export function getPrismaClient(): PrismaClient {
       : ['error'],
   });
 
-  // Handle disconnect errors
-  prismaInstance.$on('disconnect', () => {
-    logger.warn('Prisma disconnected');
-    prismaInstance = null;
-  });
-
   return prismaInstance;
 }
 
 export async function connectPrisma(): Promise<PrismaClient> {
   try {
     const prisma = getPrismaClient();
-    // Test connection
-    await prisma.$queryRaw`db.adminCommand({ ping: 1 })`;
+    // Test connection by running a simple query
+    await prisma.$connect();
     logger.info('Prisma connected to MongoDB');
     return prisma;
   } catch (error) {

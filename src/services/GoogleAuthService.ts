@@ -26,12 +26,30 @@ export class GoogleAuthService {
   constructor(
     @inject(TYPES.UserService) private userServices: UserService,
     @inject(TYPES.UserRepository) private userRepo: UserRepository,
+    @inject(TYPES.Jtoken) private jtoken: Jtoken,
   ) {
-    this.initializePassport();
-    this.tokenService = new Jtoken();
+    // Only initialize Passport if Google OAuth is configured
+    if (this.isConfigured()) {
+      this.initializePassport();
+    } else {
+      loggers.warn('Google authentication environment variables are missing. Google Sign-In will be disabled.');
+    }
+    this.tokenService = jtoken;
+  }
+
+  /**
+   * Check if Google auth is configured
+   */
+  private isConfigured(): boolean {
+    return !!(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET && GOOGLE_CALLBACK_URL);
   }
 
   private initializePassport() {
+    if (!this.isConfigured()) {
+      loggers.warn('Cannot initialize Google OAuth - missing configuration');
+      return;
+    }
+
     passport.use(
       new GoogleStrategy(
         {
@@ -44,6 +62,9 @@ export class GoogleAuthService {
         async (req: any, accessToken: string, refreshToken: string, profile: GoogleProfile,    done: VerifyCallback) => {
           try {
             const user = await this.handleGoogleUser(profile);
+            if (!user) {
+              return done(null, false);
+            }
             return done(null, user);
           } catch (error) {
             return done(error, undefined);
@@ -61,6 +82,9 @@ export class GoogleAuthService {
     passport.deserializeUser(async (id: string,    done: VerifyCallback) => {
       try {
         const user = await this.userServices.findById(id);
+        if (!user) {
+          return done(null, false);
+        }
         done(null, user);
       } catch (error) {
         done(error, undefined);
@@ -68,7 +92,7 @@ export class GoogleAuthService {
     });
   }
 
-  private async handleGoogleUser(profile: GoogleProfile) {
+  private async handleGoogleUser(profile: GoogleProfile): Promise<any> {
     let email: string | null = null;
   
     if (profile.emails && profile.emails.length > 0) {
@@ -81,7 +105,7 @@ export class GoogleAuthService {
   
     const googleId = profile.id;
   
-    let user = await this.userServices.getUserByGoogleId(googleId);
+    let user: any = await this.userServices.getUserByGoogleId(googleId);
   
     if (!user) {
       user = await this.userServices.getUserByEmail(email);

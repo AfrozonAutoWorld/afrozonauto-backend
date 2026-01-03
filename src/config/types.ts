@@ -17,5 +17,10 @@ export const TYPES = {
     // user types
     AddressRepository: Symbol.for('AddressRepository'),
     AddressService: Symbol.for('AddressService'),
-    AddressController: Symbol.for('AddressController')
+    AddressController: Symbol.for('AddressController'),
+    // vehicle types
+    VehicleRepository: Symbol.for('VehicleRepository'),
+    VehicleService: Symbol.for('VehicleService'),
+    VehicleController: Symbol.for('VehicleController'),
+    AutoDevService: Symbol.for('AutoDevService')
 };
