@@ -59,15 +59,21 @@ export class ProfileRepository {
   /* -----------------------------------------------------
      UPDATE PROFILE BY USER ID
   ----------------------------------------------------- */
+
   async updateProfileByUserId(
     userId: string,
     update: Partial<Profile>
   ): Promise<Profile> {
-    return prisma.profile.update({
+    return prisma.profile.upsert({
       where: { userId },
-      data: update,
+      create: {
+        userId,
+        ...update,
+      },
+      update: update,
     });
   }
+  
 
   /* -----------------------------------------------------
      UPDATE PROFILE (BY PROFILE ID)
@@ -146,7 +152,7 @@ export class ProfileRepository {
   /* -----------------------------------------------------
    FIND ALL PROFILES
 ----------------------------------------------------- */
-  async delete(id: string): Promise<Profile[]> {
+  async delete(id: string){
     return prisma.profile.delete({
       where: { id},
     });

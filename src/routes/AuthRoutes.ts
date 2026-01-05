@@ -33,12 +33,6 @@ class AuthRoutes {
             this.controller.register.bind(this.controller) // Add .bind()
         );
    
-        // this.router.post(
-        //     '/register-addon',
-        //     validateBody(updateUserSettingsSchema),
-        //     this.controller.registerFinalization.bind(this.controller) // Add .bind()
-        // );
-
         this.router.post(
             '/send-token-recovery-email',
             this.controller.sendRecoveryEmailToken.bind(this.controller) // Add .bind()

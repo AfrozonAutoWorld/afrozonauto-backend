@@ -1,14 +1,11 @@
 import sendMail from '../utils/mailer';
 import { emailTemplates, otpDisplay } from '../utils/mailer.templates';
 import { TOKEN_EXPIRY_MINUTES } from '../secrets';
-import prisma from '../db';
 import { inject, injectable } from 'inversify';
-import { ApiError } from '../utils/ApiError';
 import { TYPES } from '../config/types';
 import { UserRepository } from '../repositories/UserRepository';
 import { ProfileService } from './ProfileService';
-import { TokenType } from '../types/customRequest';
-import { Profile } from '../generated/prisma/client';
+import { Profile, TokenType } from '../generated/prisma/client';
 
 
 @injectable()

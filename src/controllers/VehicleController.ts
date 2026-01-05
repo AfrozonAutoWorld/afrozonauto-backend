@@ -45,7 +45,7 @@ export class VehicleController {
 
     const result = await this.vehicleService.getVehicles(filters, pagination, includeApi);
 
-    res.json(
+    return res.json(
       ApiResponse.paginated(
         result.vehicles,
         {

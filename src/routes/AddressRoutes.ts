@@ -5,7 +5,8 @@ import { AddressController } from '../controllers/AddressController';
 import { createAddressSchema} from "../validation/schema/address.validation"
 import { validateBody } from '../middleware/bodyValidate';
 import { authenticate } from '../middleware/authMiddleware';
-import { valid } from 'joi/lib';
+
+
 class AddressRoutes {
   private router: Router;
   private controller: AddressController;
