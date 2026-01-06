@@ -35,9 +35,17 @@ let UserService = class UserService {
     }
     createUser(data) {
         return __awaiter(this, void 0, void 0, function* () {
-            // Hash password
-            const hashedPassword = yield this.hashing(data.password);
-            return this.userRepository.create(Object.assign(Object.assign({}, data), { password: hashedPassword }));
+            const { email, role, googleId, emailVerified, password, firstName, lastName, } = data;
+            const hashedPassword = yield this.hashing(password);
+            return this.userRepository.create({
+                email,
+                role,
+                googleId,
+                firstName,
+                lastName,
+                emailVerified,
+                password: hashedPassword,
+            });
         });
     }
     getUserById(id) {

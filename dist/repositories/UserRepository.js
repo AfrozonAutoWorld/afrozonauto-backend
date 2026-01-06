@@ -29,7 +29,11 @@ let UserRepository = class UserRepository {
         return __awaiter(this, void 0, void 0, function* () {
             return this.prisma.user.create({
                 data,
-                include: { profile: true },
+                include: {
+                    profile: {
+                        include: { files: true },
+                    },
+                },
             });
         });
     }
@@ -100,7 +104,11 @@ let UserRepository = class UserRepository {
         return __awaiter(this, void 0, void 0, function* () {
             return this.prisma.user.findUnique({
                 where: { email },
-                include: { profile: true },
+                include: {
+                    profile: {
+                        include: { files: true },
+                    },
+                },
             });
         });
     }
@@ -120,7 +128,11 @@ let UserRepository = class UserRepository {
             return this.prisma.user.update({
                 where: { id },
                 data,
-                include: { profile: true },
+                include: {
+                    profile: {
+                        include: { files: true },
+                    },
+                },
             });
         });
     }

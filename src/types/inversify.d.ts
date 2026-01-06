@@ -1,1 +1,1 @@
-// declare type ErrorOptions = { cause?: unknown };
+declare type ErrorOptions = { cause?: unknown };

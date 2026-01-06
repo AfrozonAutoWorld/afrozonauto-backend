@@ -2,6 +2,7 @@ import { injectable, inject } from 'inversify';
 import { TYPES } from '../config/types';
 import { UserRepository } from '../repositories/UserRepository';
 import bcrypt from 'bcrypt';
+import { UserRole } from '../generated/prisma/enums';
 
 @injectable()
 export class UserService {
@@ -10,20 +11,38 @@ export class UserService {
   ) {}
 
   async createUser(data: {
-    userID: string;
+    userID?: string;
     email: string;
+    role?: UserRole;
+    googleId?: string;
+    emailVerified?: boolean;
     password: string;
     firstName?: string;
     lastName?: string;
   }) {
-    // Hash password
-    const hashedPassword = await this.hashing(data.password);
-
+    const {
+      email,
+      role,
+      googleId,
+      emailVerified,
+      password,
+      firstName,
+      lastName,
+    } = data;
+  
+    const hashedPassword = await this.hashing(password);
+  
     return this.userRepository.create({
-      ...data,
+      email,
+      role,
+      googleId,
+      firstName,
+      lastName,
+      emailVerified,
       password: hashedPassword,
     });
   }
+  
 
   async getUserById(id: string) {
     return this.userRepository.findById(id);
