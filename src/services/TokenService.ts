@@ -1,18 +1,18 @@
 import { randomInt } from 'node:crypto';
 import { inject, injectable } from 'inversify';
-import { PrismaClient, Token } from '../generated/prisma/client';
+import { PrismaClient, TokenType, Token, Prisma } from '../generated/prisma/client';
 import { TYPES } from '../config/types';
-import { TokenType } from '../types/customRequest';
 import { MailService } from './MailService';
 import { ApiError } from '../utils/ApiError';
 import prisma from '../db';
+import { TokenIdentifier } from '../types/types';
 
 @injectable()
 export default class TokenService {
   constructor(
     @inject(TYPES.MailService)
     private readonly mailService: MailService
-  ) {}
+  ) { }
 
   /* ----------------------------------------------------
      GENERATE TOKEN
@@ -45,6 +45,8 @@ export default class TokenService {
       throw ApiError.badRequest('userId or email must be provided');
     }
 
+
+
     // Find latest unused token
     const existingToken = await prisma.token.findFirst({
       where: {
@@ -64,15 +66,18 @@ export default class TokenService {
     }
 
     const token = await this.generateToken();
+    const data: Prisma.TokenCreateInput = {
+      token,
+      type,
+      ...(userId && {
+        user: {
+          connect: { id: userId },
+        },
+      }),
+      ...(email && { email }),
+    };
 
-    const created = await prisma.token.create({
-      data: {
-        token,
-        type,
-        userId: userId ?? undefined,
-        email: email ?? undefined,
-      },
-    });
+    const created = await prisma.token.create({ data });
 
     if (!created) {
       throw ApiError.internal('Token saving failed');
@@ -85,32 +90,50 @@ export default class TokenService {
      VALIDATE TOKEN
   ---------------------------------------------------- */
   async validateToken(
-    token: string,
-    identifier: string,
+    token: number,
+    identifier: TokenIdentifier,
     type?: TokenType
   ): Promise<Token | null> {
+    // return prisma.token.findFirst({
+    //   where: {
+    //     token: Number(token),
+    //     ...(type ? { type } : {}),
+    //     OR: [
+    //       { userId: identifier },
+    //       { email: identifier },
+    //     ],
+    //   },
+    // });
+
     return prisma.token.findFirst({
       where: {
         token: Number(token),
-        ...(type ? { type } : {}),
-        OR: [
-          { userId: identifier },
-          { email: identifier },
-        ],
+        type,
+        used: false,
+        ...identifier,
       },
     });
   }
 
+
   /* ----------------------------------------------------
-     DELETE TOKENS FOR USER / EMAIL
-  ---------------------------------------------------- */
-  async deleteToken(identifier: string) {
+    DELETE TOKENS FOR USER / EMAIL
+ ---------------------------------------------------- */
+
+  async deleteToken(tokenIdentifier: {
+    userId?: string;
+    email?: string;
+  }) {
+    const { userId, email } = tokenIdentifier;
+
+    if (!userId && !email) {
+      throw ApiError.badRequest('Either userId or email must be provided to delete tokens');
+    }
+
     return prisma.token.deleteMany({
       where: {
-        OR: [
-          { userId: identifier },
-          { email: identifier },
-        ],
+        ...(userId ? { userId } : {}),
+        ...(email ? { email } : {}),
       },
     });
   }
@@ -154,18 +177,17 @@ export default class TokenService {
   /* ----------------------------------------------------
      GET LAST USED TOKEN
   ---------------------------------------------------- */
+
   async getUsedTokenForUser(
-    identifier: string,
+    identifier: TokenIdentifier,
     lastUsed: boolean = true
   ): Promise<Token | null> {
+
     return prisma.token.findFirst({
       where: {
         used: true,
-        OR: [
-          { userId: identifier },
-          { email: identifier },
-        ],
-        ...(lastUsed ? { usedAt: { not: null } } : {}),
+        ...(lastUsed && { usedAt: { not: null } }),
+        ...identifier,
       },
       orderBy: [
         { usedAt: 'desc' },
@@ -173,4 +195,5 @@ export default class TokenService {
       ],
     });
   }
+
 }

@@ -7,15 +7,22 @@ export class UserRepository {
   private prisma = prisma;
 
   async create(data: {
-    userID: string;
+    userID?: string;
     email: string;
     password: string;
     firstName?: string;
     lastName?: string;
+    role?: UserRole;
+    googleId?: string;
+    emailVerified?: boolean;
   }){
     return this.prisma.user.create({
       data,
-      include: { profile: true },
+      include: {
+        profile: {
+          include: { files: true },
+        },
+      },
     });
   }
 
@@ -97,7 +104,11 @@ export class UserRepository {
   async findByEmail(email: string) {
     return this.prisma.user.findUnique({
       where: { email },
-      include: { profile: true },
+      include: {
+        profile: {
+          include: { files: true },
+        },
+      },
     });
   }
 
@@ -115,7 +126,11 @@ export class UserRepository {
     return this.prisma.user.update({
       where: { id },
       data,
-      include: { profile: true },
+      include: {
+        profile: {
+          include: { files: true },
+        },
+      },
     });
   }
 

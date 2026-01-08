@@ -37,6 +37,7 @@ export class AuthController {
 
   checkUser = asyncHandler(async (req: Request, res: Response) => {
     const { email } = req.body;
+    console.log("called=============")
 
     if (!email) {
       return res.status(400).json(
@@ -51,6 +52,7 @@ export class AuthController {
         ApiError.badRequest('User already exists')
       )
     }
+
 
     await this.tokenService.sendVerificationToken(undefined, email);
     return res.json(new ApiResponse(200, { email }, 'Verification token sent to email'));
@@ -88,7 +90,7 @@ export class AuthController {
       return res.status(400).json(ApiError.badRequest('Email is required'))
     }
 
-    const validateTokenVerification = await this.tokenService.getUsedTokenForUser(value.email);
+    const validateTokenVerification = await this.tokenService.getUsedTokenForUser({email:value.email});
     console.log(validateTokenVerification)
     if (!validateTokenVerification) {
       return res.status(400).json(ApiError.badRequest('Please complete token validation for your account'))
@@ -102,7 +104,7 @@ export class AuthController {
       throw ApiError.internal('User registration failed');
     }
 
-    await this.tokenService.deleteToken(value.email);
+    await this.tokenService.deleteToken({email: value.email});
     res.status(201).json(new ApiResponse(201, { success: true }, 'Registration successful'));
   });
 
@@ -141,7 +143,7 @@ export class AuthController {
     const userLogged = await this.authService.login(email, password);
     const { passwordHash: pass, ...user } = userLogged;
 
-    const jtoken = new Jtoken();
+    const jtoken = container.get<Jtoken>(TYPES.Jtoken);
     const { accessToken, refreshToken } = await jtoken.createToken({
       email: user.email,
       role: user.role,

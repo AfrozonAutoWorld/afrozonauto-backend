@@ -1,6 +1,6 @@
 import mongoose, { Connection } from 'mongoose';
 import logger from '../utils/loggers';
-import {MONGODB_URI} from "../secrets"
+import {DATABASE_URL} from "../secrets"
 import { ApiError } from '../utils/ApiError';
 let mongoConnection: Connection | null = null;
 
@@ -11,7 +11,7 @@ export async function connectMongoDB(): Promise<Connection> {
   }
 
   try {
-    const uri = MONGODB_URI;
+    const uri = DATABASE_URL;
     if (!uri) {
       throw ApiError.notFound('MONGODB_URI is not defined');
     }

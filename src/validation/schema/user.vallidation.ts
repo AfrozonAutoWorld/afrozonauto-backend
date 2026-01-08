@@ -25,7 +25,8 @@ export const forgotSchema = Joi.object({
 export const createUserSchema = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().optional(),
-  fullName: Joi.string().optional(),
+  firstName: Joi.string().required(),
+  lastName: Joi.string().required(),
   phone: Joi.string().optional(),
   role: Joi.string()
     .valid(...Object.values(UserRole))

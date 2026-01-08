@@ -5,3 +5,6 @@ export enum MailType {
   EMAIL_RECOVERY = "EMAIL_RECOVERY",
   NEWSLETTER_SUBSCRIPTION = 'NEWSLETTER_SUBSCRIPTION' 
 }
+export type TokenIdentifier =
+  | { email: string }
+  | { userId: string };

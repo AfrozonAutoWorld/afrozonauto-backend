@@ -1,7 +1,6 @@
 import { inject, injectable } from 'inversify';
 import bcrypt from 'bcrypt';
 import { randomInt } from 'node:crypto';
-
 import prisma from '../db';
 import { MailService } from './MailService';
 import TokenService from './TokenService';
@@ -9,8 +8,11 @@ import { ProfileService } from './ProfileService';
 import { ApiError } from '../utils/ApiError';
 import { TYPES } from '../config/types';
 
-import { User, UserRole } from '../generated/prisma/client';
-import { TokenType } from '../types/customRequest';
+import { User, UserRole, TokenType } from '../generated/prisma/client';
+
+type TokenIdentifier =
+  | { email: string }
+  | { userId: string };
 
 @injectable()
 export class AuthService {
@@ -26,7 +28,6 @@ export class AuthService {
   async register(data: {
     email: string;
     password: string;
-    fullName?: string;
     phone?: string;
     role?: UserRole;
   }): Promise<User> {
@@ -44,9 +45,9 @@ export class AuthService {
       data: {
         email: data.email,
         passwordHash,
-        fullName: data.fullName,
         phone: data.phone,
         role: data.role ?? UserRole.BUYER,
+        emailVerified: true
       },
     });
 
@@ -60,28 +61,13 @@ export class AuthService {
   // VERIFY EMAIL
   // ============================
   async verifyUser(email: string, token: number): Promise<boolean> {
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
 
-    if (!user) {
-      throw ApiError.notFound('User not found');
-    }
-
-    const tokenRecord = await this.tokenService.validateToken(
-      token.toString(),
-      user.id,
-      TokenType.EMAIL
-    );
+    const tokenRecord = await this.tokenService.validateToken(token, { email }, TokenType.EMAIL);
 
     if (!tokenRecord) {
       throw ApiError.badRequest('Invalid or expired token');
     }
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { emailVerified: true },
-    });
 
     await this.tokenService.updateTokenUsablility(tokenRecord.id);
 
@@ -146,14 +132,14 @@ export class AuthService {
 
     await this.tokenService.invalidateExistingTokens(
       email,
-      TokenType.PASSWORD_RESET_EMAIL
+      TokenType.PASSWORD_RESET
     );
 
     await prisma.token.create({
       data: {
         email,
         token,
-        type: TokenType.PASSWORD_RESET_EMAIL,
+        type: TokenType.PASSWORD_RESET,
       },
     });
 
@@ -183,9 +169,9 @@ export class AuthService {
     }
 
     const tokenRecord = await this.tokenService.validateToken(
-      token.toString(),
-      email,
-      TokenType.PASSWORD_RESET_EMAIL
+      token,
+      {email},
+      TokenType.PASSWORD_RESET
     );
 
     if (!tokenRecord) {

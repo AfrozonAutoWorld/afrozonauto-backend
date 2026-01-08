@@ -1,6 +1,5 @@
 import nodemailer, { Transporter } from 'nodemailer';
 import { MAIL_HOST, MAIL_USERNAME, MAIL_PORT, FROM_EMAIL, MAIL_PASSWORD } from "../secrets"
-import {  newsletterSubscriptionTemplate, } from "./mailer.templates"
 import logger from "./loggers";
 import { ApiError } from './ApiError';
 
@@ -114,19 +113,5 @@ const sendMail = async (to: string, subject: string, html: string, textContent?:
   });
 }
 
-export async function sendNewsletterSubscriptionEmail(
-  email: string,
-  preferences: {
-    productUpdates: boolean;
-    promotions: boolean;
-    news: boolean;
-    events: boolean;
-  },
-  organizationName: string
-) {
-  const subject = '🎉 Welcome to Our Newsletter!';
-  const html = newsletterSubscriptionTemplate(email, preferences, organizationName);
-  await sendMail(email, subject, html);
-}
 
 export default sendMail

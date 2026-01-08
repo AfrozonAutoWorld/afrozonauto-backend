@@ -2,7 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import { errors as celebrateErrors } from 'celebrate';
-import { MONGODB_URI } from "./secrets"
+import { DATABASE_URL } from "./secrets"
 import { ApiError } from './utils/ApiError';
 // import UserRoutes from './routes/UserRoutes';
 // import ProfileRoutes from './routes/ProfileRoutes';
@@ -118,7 +118,7 @@ class App {
   }
 
   private setupDatabase(): void {
-    mongoose.connect(MONGODB_URI || "", {
+    mongoose.connect(DATABASE_URL || "", {
       serverSelectionTimeoutMS: 30000,
       socketTimeoutMS: 45000,
       connectTimeoutMS: 30000,
