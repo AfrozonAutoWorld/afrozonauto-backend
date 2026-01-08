@@ -17,8 +17,9 @@ export class VehicleController {
 
   /**
    * GET /api/vehicles
-   * Get list of vehicles with filters (DB first, API fallback)
+   * Get list of vehicles with filters (DB first, Redis cache, API fallback)
    * Query param: includeApi=true/false (default: true) - whether to include API results
+   * API results are cached in Redis (12hr TTL) to handle price changes
    */
   getVehicles = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const filters: VehicleFilters = {
@@ -62,8 +63,9 @@ export class VehicleController {
 
   /**
    * GET /api/vehicles/:id
-   * Get vehicle by ID (with Auto.dev fallback if not found)
-   * Query param: vin=XXX - Optional VIN to try Auto.dev if ID not found
+   * Get vehicle by ID (with Redis cache and Auto.dev fallback)
+   * Query param: vin=XXX - Optional VIN to try cache/API if ID not found
+   * Does NOT save to DB - only returns cached/API data
    */
   getVehicleById = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
@@ -135,7 +137,8 @@ export class VehicleController {
 
   /**
    * POST /api/vehicles/save-from-api
-   * Save a vehicle from Auto.dev API result (when user interacts with API vehicle)
+   * Save a vehicle from Auto.dev API to DB (called when user initiates payment)
+   * This is the ONLY endpoint that saves API vehicles to DB
    * Body: { vin, listing, photos?, specs? }
    */
   saveVehicleFromApi = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {

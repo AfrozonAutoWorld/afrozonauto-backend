@@ -24,6 +24,7 @@ import { VehicleRepository } from '../repositories/VehicleRepository';
 import { VehicleService } from '../services/VehicleService';
 import { VehicleController } from '../controllers/VehicleController';
 import { AutoDevService } from '../services/AutoDevService';
+import { RedisCacheService } from '../services/RedisCacheService';
 
 
 
@@ -52,5 +53,6 @@ container.bind<VehicleRepository>(TYPES.VehicleRepository).to(VehicleRepository)
 container.bind<VehicleService>(TYPES.VehicleService).to(VehicleService);
 container.bind<VehicleController>(TYPES.VehicleController).to(VehicleController);
 container.bind<AutoDevService>(TYPES.AutoDevService).to(AutoDevService);
+container.bind<RedisCacheService>(TYPES.RedisCacheService).to(RedisCacheService).inSingletonScope();
 
 export { container };

@@ -48,4 +48,6 @@ export const APPLE_KEY_IDENTIFIER = process.env.APPLE_KEY_IDENTIFIER!
 export const APPLE_REDIRECT_URI = process.env.APPLE_REDIRECT_URI!
 export const AUTO_DEV_API_KEY = process.env.AUTO_DEV_API_KEY || '';
 export const AUTO_DEV_BASE_URL = process.env.AUTO_DEV_BASE_URL || 'https://api.auto.dev';
-export const TOKEN_EXPIRY_MINUTES = process.env.TOKEN_EXPIRY_MINUTES!
+export const TOKEN_EXPIRY_MINUTES = process.env.TOKEN_EXPIRY_MINUTES!;
+export const REDIS_URL = process.env.REDIS_URL || '';
+export const REDIS_CACHE_TTL_HOURS = process.env.REDIS_CACHE_TTL_HOURS || '12'; // Default 12 hours

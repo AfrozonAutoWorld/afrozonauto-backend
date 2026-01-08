@@ -22,5 +22,6 @@ export const TYPES = {
     VehicleRepository: Symbol.for('VehicleRepository'),
     VehicleService: Symbol.for('VehicleService'),
     VehicleController: Symbol.for('VehicleController'),
-    AutoDevService: Symbol.for('AutoDevService')
+    AutoDevService: Symbol.for('AutoDevService'),
+    RedisCacheService: Symbol.for('RedisCacheService')
 };
