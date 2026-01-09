@@ -42,7 +42,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "auth", "register-start"]
 						},
-						"description": "Check if user exists and send verification token to email"
+						"description": "Check if user exists by email and send verification token to email. This is the first step in the registration flow.\n\n**Request Body:**\n- `email` (required): Valid email address\n\n**Response:**\n- If user exists: Returns user email\n- If user doesn't exist: Proceeds with registration flow\n\n**Note:** This endpoint does NOT require authentication."
 					},
 					"response": []
 				},
@@ -78,7 +78,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "auth", "register"]
 						},
-						"description": "Register a new user. Requires email verification token to be validated first."
+						"description": "Register a new user account. **Must call `/register-start` and `/verify` first** to validate email.\n\n**Required Fields:**\n- `email`: Valid email address (must be verified)\n- `firstName`: User's first name\n- `lastName`: User's last name\n\n**Optional Fields:**\n- `password`: User password (optional, can be set later)\n- `phone`: Phone number with country code (e.g., +1234567890)\n- `role`: User role - BUYER, SELLER, ADMIN, SUPER_ADMIN, OPERATIONS_ADMIN (default: BUYER)\n- `isActive`: Account active status (default: true)\n\n**Response:**\n- Returns created user object (201 Created)\n\n**Note:** Email must be verified before registration."
 					},
 					"response": []
 				},
@@ -101,7 +101,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "auth", "verify"]
 						},
-						"description": "Verify email with token sent to email"
+						"description": "Verify email address using the token sent to the user's email. This is required before completing registration.\n\n**Request Body:**\n- `email` (required): Email address to verify\n- `token` (required): 6-digit verification token sent to email\n\n**Response:**\n- Returns success message if token is valid\n- Token expires after a set time (check TOKEN_EXPIRY_MINUTES in config)\n\n**Note:** Token is sent via email after calling `/register-start`."
 					},
 					"response": []
 				},
@@ -142,7 +142,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "auth", "login"]
 						},
-						"description": "Login with email and password. Returns accessToken and refreshToken."
+						"description": "Authenticate user and receive JWT tokens for API access.\n\n**Request Body:**\n- `email` (required): User email address\n- `password` (required): User password\n\n**Response:**\n- `user`: User object (without password)\n- `accessToken`: JWT access token (short-lived, default: 2 minutes)\n- `refreshToken`: JWT refresh token (long-lived, default: 7 days)\n\n**Note:** Tokens are automatically saved to Postman environment variables for use in other requests. Access token should be included in `Authorization: Bearer {accessToken}` header for protected endpoints."
 					},
 					"response": []
 				},
@@ -182,7 +182,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "auth", "refresh-token"]
 						},
-						"description": "Refresh access token using refresh token"
+						"description": "Get a new access token using a valid refresh token. Use this when the access token expires.\n\n**Request Body:**\n- `token` (required): Refresh token from login response\n\n**Response:**\n- `accessToken`: New JWT access token\n- `refreshToken`: New refresh token (may be rotated)\n\n**Note:** Tokens are automatically updated in Postman environment. Refresh tokens expire after 7 days (default)."
 					},
 					"response": []
 				},
@@ -205,7 +205,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "auth", "forgot-password"]
 						},
-						"description": "Send password reset token to email"
+						"description": "Initiate password reset flow by sending a reset token to user's email.\n\n**Request Body:**\n- `email` (required): User email address\n\n**Response:**\n- Success message (token sent to email)\n\n**Next Steps:**\n1. User receives token via email\n2. Call `/token-validation-reset` to validate token\n3. Call `/reset-password` with validated token to set new password"
 					},
 					"response": []
 				},
@@ -228,7 +228,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "auth", "token-validation-reset"]
 						},
-						"description": "Validate reset token before password reset"
+						"description": "Validate password reset token before allowing password change. This must be called before `/reset-password`.\n\n**Request Body:**\n- `email` (required): User email address\n- `token` (required): Reset token sent to email\n\n**Response:**\n- Success message if token is valid\n- Error if token is invalid or expired\n\n**Note:** Token expires after a set time. Must call `/forgot-password` first to receive token."
 					},
 					"response": []
 				},
@@ -251,7 +251,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "auth", "reset-password"]
 						},
-						"description": "Reset password with validated token"
+						"description": "Reset user password using a validated reset token. **Must call `/token-validation-reset` first**.\n\n**Request Body:**\n- `email` (required): User email address\n- `token` (required): Validated reset token\n- `newPassword` (required): New password (minimum 6 characters recommended)\n\n**Response:**\n- Success message if password reset successful\n\n**Security:** Token must be validated first. Password should meet security requirements."
 					},
 					"response": []
 				},
@@ -274,7 +274,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "auth", "send-token-recovery-email"]
 						},
-						"description": "Send verification token to recovery email"
+						"description": "Send verification token to a recovery email address. Used for account recovery purposes.\n\n**Request Body:**\n- `recoveryEmail` (required): Recovery email address to send token to\n\n**Response:**\n- Success message (token sent to recovery email)\n\n**Note:** Recovery email is typically different from the primary account email."
 					},
 					"response": []
 				},
@@ -297,7 +297,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "auth", "google-auth-verify"]
 						},
-						"description": "Verify Google OAuth code and login/register user"
+						"description": "Complete Google OAuth authentication flow. Verifies Google OAuth code and either logs in existing user or creates new account.\n\n**Request Body:**\n- `code` (required): OAuth authorization code from Google\n\n**Response:**\n- `user`: User object (created or existing)\n- `accessToken`: JWT access token\n- `refreshToken`: JWT refresh token\n\n**OAuth Flow:**\n1. User clicks \"Sign in with Google\"\n2. Redirected to Google OAuth consent screen\n3. Google redirects back with authorization code\n4. Frontend sends code to this endpoint\n5. Backend exchanges code for user info and creates/logs in user\n\n**Note:** Requires Google OAuth to be configured in environment variables."
 					},
 					"response": []
 				},
@@ -320,12 +320,12 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "auth", "apple-auth-initiate"]
 						},
-						"description": "Initiate Apple Sign-In flow. Returns authUrl to redirect user."
+						"description": "Initiate Apple Sign-In authentication flow. Returns authorization URL to redirect user to Apple's consent screen.\n\n**Request Body:**\n- Empty object `{}` or no body required\n\n**Response:**\n- `authUrl`: Apple OAuth authorization URL\n- Redirect user to this URL\n\n**OAuth Flow:**\n1. Call this endpoint to get `authUrl`\n2. Redirect user to `authUrl`\n3. User authenticates with Apple\n4. Apple redirects back with authorization code\n5. Handle code in frontend and complete authentication\n\n**Note:** Requires Apple OAuth to be configured in environment variables (APPLE_CLIENT_ID, APPLE_TEAM_ID, APPLE_PRIVATE_KEY, etc.)."
 					},
 					"response": []
 				}
 			],
-			"description": "Authentication endpoints for user registration, login, password reset, and OAuth"
+			"description": "Authentication endpoints for user registration, login, password reset, and OAuth (Google, Apple).\n\n**Registration Flow:**\n1. POST `/register-start` - Check if user exists, send verification token\n2. POST `/verify` - Verify email with token\n3. POST `/register` - Complete registration\n\n**Login Flow:**\n1. POST `/login` - Authenticate and receive tokens\n2. POST `/refresh-token` - Refresh access token when expired\n\n**Password Reset Flow:**\n1. POST `/forgot-password` - Request reset token\n2. POST `/token-validation-reset` - Validate reset token\n3. POST `/reset-password` - Set new password\n\n**OAuth Flows:**\n- Google: POST `/google-auth-verify` with OAuth code\n- Apple: POST `/apple-auth-initiate` to get auth URL, then handle callback"
 		},
 		{
 			"name": "Vehicles",
@@ -422,7 +422,7 @@
 								}
 							]
 						},
-						"description": "Get list of vehicles with filters. Uses DB-first search with Auto.dev API fallback. Returns paginated results."
+						"description": "Get list of vehicles with filters. **Hybrid Search Strategy:**\n1. First searches database (DB)\n2. If results insufficient, checks Redis cache (12hr TTL)\n3. If cache miss, fetches from Auto.dev API and caches results\n4. Combines DB + API results\n5. Background price refresh for stale DB vehicles\n\n**Query Parameters:**\n- All filters are optional\n- `includeApi` (default: true): Whether to include Auto.dev API results if DB results insufficient\n- `page` (default: 1): Page number\n- `limit` (default: 50, max: 100): Items per page\n\n**Response includes:**\n- `vehicles`: Array of vehicle objects\n- `pagination`: Page info (page, limit, total, pages)\n- `fromApi`: Count of vehicles from Auto.dev API\n\n**Note:** API results are cached in Redis to handle price changes efficiently."
 					},
 					"response": []
 				},
@@ -444,19 +444,19 @@
 								{
 									"key": "vin",
 									"value": "1HGBH41JXMN109186",
-									"description": "Optional VIN to try Auto.dev if ID not found",
-									"disabled": true
+									"description": "Optional VIN to try Redis cache or Auto.dev API if ID not found in DB",
+									"disabled": false
 								}
 							],
 							"variable": [
 								{
 									"key": "id",
 									"value": "vehicle_id_here",
-									"description": "Vehicle ID"
+									"description": "Vehicle ID (MongoDB ObjectId)"
 								}
 							]
 						},
-						"description": "Get vehicle by ID. If not found and VIN provided, will fetch from Auto.dev API and auto-save."
+						"description": "Get vehicle by ID. Public endpoint. If not found in DB and VIN provided, will check Redis cache then Auto.dev API. Does NOT auto-save to DB - use save-from-api endpoint for that."
 					},
 					"response": []
 				},
@@ -471,19 +471,25 @@
 							},
 							{
 								"key": "Authorization",
-								"value": "Bearer {{accessToken}}"
+								"value": "Bearer {{accessToken}}",
+								"description": "Required - JWT access token (SUPER_ADMIN or OPERATIONS_ADMIN role)"
 							}
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"vin\": \"1HGBH41JXMN109186\",\n  \"slug\": \"2024-toyota-camry-109186\",\n  \"make\": \"Toyota\",\n  \"model\": \"Camry\",\n  \"year\": 2024,\n  \"vehicleType\": \"SEDAN\",\n  \"priceUsd\": 25000,\n  \"originalPriceUsd\": 28000,\n  \"mileage\": 15000,\n  \"transmission\": \"Automatic\",\n  \"fuelType\": \"Gasoline\",\n  \"images\": [\n    \"https://example.com/image1.jpg\",\n    \"https://example.com/image2.jpg\"\n  ],\n  \"source\": \"MANUAL\",\n  \"status\": \"AVAILABLE\",\n  \"availability\": \"IN_STOCK\",\n  \"featured\": true,\n  \"isActive\": true,\n  \"isHidden\": false\n}"
+							"raw": "{\n  \"vin\": \"1HGBH41JXMN109186\",\n  \"slug\": \"2024-toyota-camry-109186\",\n  \"make\": \"Toyota\",\n  \"model\": \"Camry\",\n  \"year\": 2024,\n  \"vehicleType\": \"SEDAN\",\n  \"priceUsd\": 25000,\n  \"originalPriceUsd\": 28000,\n  \"mileage\": 15000,\n  \"transmission\": \"Automatic\",\n  \"fuelType\": \"Gasoline\",\n  \"images\": [\n    \"https://example.com/image1.jpg\",\n    \"https://example.com/image2.jpg\"\n  ],\n  \"source\": \"MANUAL\",\n  \"status\": \"AVAILABLE\",\n  \"availability\": \"IN_STOCK\",\n  \"featured\": true,\n  \"isActive\": true,\n  \"isHidden\": false\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/vehicles",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "vehicles"]
 						},
-						"description": "Create a new vehicle manually. Requires SUPER_ADMIN or OPERATIONS_ADMIN role."
+						"description": "Create a new vehicle manually in the database. Requires SUPER_ADMIN or OPERATIONS_ADMIN role.\n\n**Required Fields:**\n- `vin`: 17-character VIN\n- `slug`: SEO-friendly URL slug\n- `make`: Vehicle manufacturer\n- `model`: Vehicle model\n- `year`: Manufacturing year (integer)\n- `vehicleType`: CAR, SUV, TRUCK, VAN, COUPE, SEDAN, HATCHBACK, WAGON, CONVERTIBLE\n- `priceUsd`: Price in USD (number)\n\n**Optional Fields:**\n- `originalPriceUsd`, `mileage`, `transmission`, `fuelType`, `images`, `source`, `status`, `availability`, `featured`, `isActive`, `isHidden`"
 					},
 					"response": []
 				},
@@ -498,12 +504,13 @@
 							},
 							{
 								"key": "Authorization",
-								"value": "Bearer {{accessToken}}"
+								"value": "Bearer {{accessToken}}",
+								"description": "Required - JWT access token"
 							}
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{}"
+							"raw": ""
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/vehicles/sync/:vin",
@@ -513,11 +520,11 @@
 								{
 									"key": "vin",
 									"value": "1HGBH41JXMN109186",
-									"description": "17-character VIN"
+									"description": "17-character VIN (required in URL path)"
 								}
 							]
 						},
-						"description": "Sync vehicle from Auto.dev API by VIN. Fetches listing, photos, and specifications. Requires authentication."
+						"description": "Sync vehicle from Auto.dev API by VIN. Fetches listing, photos, and specifications. Saves/updates vehicle in database. Requires authentication. No request body needed - VIN is in URL path."
 					},
 					"response": []
 				},
@@ -532,19 +539,25 @@
 							},
 							{
 								"key": "Authorization",
-								"value": "Bearer {{accessToken}}"
+								"value": "Bearer {{accessToken}}",
+								"description": "Required - JWT access token"
 							}
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"vin\": \"1HGBH41JXMN109186\",\n  \"listing\": {\n    \"vin\": \"1HGBH41JXMN109186\",\n    \"make\": \"Toyota\",\n    \"model\": \"Camry\",\n    \"year\": 2024,\n    \"price\": 25000,\n    \"mileage\": 15000,\n    \"bodyStyle\": \"Sedan\",\n    \"transmission\": \"Automatic\",\n    \"fuelType\": \"Gasoline\",\n    \"exteriorColor\": \"Blue\",\n    \"interiorColor\": \"Black\",\n    \"dealerName\": \"ABC Motors\",\n    \"dealerState\": \"CA\",\n    \"dealerCity\": \"Los Angeles\",\n    \"dealerZipCode\": \"90001\",\n    \"features\": [\"Bluetooth\", \"Navigation\"]\n  },\n  \"photos\": [\n    \"https://example.com/photo1.jpg\",\n    \"https://example.com/photo2.jpg\"\n  ],\n  \"specs\": {\n    \"engine\": \"2.5L 4-Cylinder\",\n    \"horsepower\": 203,\n    \"torque\": 184\n  }\n}"
+							"raw": "{\n  \"vin\": \"1HGBH41JXMN109186\",\n  \"listing\": {\n    \"vin\": \"1HGBH41JXMN109186\",\n    \"make\": \"Toyota\",\n    \"model\": \"Camry\",\n    \"year\": 2024,\n    \"price\": 25000,\n    \"mileage\": 15000,\n    \"bodyStyle\": \"Sedan\",\n    \"transmission\": \"Automatic\",\n    \"fuelType\": \"Gasoline\",\n    \"exteriorColor\": \"Blue\",\n    \"interiorColor\": \"Black\",\n    \"dealerName\": \"ABC Motors\",\n    \"dealerState\": \"CA\",\n    \"dealerCity\": \"Los Angeles\",\n    \"dealerZipCode\": \"90001\",\n    \"features\": [\"Bluetooth\", \"Navigation\"]\n  },\n  \"photos\": [\n    \"https://example.com/photo1.jpg\",\n    \"https://example.com/photo2.jpg\"\n  ],\n  \"specs\": {\n    \"engine\": \"2.5L 4-Cylinder\",\n    \"horsepower\": 203,\n    \"torque\": 184\n  }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/vehicles/save-from-api",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "vehicles", "save-from-api"]
 						},
-						"description": "Save a temporary API vehicle to database when user interacts with it. Requires authentication."
+						"description": "Save a vehicle from Auto.dev API to database (e.g., when user initiates payment). This is the PRIMARY endpoint for persisting API vehicles to DB. Requires authentication.\n\n**Body Parameters:**\n- `vin` (required): 17-character VIN\n- `listing` (required): Full vehicle listing object from Auto.dev API\n- `photos` (optional): Array of photo URLs\n- `specs` (optional): Vehicle specifications object"
 					},
 					"response": []
 				},
@@ -559,12 +572,18 @@
 							},
 							{
 								"key": "Authorization",
-								"value": "Bearer {{accessToken}}"
+								"value": "Bearer {{accessToken}}",
+								"description": "Required - JWT access token (SUPER_ADMIN or OPERATIONS_ADMIN role)"
 							}
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"priceUsd\": 24000,\n  \"status\": \"SOLD\",\n  \"featured\": false,\n  \"isActive\": true\n}"
+							"raw": "{\n  \"priceUsd\": 24000,\n  \"status\": \"SOLD\",\n  \"featured\": false,\n  \"isActive\": true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/vehicles/:id",
@@ -574,11 +593,11 @@
 								{
 									"key": "id",
 									"value": "vehicle_id_here",
-									"description": "Vehicle ID"
+									"description": "Vehicle ID (MongoDB ObjectId)"
 								}
 							]
 						},
-						"description": "Update vehicle. Requires SUPER_ADMIN or OPERATIONS_ADMIN role."
+						"description": "Update vehicle by ID. Partial updates supported - only include fields to update. Requires SUPER_ADMIN or OPERATIONS_ADMIN role.\n\n**Updatable Fields:**\n- `priceUsd`, `originalPriceUsd`, `mileage`, `transmission`, `fuelType`, `images`, `status`, `availability`, `featured`, `isActive`, `isHidden`, and more"
 					},
 					"response": []
 				},
@@ -593,7 +612,8 @@
 							},
 							{
 								"key": "Authorization",
-								"value": "Bearer {{accessToken}}"
+								"value": "Bearer {{accessToken}}",
+								"description": "Required - JWT access token (SUPER_ADMIN or OPERATIONS_ADMIN role)"
 							}
 						],
 						"url": {
@@ -604,11 +624,11 @@
 								{
 									"key": "id",
 									"value": "vehicle_id_here",
-									"description": "Vehicle ID"
+									"description": "Vehicle ID (MongoDB ObjectId)"
 								}
 							]
 						},
-						"description": "Soft delete vehicle (sets isActive=false, isHidden=true). Requires SUPER_ADMIN or OPERATIONS_ADMIN role."
+						"description": "Soft delete vehicle by ID (sets isActive=false, isHidden=true). Vehicle is not permanently deleted from database. Requires SUPER_ADMIN or OPERATIONS_ADMIN role. No request body needed."
 					},
 					"response": []
 				}
@@ -641,7 +661,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "addresses"]
 						},
-						"description": "Create a new address for authenticated user. Requires user profile to exist."
+						"description": "Create a new address for the authenticated user. **Requires authentication and user profile to exist.**\n\n**Request Headers:**\n- `Authorization: Bearer {accessToken}` (required)\n\n**Request Body:**\n- `city` (required): City name\n- `type` (optional): Address type - NORMAL, BILLING, SHIPPING (default: NORMAL)\n- `street` (optional): Street address\n- `firstName` (optional): First name for address\n- `lastName` (optional): Last name for address\n- `state` (optional): State/province code\n- `postalCode` (optional): Postal/ZIP code\n- `country` (optional): Country name\n- `isDefault` (optional): Set as default address (boolean)\n- `additionalInfo` (optional): Additional address info (e.g., Apt 4B)\n- `phoneNumber` (optional): Primary phone number\n- `additionalPhoneNumber` (optional): Secondary phone number\n\n**Response:**\n- Returns created address object (201 Created)\n\n**Note:** Address is automatically linked to the authenticated user's profile."
 					},
 					"response": []
 				},
@@ -660,7 +680,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "addresses"]
 						},
-						"description": "Get all addresses for authenticated user"
+						"description": "Get all addresses for the authenticated user. **Requires authentication.**\n\n**Request Headers:**\n- `Authorization: Bearer {accessToken}` (required)\n\n**Response:**\n- Array of address objects belonging to the authenticated user\n\n**Note:** Returns empty array if user has no addresses."
 					},
 					"response": []
 				},
@@ -686,7 +706,7 @@
 								}
 							]
 						},
-						"description": "Get default address for authenticated user by type"
+						"description": "Get the default address for the authenticated user filtered by address type. **Requires authentication.**\n\n**Request Headers:**\n- `Authorization: Bearer {accessToken}` (required)\n\n**Query Parameters:**\n- `type` (optional): Address type - NORMAL, BILLING, SHIPPING (default: NORMAL)\n\n**Response:**\n- Default address object if found\n- 404 if no default address exists for the specified type\n\n**Note:** Returns the address where `isDefault=true` for the specified type."
 					},
 					"response": []
 				},
@@ -720,7 +740,7 @@
 								}
 							]
 						},
-						"description": "Update address by ID"
+						"description": "Update an existing address by ID. **Requires authentication.** Partial updates supported - only include fields to update.\n\n**Request Headers:**\n- `Authorization: Bearer {accessToken}` (required)\n\n**URL Parameters:**\n- `id` (required): Address ID (MongoDB ObjectId)\n\n**Request Body (all fields optional):**\n- `city`, `street`, `firstName`, `lastName`, `state`, `postalCode`, `country`, `isDefault`, `additionalInfo`, `phoneNumber`, `additionalPhoneNumber`, `type`\n\n**Response:**\n- Updated address object\n\n**Note:** Only the address owner can update their addresses."
 					},
 					"response": []
 				},
@@ -746,12 +766,12 @@
 								}
 							]
 						},
-						"description": "Delete address by ID"
+						"description": "Delete an address by ID. **Requires authentication.**\n\n**Request Headers:**\n- `Authorization: Bearer {accessToken}` (required)\n\n**URL Parameters:**\n- `id` (required): Address ID (MongoDB ObjectId)\n\n**Response:**\n- Success message\n\n**Note:** Only the address owner can delete their addresses. No request body needed."
 					},
 					"response": []
 				}
 			],
-			"description": "Address management endpoints. All require authentication."
+			"description": "Address management endpoints for authenticated users. All endpoints require authentication via `Authorization: Bearer {accessToken}` header.\n\n**Features:**\n- Create multiple addresses per user\n- Set default address by type (NORMAL, BILLING, SHIPPING)\n- Update and delete addresses\n- Get all addresses or default address by type\n\n**Address Types:**\n- `NORMAL`: General purpose address\n- `BILLING`: Billing address for payments\n- `SHIPPING`: Shipping address for deliveries\n\n**Note:** User must have a profile before creating addresses."
 		},
 		{
 			"name": "Users",
@@ -778,7 +798,7 @@
 								}
 							]
 						},
-						"description": "Get user by email address"
+						"description": "Get user information by email address. **Public endpoint** - no authentication required.\n\n**URL Parameters:**\n- `email` (required): User email address\n\n**Response:**\n- User object (without sensitive information like password)\n- 404 if user not found\n\n**Note:** This endpoint does not require authentication. Use with caution in production."
 					},
 					"response": []
 				},
@@ -804,7 +824,7 @@
 								}
 							]
 						},
-						"description": "Verify user by ID"
+						"description": "Verify user account by user ID. **Public endpoint** - no authentication required.\n\n**URL Parameters:**\n- `userId` (required): User ID (MongoDB ObjectId)\n\n**Response:**\n- `verified`: true if user exists and is verified\n- Error if user not found or verification fails\n\n**Note:** This endpoint does not require authentication."
 					},
 					"response": []
 				},
@@ -830,7 +850,7 @@
 								}
 							]
 						},
-						"description": "Deactivate user account"
+						"description": "Deactivate (soft delete) a user account by user ID. **Public endpoint** - no authentication required.\n\n**URL Parameters:**\n- `userId` (required): User ID (MongoDB ObjectId)\n\n**Response:**\n- `deactivated`: true if account deactivated successfully\n- Error if deactivation fails\n\n**Note:** This is a soft delete - account is marked as inactive but not permanently deleted. This endpoint does not require authentication - consider adding authentication/authorization in production."
 					},
 					"response": []
 				},
@@ -860,12 +880,12 @@
 								}
 							]
 						},
-						"description": "Update user password. Password must be at least 6 characters."
+						"description": "Update user password by user ID. **Public endpoint** - no authentication required.\n\n**URL Parameters:**\n- `userId` (required): User ID (MongoDB ObjectId)\n\n**Request Body:**\n- `newPassword` (required): New password (minimum 6 characters recommended)\n\n**Response:**\n- Success message if password updated\n- Error if update fails\n\n**Security Note:** This endpoint does not require authentication - consider adding authentication/authorization in production. User should be authenticated and only able to update their own password."
 					},
 					"response": []
 				}
 			],
-			"description": "User management endpoints. Note: These routes may not be registered in app.ts currently."
+			"description": "User management endpoints for retrieving and managing user accounts.\n\n**Available Endpoints:**\n- Get user by email\n- Verify user by ID\n- Deactivate account (soft delete)\n- Update password\n\n**Security Note:** These endpoints currently do not require authentication. Consider adding authentication/authorization middleware in production to ensure users can only access/modify their own accounts.\n\n**Note:** These routes may not be registered in `app.ts` currently. Check route registration before using."
 		}
 	],
 	"event": [
