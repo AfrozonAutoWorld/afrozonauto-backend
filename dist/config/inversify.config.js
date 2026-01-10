@@ -27,6 +27,12 @@ const VehicleRepository_1 = require("../repositories/VehicleRepository");
 const VehicleService_1 = require("../services/VehicleService");
 const VehicleController_1 = require("../controllers/VehicleController");
 const AutoDevService_1 = require("../services/AutoDevService");
+const RedisCacheService_1 = require("../services/RedisCacheService");
+const PaymentController_1 = require("../controllers/PaymentController");
+const PaymentService_1 = require("../services/PaymentService");
+const PaymentRepository_1 = require("../repositories/PaymentRepository");
+const StripeProvider_1 = require("../services/StripeProvider");
+const PaystackProvider_1 = require("../services/PaystackProvider");
 const container = new inversify_1.Container();
 exports.container = container;
 container.bind(types_1.TYPES.UserRepository).to(UserRepository_1.UserRepository);
@@ -45,8 +51,15 @@ container.bind(types_1.TYPES.MailService).to(MailService_1.MailService);
 container.bind(types_1.TYPES.AppleAuthService).to(AppleAuthService_1.AppleAuthService);
 container.bind(types_1.TYPES.GoogleAuthService).to(GoogleAuthService_1.GoogleAuthService);
 container.bind(types_1.TYPES.TokenService).to(TokenService_1.default);
+// payments
+container.bind(types_1.TYPES.PaymentController).to(PaymentController_1.PaymentController);
+container.bind(types_1.TYPES.PaymentService).to(PaymentService_1.PaymentService);
+container.bind(types_1.TYPES.PaymentRepository).to(PaymentRepository_1.PaymentRepository);
+container.bind(types_1.TYPES.StripeProvider).to(StripeProvider_1.StripeProvider);
+container.bind(types_1.TYPES.PaystackProvider).to(PaystackProvider_1.PaystackProvider);
 // Vehicle bindings
 container.bind(types_1.TYPES.VehicleRepository).to(VehicleRepository_1.VehicleRepository);
 container.bind(types_1.TYPES.VehicleService).to(VehicleService_1.VehicleService);
 container.bind(types_1.TYPES.VehicleController).to(VehicleController_1.VehicleController);
 container.bind(types_1.TYPES.AutoDevService).to(AutoDevService_1.AutoDevService);
+container.bind(types_1.TYPES.RedisCacheService).to(RedisCacheService_1.RedisCacheService).inSingletonScope();

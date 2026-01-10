@@ -34,8 +34,9 @@ let VehicleController = class VehicleController {
         this.vehicleService = vehicleService;
         /**
          * GET /api/vehicles
-         * Get list of vehicles with filters (DB first, API fallback)
+         * Get list of vehicles with filters (DB first, Redis cache, API fallback)
          * Query param: includeApi=true/false (default: true) - whether to include API results
+         * API results are cached in Redis (12hr TTL) to handle price changes
          */
         this.getVehicles = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             const filters = {
@@ -68,8 +69,9 @@ let VehicleController = class VehicleController {
         }));
         /**
          * GET /api/vehicles/:id
-         * Get vehicle by ID (with Auto.dev fallback if not found)
-         * Query param: vin=XXX - Optional VIN to try Auto.dev if ID not found
+         * Get vehicle by ID (with Redis cache and Auto.dev fallback)
+         * Query param: vin=XXX - Optional VIN to try cache/API if ID not found
+         * Does NOT save to DB - only returns cached/API data
          */
         this.getVehicleById = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             const { id } = req.params;
@@ -129,7 +131,8 @@ let VehicleController = class VehicleController {
         }));
         /**
          * POST /api/vehicles/save-from-api
-         * Save a vehicle from Auto.dev API result (when user interacts with API vehicle)
+         * Save a vehicle from Auto.dev API to DB (called when user initiates payment)
+         * This is the ONLY endpoint that saves API vehicles to DB
          * Body: { vin, listing, photos?, specs? }
          */
         this.saveVehicleFromApi = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {

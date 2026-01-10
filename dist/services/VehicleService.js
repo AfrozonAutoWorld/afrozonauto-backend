@@ -29,17 +29,167 @@ const inversify_1 = require("inversify");
 const types_1 = require("../config/types");
 const VehicleRepository_1 = require("../repositories/VehicleRepository");
 const AutoDevService_1 = require("./AutoDevService");
+const RedisCacheService_1 = require("./RedisCacheService");
 const vehicle_transformer_1 = require("../helpers/vehicle-transformer");
+const vehicleLogs_1 = require("../helpers/vehicleLogs");
 const client_1 = require("../generated/prisma/client");
 const ApiError_1 = require("../utils/ApiError");
 const loggers_1 = __importDefault(require("../utils/loggers"));
 let VehicleService = class VehicleService {
-    constructor(vehicleRepo, autoDevService) {
+    constructor(vehicleRepo, autoDevService, cache) {
         this.vehicleRepo = vehicleRepo;
         this.autoDevService = autoDevService;
+        this.cache = cache;
+        // Get cache TTL in hours (default 12)
+        this.cacheTTLHours = parseInt(process.env.REDIS_CACHE_TTL_HOURS || '12', 10);
     }
     /**
-     * Get vehicles with filters and pagination (Hybrid: DB first, API fallback)
+     * Check if vehicle price data is stale (needs refresh)
+     */
+    isPriceStale(vehicle) {
+        if (!vehicle.lastApiSync || vehicle.source !== client_1.VehicleSource.API) {
+            return false; // Manual vehicles don't need price refresh
+        }
+        const now = new Date();
+        const lastSync = new Date(vehicle.lastApiSync);
+        const hoursSinceSync = (now.getTime() - lastSync.getTime()) / (1000 * 60 * 60);
+        return hoursSinceSync >= this.cacheTTLHours;
+    }
+    /**
+     * Refresh vehicle price from cache/API if stale
+     * Updates price in DB and adds to priceHistory if changed
+     */
+    refreshVehiclePrice(vehicle) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a, _b, _c;
+            if (!vehicle.vin || !this.isPriceStale(vehicle)) {
+                return null; // Not stale or no VIN
+            }
+            const oldPrice = vehicle.priceUsd;
+            const lastSync = vehicle.lastApiSync ? new Date(vehicle.lastApiSync).toISOString() : 'never';
+            const hoursStale = vehicle.lastApiSync
+                ? ((new Date().getTime() - new Date(vehicle.lastApiSync).getTime()) / (1000 * 60 * 60)).toFixed(1)
+                : 'unknown';
+            try {
+                // Check cache first
+                const cacheKey = RedisCacheService_1.RedisCacheService.getVehicleByVINKey(vehicle.vin);
+                const cachedListing = yield this.cache.get(cacheKey);
+                let listing = null;
+                let dataSource = 'api';
+                if (cachedListing === null || cachedListing === void 0 ? void 0 : cachedListing.listing) {
+                    listing = cachedListing.listing;
+                    dataSource = 'cache';
+                }
+                else {
+                    // Fetch from API
+                    listing = yield this.autoDevService.fetchListingByVIN(vehicle.vin);
+                    if (listing) {
+                        // Cache it
+                        yield this.cache.set(cacheKey, { listing });
+                        dataSource = 'api';
+                    }
+                }
+                if (!listing || !listing.price) {
+                    return null; // No price data available
+                }
+                const newPrice = listing.price;
+                const priceDiff = newPrice - oldPrice;
+                const priceDiffPercent = ((priceDiff / oldPrice) * 100).toFixed(2);
+                const priceChangeDirection = priceDiff > 0 ? 'INCREASE' : priceDiff < 0 ? 'DECREASE' : 'NO_CHANGE';
+                // Only update if price changed
+                if (Math.abs(priceDiff) > 0.01) { // Allow for floating point precision
+                    const priceHistory = Array.isArray(vehicle.priceHistory)
+                        ? [...vehicle.priceHistory]
+                        : [];
+                    // Add to price history
+                    const historyEntry = {
+                        date: new Date().toISOString(),
+                        price: newPrice,
+                        previousPrice: oldPrice,
+                        priceChange: priceDiff,
+                        priceChangePercent: parseFloat(priceDiffPercent),
+                        reason: 'API_PRICE_UPDATE',
+                        source: 'autodev',
+                        dataSource, // 'cache' or 'api'
+                    };
+                    priceHistory.push(historyEntry);
+                    // Update vehicle with new price
+                    const updateData = {
+                        priceUsd: newPrice,
+                        priceHistory: priceHistory, // Cast to satisfy Prisma JSON type
+                        lastApiSync: new Date(),
+                        apiSyncStatus: 'SYNCED',
+                        apiSyncError: null,
+                        // Update apiData with fresh listing
+                        apiData: Object.assign(Object.assign({}, (vehicle.apiData || {})), { listing, raw: listing, syncedAt: new Date().toISOString() }),
+                    };
+                    const updated = yield this.vehicleRepo.update(vehicle.id, updateData);
+                    // Log to ActivityLog table (database)
+                    yield vehicleLogs_1.VehicleLogs.logPriceUpdate(vehicle, {
+                        vin: vehicle.vin,
+                        make: vehicle.make,
+                        model: vehicle.model,
+                        year: vehicle.year,
+                        oldPrice,
+                        newPrice,
+                        priceChange: priceDiff,
+                        priceChangePercent: parseFloat(priceDiffPercent),
+                        direction: priceChangeDirection,
+                        dataSource,
+                        lastSync: (_a = vehicle.lastApiSync) === null || _a === void 0 ? void 0 : _a.toISOString(),
+                        hoursStale: hoursStale,
+                        priceHistoryCount: priceHistory.length,
+                    });
+                    return updated;
+                }
+                else {
+                    // Price unchanged, just update lastApiSync
+                    yield this.vehicleRepo.update(vehicle.id, {
+                        lastApiSync: new Date(),
+                        apiSyncStatus: 'SYNCED',
+                    });
+                    // Log price refresh (even if unchanged) to ActivityLog
+                    yield vehicleLogs_1.VehicleLogs.logPriceRefresh(vehicle, {
+                        vin: vehicle.vin,
+                        make: vehicle.make,
+                        model: vehicle.model,
+                        year: vehicle.year,
+                        price: oldPrice,
+                        dataSource,
+                        lastSync: (_b = vehicle.lastApiSync) === null || _b === void 0 ? void 0 : _b.toISOString(),
+                        hoursStale: hoursStale,
+                        status: 'unchanged',
+                    });
+                    return null;
+                }
+            }
+            catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                // Mark as outdated but don't fail the request
+                yield this.vehicleRepo.update(vehicle.id, {
+                    apiSyncStatus: 'OUTDATED',
+                    apiSyncError: errorMessage,
+                }).catch(() => { });
+                // Log failure to ActivityLog
+                yield vehicleLogs_1.VehicleLogs.logPriceRefreshFailed(vehicle, {
+                    vin: vehicle.vin,
+                    make: vehicle.make,
+                    model: vehicle.model,
+                    year: vehicle.year,
+                    currentPrice: oldPrice,
+                    error: errorMessage,
+                    lastSync: (_c = vehicle.lastApiSync) === null || _c === void 0 ? void 0 : _c.toISOString(),
+                    hoursStale: hoursStale,
+                    status: 'failed',
+                });
+                return null;
+            }
+        });
+    }
+    /**
+     * Get vehicles with filters and pagination (Hybrid: DB first, Redis cache, API fallback)
+     * API responses are cached in Redis (12hr TTL) to handle price changes and reduce API calls
+     * Vehicles are only saved to DB when user initiates payment
      */
     getVehicles(filters_1) {
         return __awaiter(this, arguments, void 0, function* (filters, pagination = {}, includeApiResults = true) {
@@ -47,8 +197,12 @@ let VehicleService = class VehicleService {
             const limit = pagination.limit || 50;
             // Step 1: Search DB first
             const dbResult = yield this.vehicleRepo.findMany(filters, pagination);
-            const dbPages = Math.ceil(dbResult.total / limit);
-            // Step 2: If DB results are insufficient, fetch from Auto.dev API
+            // Step 1.5: Refresh prices for stale vehicles in DB (async, non-blocking)
+            const staleVehicles = dbResult.vehicles.filter(v => this.isPriceStale(v));
+            const priceRefreshPromises = staleVehicles.map(v => this.refreshVehiclePrice(v).catch(() => null));
+            // Don't await - let it run in background, but refresh the vehicles we return
+            Promise.all(priceRefreshPromises).catch(() => { });
+            // Step 2: If DB results are insufficient, check Redis cache, then Auto.dev API
             let apiVehicles = [];
             let fromApiCount = 0;
             if (includeApiResults && dbResult.vehicles.length < limit) {
@@ -68,14 +222,29 @@ let VehicleService = class VehicleService {
                         }
                     }
                     if (filters.dealerState)
-                        apiFilters.zip = filters.dealerState; // Approximate mapping
-                    // Fetch from Auto.dev (don't save yet - only return)
-                    const apiListings = yield this.autoDevService.fetchListings(Object.assign(Object.assign({}, apiFilters), { page: 1, limit: limit - dbResult.vehicles.length }));
-                    // Transform API listings to Vehicle format (but don't save to DB)
+                        apiFilters.zip = filters.dealerState;
+                    // Check Redis cache first
+                    const cacheKey = RedisCacheService_1.RedisCacheService.getVehicleListingsKey(Object.assign(Object.assign({}, apiFilters), { page, limit }));
+                    const cachedResult = yield this.cache.get(cacheKey);
+                    let apiListings = [];
+                    if (cachedResult) {
+                        // Use cached results
+                        loggers_1.default.info(`Using cached vehicle listings for filters: ${JSON.stringify(apiFilters)}`);
+                        apiListings = cachedResult.listings;
+                    }
+                    else {
+                        // Fetch from Auto.dev API
+                        apiListings = yield this.autoDevService.fetchListings(Object.assign(Object.assign({}, apiFilters), { page: 1, limit: limit - dbResult.vehicles.length }));
+                        // Cache the API response (12hr TTL handles price changes)
+                        yield this.cache.set(cacheKey, {
+                            listings: apiListings,
+                            total: apiListings.length,
+                        });
+                        loggers_1.default.info(`Cached vehicle listings for filters: ${JSON.stringify(apiFilters)}`);
+                    }
                     // Batch check existing VINs to avoid N+1 queries
                     const vinsToCheck = apiListings.map(l => l.vin);
                     const existingVins = new Set();
-                    // Check which VINs already exist in DB (batch)
                     for (const vin of vinsToCheck) {
                         const existing = yield this.vehicleRepo.findByVIN(vin);
                         if (existing) {
@@ -85,18 +254,16 @@ let VehicleService = class VehicleService {
                     // Transform only new listings (not in DB)
                     for (const listing of apiListings) {
                         if (!existingVins.has(listing.vin) && apiVehicles.length < (limit - dbResult.vehicles.length)) {
-                            // Transform but don't save - these are temporary results
-                            // Don't fetch photos here to save API calls - fetch on-demand when user views
+                            // Transform but don't save to DB - cache only
                             const vehicleData = vehicle_transformer_1.VehicleTransformer.fromAutoDevListing(listing, []);
-                            // Store full API response for future compatibility
                             vehicleData.apiData = {
                                 listing,
                                 raw: listing,
-                                isTemporary: true, // Flag to indicate not saved yet
+                                isTemporary: true, // Flag to indicate not saved to DB yet
+                                cached: true, // Flag to indicate from cache
                             };
-                            vehicleData.apiSyncStatus = 'PENDING'; // Not saved yet
+                            vehicleData.apiSyncStatus = 'PENDING'; // Not saved to DB yet
                             vehicleData.id = `temp-${listing.vin}`; // Temporary ID for frontend
-                            // Create temporary vehicle object (not persisted)
                             apiVehicles.push(vehicleData);
                             fromApiCount++;
                         }
@@ -104,10 +271,9 @@ let VehicleService = class VehicleService {
                 }
                 catch (error) {
                     loggers_1.default.warn('Failed to fetch from Auto.dev API, returning DB results only:', error);
-                    // Continue with DB results only
                 }
             }
-            // Step 3: Combine results (DB first, then API)
+            // Step 3: Combine results (DB first, then cached API)
             const allVehicles = [...dbResult.vehicles, ...apiVehicles];
             const total = dbResult.total + fromApiCount;
             const pages = Math.ceil(total / limit);
@@ -122,30 +288,71 @@ let VehicleService = class VehicleService {
         });
     }
     /**
-     * Get vehicle by ID (with Auto.dev fallback if not found)
-     * Saves vehicle to DB if found in API (user interaction = save trigger)
+     * Get vehicle by ID (with Redis cache and Auto.dev fallback)
+     * Refreshes price if stale (older than cache TTL)
+     * Does NOT save new vehicles to DB - only returns cached/API data
+     * Vehicle is saved to DB only when payment is initiated
      */
     getVehicleById(id, vin) {
         return __awaiter(this, void 0, void 0, function* () {
             // Try DB first
             let vehicle = yield this.vehicleRepo.findById(id);
-            // If not found and VIN provided, try Auto.dev API
-            if (!vehicle && vin) {
-                try {
-                    vehicle = yield this.syncFromAutoDev(vin);
-                    loggers_1.default.info(`Vehicle ${vin} synced from Auto.dev and saved to DB`);
+            // If found in DB, check if price needs refresh
+            if (vehicle && this.isPriceStale(vehicle)) {
+                const refreshed = yield this.refreshVehiclePrice(vehicle);
+                if (refreshed) {
+                    vehicle = refreshed;
                 }
-                catch (error) {
-                    loggers_1.default.warn(`Failed to sync vehicle ${vin} from Auto.dev:`, error);
+            }
+            // If not found, try cache, then API (but don't save to DB)
+            if (!vehicle && vin) {
+                // Check Redis cache first
+                const cacheKey = RedisCacheService_1.RedisCacheService.getVehicleByVINKey(vin);
+                const cachedVehicle = yield this.cache.get(cacheKey);
+                if (cachedVehicle) {
+                    loggers_1.default.info(`Using cached vehicle data for VIN: ${vin}`);
+                    vehicle = cachedVehicle;
+                }
+                else {
+                    // Fetch from Auto.dev API and cache it (don't save to DB)
+                    try {
+                        const [listing, photos, specs] = yield Promise.all([
+                            this.autoDevService.fetchListingByVIN(vin),
+                            this.autoDevService.fetchPhotos(vin),
+                            this.autoDevService.fetchSpecifications(vin),
+                        ]);
+                        if (listing) {
+                            const vehicleData = vehicle_transformer_1.VehicleTransformer.fromAutoDevListing(listing, photos, specs);
+                            vehicleData.apiData = {
+                                listing,
+                                specs,
+                                photos,
+                                raw: listing,
+                                cached: true,
+                                isTemporary: true,
+                            };
+                            vehicleData.apiSyncStatus = 'PENDING';
+                            vehicleData.id = `temp-${vin}`;
+                            // Cache the vehicle data (12hr TTL)
+                            yield this.cache.set(cacheKey, vehicleData);
+                            loggers_1.default.info(`Cached vehicle data for VIN: ${vin}`);
+                            vehicle = vehicleData;
+                        }
+                    }
+                    catch (error) {
+                        loggers_1.default.warn(`Failed to fetch vehicle ${vin} from Auto.dev:`, error);
+                    }
                 }
             }
             if (!vehicle) {
                 throw ApiError_1.ApiError.notFound('Vehicle not found');
             }
-            // Increment view count asynchronously
-            this.vehicleRepo.incrementViewCount(vehicle.id).catch((err) => {
-                loggers_1.default.error('Failed to increment view count:', err);
-            });
+            // Increment view count asynchronously (only if in DB)
+            if (vehicle.id && !vehicle.id.startsWith('temp-')) {
+                this.vehicleRepo.incrementViewCount(vehicle.id).catch((err) => {
+                    loggers_1.default.error('Failed to increment view count:', err);
+                });
+            }
             return vehicle;
         });
     }
@@ -249,20 +456,25 @@ let VehicleService = class VehicleService {
         });
     }
     /**
-     * Save vehicle from Auto.dev API listing (called when user interacts with API result)
-     * This saves vehicles that users actually view/interact with
+     * Save vehicle from Auto.dev API to DB (called when user initiates payment)
+     * This is the ONLY place where vehicles are saved to DB from API
+     * Payment initiation = save trigger
      */
     saveVehicleFromApiListing(listing_1) {
         return __awaiter(this, arguments, void 0, function* (listing, photos = [], specs) {
-            // Check if already exists
-            const existing = yield this.vehicleRepo.findByVIN(listing.vin);
+            const vin = listing.vin;
+            if (!vin) {
+                throw ApiError_1.ApiError.badRequest('VIN is required');
+            }
+            // Check if already exists in DB
+            const existing = yield this.vehicleRepo.findByVIN(vin);
             if (existing) {
-                // Update if exists but was temporary
+                // Update if exists but was temporary/pending
                 if (existing.apiSyncStatus === 'PENDING') {
                     // Fetch full data if not provided
                     const [fetchedPhotos, fetchedSpecs] = yield Promise.all([
-                        photos.length > 0 ? Promise.resolve(photos) : this.autoDevService.fetchPhotos(listing.vin).catch(() => []),
-                        specs || this.autoDevService.fetchSpecifications(listing.vin).catch(() => null),
+                        photos.length > 0 ? Promise.resolve(photos) : this.autoDevService.fetchPhotos(vin).catch(() => []),
+                        specs || this.autoDevService.fetchSpecifications(vin).catch(() => null),
                     ]);
                     const vehicleData = vehicle_transformer_1.VehicleTransformer.fromAutoDevListing(listing, fetchedPhotos, fetchedSpecs);
                     vehicleData.apiData = {
@@ -275,16 +487,19 @@ let VehicleService = class VehicleService {
                     vehicleData.lastApiSync = new Date();
                     vehicleData.apiSyncStatus = 'SYNCED';
                     vehicleData.apiSyncError = null;
+                    // Invalidate cache for this vehicle
+                    yield this.cache.delete(RedisCacheService_1.RedisCacheService.getVehicleByVINKey(vin));
+                    yield this.cache.deleteByPattern('vehicle:listings:*'); // Invalidate listings cache
                     return this.vehicleRepo.update(existing.id, vehicleData);
                 }
                 return existing;
             }
             // Fetch full data if not provided
             const [fetchedPhotos, fetchedSpecs] = yield Promise.all([
-                photos.length > 0 ? Promise.resolve(photos) : this.autoDevService.fetchPhotos(listing.vin).catch(() => []),
-                specs || this.autoDevService.fetchSpecifications(listing.vin).catch(() => null),
+                photos.length > 0 ? Promise.resolve(photos) : this.autoDevService.fetchPhotos(vin).catch(() => []),
+                specs || this.autoDevService.fetchSpecifications(vin).catch(() => null),
             ]);
-            // Transform and save
+            // Transform and save to DB
             const vehicleData = vehicle_transformer_1.VehicleTransformer.fromAutoDevListing(listing, fetchedPhotos, fetchedSpecs);
             vehicleData.apiData = {
                 listing,
@@ -295,6 +510,9 @@ let VehicleService = class VehicleService {
             };
             vehicleData.lastApiSync = new Date();
             vehicleData.apiSyncStatus = 'SYNCED';
+            // Invalidate cache
+            yield this.cache.delete(RedisCacheService_1.RedisCacheService.getVehicleByVINKey(vin));
+            yield this.cache.deleteByPattern('vehicle:listings:*');
             return this.vehicleRepo.create(vehicleData);
         });
     }
@@ -304,6 +522,8 @@ exports.VehicleService = VehicleService = __decorate([
     (0, inversify_1.injectable)(),
     __param(0, (0, inversify_1.inject)(types_1.TYPES.VehicleRepository)),
     __param(1, (0, inversify_1.inject)(types_1.TYPES.AutoDevService)),
+    __param(2, (0, inversify_1.inject)(types_1.TYPES.RedisCacheService)),
     __metadata("design:paramtypes", [VehicleRepository_1.VehicleRepository,
-        AutoDevService_1.AutoDevService])
+        AutoDevService_1.AutoDevService,
+        RedisCacheService_1.RedisCacheService])
 ], VehicleService);

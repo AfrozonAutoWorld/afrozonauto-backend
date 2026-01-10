@@ -25,6 +25,11 @@ import { VehicleService } from '../services/VehicleService';
 import { VehicleController } from '../controllers/VehicleController';
 import { AutoDevService } from '../services/AutoDevService';
 import { RedisCacheService } from '../services/RedisCacheService';
+import { PaymentController } from '../controllers/PaymentController';
+import { PaymentService } from '../services/PaymentService';
+import { PaymentRepository } from '../repositories/PaymentRepository';
+import { StripeProvider } from '../services/StripeProvider';
+import { PaystackProvider } from '../services/PaystackProvider';
 
 
 
@@ -47,6 +52,12 @@ container.bind<MailService>(TYPES.MailService).to(MailService);
 container.bind<AppleAuthService>(TYPES.AppleAuthService).to(AppleAuthService);
 container.bind<GoogleAuthService>(TYPES.GoogleAuthService).to(GoogleAuthService);
 container.bind<TokenService>(TYPES.TokenService).to(TokenService);
+// payments
+container.bind<PaymentController>(TYPES.PaymentController).to(PaymentController);
+container.bind<PaymentService>(TYPES.PaymentService).to(PaymentService);
+container.bind<PaymentRepository>(TYPES.PaymentRepository).to(PaymentRepository);
+container.bind<StripeProvider>(TYPES.StripeProvider).to(StripeProvider);
+container.bind<PaystackProvider>(TYPES.PaystackProvider).to(PaystackProvider);
 
 // Vehicle bindings
 container.bind<VehicleRepository>(TYPES.VehicleRepository).to(VehicleRepository);

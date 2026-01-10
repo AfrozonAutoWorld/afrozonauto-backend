@@ -461,6 +461,8 @@ model Order {
   customerNotes   String?
   specialRequests String?
 
+  
+
   // Cancellation & Refunds
   cancelledAt        DateTime?
   cancelledBy        String? // user_id or admin_id
@@ -564,7 +566,7 @@ model Payment {
   escrowStatus EscrowStatus  @default(HELD)
 
   // Transaction Info
-  transactionRef        String? // External payment reference
+  transactionRef String @unique 
   providerTransactionId String? // Payment gateway transaction ID
   receiptUrl            String?
 
@@ -585,7 +587,6 @@ model Payment {
   @@index([orderId])
   @@index([userId])
   @@index([status])
-  @@index([transactionRef])
   @@index([paymentProvider])
   @@index([createdAt])
   @@map("payments")
