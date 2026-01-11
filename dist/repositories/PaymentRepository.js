@@ -28,6 +28,12 @@ let PaymentRepository = class PaymentRepository {
             include: { order: true }
         });
     }
+    updateByReference(transactionRef, data) {
+        return db_1.default.payment.update({
+            where: { transactionRef },
+            data
+        });
+    }
 };
 exports.PaymentRepository = PaymentRepository;
 exports.PaymentRepository = PaymentRepository = __decorate([

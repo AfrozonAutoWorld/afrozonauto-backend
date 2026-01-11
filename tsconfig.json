@@ -2,7 +2,7 @@
   "compilerOptions": {
     "module": "commonjs",
     "moduleResolution": "node",
-    "target": "es6",
+    "target": "ES2022",
     "strict": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,

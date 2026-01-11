@@ -22,4 +22,25 @@ export class PaymentRepository {
       include: { order: true }
     });
   }
+
+  
+  updateByReference(transactionRef: string, data: any) {
+    return prisma.payment.update({
+      where: { transactionRef },
+      data
+    });
+  }
+  
+//   markExpiredAsAbandoned(now: Date) {
+//     return prisma.payment.updateMany({
+//       where: {
+//         status: 'PENDING',
+//         expiresAt: { lt: now }
+//       },
+//       data: {
+//         status: 'ABANDONED'
+//       }
+//     });
+//   }
+  
 }
