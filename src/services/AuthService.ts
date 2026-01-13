@@ -1,6 +1,6 @@
 import { inject, injectable } from 'inversify';
 import bcrypt from 'bcrypt';
-import { randomInt, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import prisma from '../db';
 import { MailService } from './MailService';
 import TokenService from './TokenService';
@@ -41,8 +41,7 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(data.password, 10);
 
-    // Generate unique IDs for googleId and appleId to avoid unique constraint violations
-    // MongoDB unique constraints treat null as duplicate, so we use unique values instead
+    // MongoDB unique constraints don't allow multiple null values
     const uniqueGoogleId = `local_${randomUUID()}`;
     const uniqueAppleId = `local_${randomUUID()}`;
 
@@ -74,16 +73,15 @@ export class AuthService {
     const isDevelopment = process.env.NODE_ENV === 'development' || process.env.NODE_ENV !== 'production';
 
     if (isTestToken && isDevelopment) {
-      // In development, test token automatically verifies any email
-      // Create a used token record so register endpoint can find it
+
       try {
-        // Check if a used token already exists
+   
         const existingUsedToken = await this.tokenService.getUsedTokenForUser({ email }, true);
         if (existingUsedToken) {
           return true; // Already verified
         }
 
-        // Delete any existing unused tokens for this email (don't use invalidateExistingTokens as it expects userId)
+
         await prisma.token.deleteMany({
           where: {
             email: email,
