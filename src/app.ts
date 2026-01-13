@@ -9,6 +9,7 @@ import { ApiError } from './utils/ApiError';
 import AuthRoutes from './routes/AuthRoutes';
 import VehicleRoutes from './routes/VehicleRoutes';
 import AddressRoutes from './routes/AddressRoutes';
+import PaymentRoutes from './routes/PaymentRoutes';
 
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -68,6 +69,7 @@ class App {
     this.app.use('/api/auth', AuthRoutes);
     this.app.use('/api/vehicles', VehicleRoutes);
     this.app.use('/api/addresses', AddressRoutes);
+    this.app.use('/api/payments', PaymentRoutes);
 
     // 404 handler - catch all unmatched routes
     this.app.use((req: Request, res: Response) => {
