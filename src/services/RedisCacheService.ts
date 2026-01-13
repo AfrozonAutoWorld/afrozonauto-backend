@@ -7,6 +7,11 @@ import { REDIS_URL, REDIS_CACHE_TTL_HOURS } from '../secrets';
 export class RedisCacheService {
   private client: Redis | null = null;
   private readonly defaultTTL: number;
+  private connectionAttempts: number = 0;
+  private readonly maxConnectionAttempts: number = 5;
+  private isDisabled: boolean = false;
+  private lastErrorTime: number = 0;
+  private readonly errorThrottleMs: number = 10000; // Only log errors every 10 seconds
 
   constructor() {
     this.defaultTTL = REDIS_CACHE_TTL_HOURS ? parseInt(REDIS_CACHE_TTL_HOURS, 10) * 3600 : 12 * 3600; // Default 12 hours in seconds
@@ -15,39 +20,98 @@ export class RedisCacheService {
       try {
         this.client = new Redis(REDIS_URL, {
           retryStrategy: (times) => {
-            const delay = Math.min(times * 50, 2000);
+            // Stop retrying after max attempts
+            if (times > this.maxConnectionAttempts) {
+              this.disableRedis('Max connection attempts reached');
+              return null; // Stop retrying
+            }
+            const delay = Math.min(times * 100, 5000); // Slower retries: 100ms, 200ms, 300ms... up to 5s
             return delay;
           },
-          maxRetriesPerRequest: 3,
+          maxRetriesPerRequest: 1, // Reduced from 3 to prevent spam
           enableReadyCheck: true,
           lazyConnect: true,
+          connectTimeout: 10000, // 10 second timeout
+          keepAlive: 30000,
         });
 
         this.client.on('connect', () => {
-          loggers.info('Redis client connecting...');
+          this.connectionAttempts++;
+          if (this.connectionAttempts <= 3) {
+            loggers.info('Redis client connecting...');
+          }
         });
 
         this.client.on('ready', () => {
           loggers.info('Redis client ready');
+          this.connectionAttempts = 0; // Reset on successful connection
+          this.isDisabled = false;
         });
 
-        this.client.on('error', (err) => {
-          loggers.error('Redis client error:', err);
+        this.client.on('error', (err: any) => {
+          const now = Date.now();
+          // Throttle error logging to prevent spam
+          if (now - this.lastErrorTime > this.errorThrottleMs) {
+            const errorCode = err.code || err.errno || 'UNKNOWN';
+            // Only log specific errors, skip common connection reset errors after first few
+            if (this.connectionAttempts <= 3 || (errorCode !== 'ECONNRESET' && errorCode !== 'ENOTFOUND')) {
+              loggers.error('Redis client error:', {
+                code: errorCode,
+                message: err.message,
+                attempts: this.connectionAttempts
+              });
+            }
+            this.lastErrorTime = now;
+          }
+          
+          // Disable after too many failures
+          if (this.connectionAttempts >= this.maxConnectionAttempts) {
+            this.disableRedis(`Connection failed after ${this.connectionAttempts} attempts: ${err.message}`);
+          }
         });
 
         this.client.on('close', () => {
-          loggers.warn('Redis client connection closed');
+          if (this.connectionAttempts <= 3) {
+            loggers.warn('Redis client connection closed');
+          }
         });
 
         // Connect lazily
         this.client.connect().catch((err) => {
-          loggers.error('Failed to connect to Redis:', err);
+          this.connectionAttempts++;
+          if (this.connectionAttempts <= 3) {
+            loggers.error('Failed to connect to Redis:', err.message);
+          }
+          if (this.connectionAttempts >= this.maxConnectionAttempts) {
+            this.disableRedis(`Failed to connect after ${this.connectionAttempts} attempts`);
+          }
         });
       } catch (error) {
         loggers.error('Failed to initialize Redis client:', error);
+        this.isDisabled = true;
       }
     } else {
       loggers.warn('REDIS_URL not configured, caching disabled');
+      this.isDisabled = true;
+    }
+  }
+
+  /**
+   * Disable Redis gracefully after repeated failures
+   */
+  private disableRedis(reason: string): void {
+    if (!this.isDisabled) {
+      this.isDisabled = true;
+      loggers.warn(`Redis disabled: ${reason}. Caching will be unavailable.`);
+      if (this.client) {
+        try {
+          // Disconnect without waiting for promise
+          this.client.disconnect();
+        } catch (err) {
+          // Ignore disconnect errors
+        }
+        this.client = null;
+      }
     }
   }
 
@@ -55,7 +119,7 @@ export class RedisCacheService {
    * Get cached value by key
    */
   async get<T>(key: string): Promise<T | null> {
-    if (!this.client || !this.isConnected()) {
+    if (this.isDisabled || !this.client || !this.isConnected()) {
       return null;
     }
 
@@ -75,7 +139,7 @@ export class RedisCacheService {
    * Set cached value with TTL
    */
   async set(key: string, value: any, ttlSeconds?: number): Promise<boolean> {
-    if (!this.client || !this.isConnected()) {
+    if (this.isDisabled || !this.client || !this.isConnected()) {
       return false;
     }
 
@@ -94,7 +158,7 @@ export class RedisCacheService {
    * Delete cached value
    */
   async delete(key: string): Promise<boolean> {
-    if (!this.client || !this.isConnected()) {
+    if (this.isDisabled || !this.client || !this.isConnected()) {
       return false;
     }
 
@@ -111,7 +175,7 @@ export class RedisCacheService {
    * Delete multiple keys by pattern
    */
   async deleteByPattern(pattern: string): Promise<number> {
-    if (!this.client || !this.isConnected()) {
+    if (this.isDisabled || !this.client || !this.isConnected()) {
       return 0;
     }
 
@@ -131,7 +195,7 @@ export class RedisCacheService {
    * Check if key exists
    */
   async exists(key: string): Promise<boolean> {
-    if (!this.client || !this.isConnected()) {
+    if (this.isDisabled || !this.client || !this.isConnected()) {
       return false;
     }
 
@@ -148,7 +212,7 @@ export class RedisCacheService {
    * Get remaining TTL for a key
    */
   async getTTL(key: string): Promise<number> {
-    if (!this.client || !this.isConnected()) {
+    if (this.isDisabled || !this.client || !this.isConnected()) {
       return -1;
     }
 
