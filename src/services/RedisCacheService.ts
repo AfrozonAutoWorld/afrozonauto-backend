@@ -1,97 +1,30 @@
 import { injectable } from 'inversify';
-import Redis from 'ioredis';
+import { Redis } from '@upstash/redis';
 import loggers from '../utils/loggers';
-import { REDIS_URL, REDIS_CACHE_TTL_HOURS } from '../secrets';
+import { UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN, REDIS_CACHE_TTL_HOURS } from '../secrets';
 
 @injectable()
 export class RedisCacheService {
   private client: Redis | null = null;
   private readonly defaultTTL: number;
-  private connectionAttempts: number = 0;
-  private readonly maxConnectionAttempts: number = 5;
   private isDisabled: boolean = false;
-  private lastErrorTime: number = 0;
-  private readonly errorThrottleMs: number = 10000; // Only log errors every 10 seconds
 
   constructor() {
     this.defaultTTL = REDIS_CACHE_TTL_HOURS ? parseInt(REDIS_CACHE_TTL_HOURS, 10) * 3600 : 12 * 3600; // Default 12 hours in seconds
     
-    if (REDIS_URL) {
+    if (UPSTASH_REDIS_REST_URL && UPSTASH_REDIS_REST_TOKEN) {
       try {
-        this.client = new Redis(REDIS_URL, {
-          retryStrategy: (times) => {
-            // Stop retrying after max attempts
-            if (times > this.maxConnectionAttempts) {
-              this.disableRedis('Max connection attempts reached');
-              return null; // Stop retrying
-            }
-            const delay = Math.min(times * 100, 5000); // Slower retries: 100ms, 200ms, 300ms... up to 5s
-            return delay;
-          },
-          maxRetriesPerRequest: 1, // Reduced from 3 to prevent spam
-          enableReadyCheck: true,
-          lazyConnect: true,
-          connectTimeout: 10000, // 10 second timeout
-          keepAlive: 30000,
+        this.client = new Redis({
+          url: UPSTASH_REDIS_REST_URL,
+          token: UPSTASH_REDIS_REST_TOKEN,
         });
-
-        this.client.on('connect', () => {
-          this.connectionAttempts++;
-          if (this.connectionAttempts <= 3) {
-            loggers.info('Redis client connecting...');
-          }
-        });
-
-        this.client.on('ready', () => {
-          loggers.info('Redis client ready');
-          this.connectionAttempts = 0; // Reset on successful connection
-          this.isDisabled = false;
-        });
-
-        this.client.on('error', (err: any) => {
-          const now = Date.now();
-          // Throttle error logging to prevent spam
-          if (now - this.lastErrorTime > this.errorThrottleMs) {
-            const errorCode = err.code || err.errno || 'UNKNOWN';
-            // Only log specific errors, skip common connection reset errors after first few
-            if (this.connectionAttempts <= 3 || (errorCode !== 'ECONNRESET' && errorCode !== 'ENOTFOUND')) {
-              loggers.error('Redis client error:', {
-                code: errorCode,
-                message: err.message,
-                attempts: this.connectionAttempts
-              });
-            }
-            this.lastErrorTime = now;
-          }
-          
-          // Disable after too many failures
-          if (this.connectionAttempts >= this.maxConnectionAttempts) {
-            this.disableRedis(`Connection failed after ${this.connectionAttempts} attempts: ${err.message}`);
-          }
-        });
-
-        this.client.on('close', () => {
-          if (this.connectionAttempts <= 3) {
-            loggers.warn('Redis client connection closed');
-          }
-        });
-
-        // Connect lazily
-        this.client.connect().catch((err) => {
-          this.connectionAttempts++;
-          if (this.connectionAttempts <= 3) {
-            loggers.error('Failed to connect to Redis:', err.message);
-          }
-          if (this.connectionAttempts >= this.maxConnectionAttempts) {
-            this.disableRedis(`Failed to connect after ${this.connectionAttempts} attempts`);
-          }
-        });
+        loggers.info('Upstash Redis client initialized');
       } catch (error) {
-        loggers.error('Failed to initialize Redis client:', error);
+        loggers.error('Failed to initialize Upstash Redis client:', error);
         this.isDisabled = true;
       }
     } else {
-      loggers.warn('REDIS_URL not configured, caching disabled');
+      loggers.warn('UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN not configured, caching disabled');
       this.isDisabled = true;
     }
   }
@@ -103,15 +36,7 @@ export class RedisCacheService {
     if (!this.isDisabled) {
       this.isDisabled = true;
       loggers.warn(`Redis disabled: ${reason}. Caching will be unavailable.`);
-      if (this.client) {
-        try {
-          // Disconnect without waiting for promise
-          this.client.disconnect();
-        } catch (err) {
-          // Ignore disconnect errors
-        }
-        this.client = null;
-      }
+      this.client = null;
     }
   }
 
@@ -119,7 +44,7 @@ export class RedisCacheService {
    * Get cached value by key
    */
   async get<T>(key: string): Promise<T | null> {
-    if (this.isDisabled || !this.client || !this.isConnected()) {
+    if (this.isDisabled || !this.client) {
       return null;
     }
 
@@ -128,7 +53,15 @@ export class RedisCacheService {
       if (!value) {
         return null;
       }
-      return JSON.parse(value) as T;
+      // Upstash Redis returns the value directly (already parsed if it was JSON)
+      if (typeof value === 'string') {
+        try {
+          return JSON.parse(value) as T;
+        } catch {
+          return value as T;
+        }
+      }
+      return value as T;
     } catch (error) {
       loggers.error(`Redis get error for key ${key}:`, error);
       return null;
@@ -139,14 +72,15 @@ export class RedisCacheService {
    * Set cached value with TTL
    */
   async set(key: string, value: any, ttlSeconds?: number): Promise<boolean> {
-    if (this.isDisabled || !this.client || !this.isConnected()) {
+    if (this.isDisabled || !this.client) {
       return false;
     }
 
     try {
       const ttl = ttlSeconds || this.defaultTTL;
       const serialized = JSON.stringify(value);
-      await this.client.setex(key, ttl, serialized);
+      // Upstash Redis uses set with ex option for TTL
+      await this.client.set(key, serialized, { ex: ttl });
       return true;
     } catch (error) {
       loggers.error(`Redis set error for key ${key}:`, error);
@@ -158,7 +92,7 @@ export class RedisCacheService {
    * Delete cached value
    */
   async delete(key: string): Promise<boolean> {
-    if (this.isDisabled || !this.client || !this.isConnected()) {
+    if (this.isDisabled || !this.client) {
       return false;
     }
 
@@ -175,7 +109,7 @@ export class RedisCacheService {
    * Delete multiple keys by pattern
    */
   async deleteByPattern(pattern: string): Promise<number> {
-    if (this.isDisabled || !this.client || !this.isConnected()) {
+    if (this.isDisabled || !this.client) {
       return 0;
     }
 
@@ -184,7 +118,9 @@ export class RedisCacheService {
       if (keys.length === 0) {
         return 0;
       }
-      return await this.client.del(...keys);
+      // Upstash Redis del can take multiple keys
+      const result = await this.client.del(...keys);
+      return typeof result === 'number' ? result : keys.length;
     } catch (error) {
       loggers.error(`Redis deleteByPattern error for pattern ${pattern}:`, error);
       return 0;
@@ -195,7 +131,7 @@ export class RedisCacheService {
    * Check if key exists
    */
   async exists(key: string): Promise<boolean> {
-    if (this.isDisabled || !this.client || !this.isConnected()) {
+    if (this.isDisabled || !this.client) {
       return false;
     }
 
@@ -212,12 +148,13 @@ export class RedisCacheService {
    * Get remaining TTL for a key
    */
   async getTTL(key: string): Promise<number> {
-    if (this.isDisabled || !this.client || !this.isConnected()) {
+    if (this.isDisabled || !this.client) {
       return -1;
     }
 
     try {
-      return await this.client.ttl(key);
+      const ttl = await this.client.ttl(key);
+      return ttl;
     } catch (error) {
       loggers.error(`Redis TTL error for key ${key}:`, error);
       return -1;
@@ -225,21 +162,10 @@ export class RedisCacheService {
   }
 
   /**
-   * Check if Redis is connected
+   * Check if Redis is connected (always true for Upstash REST API)
    */
-  private isConnected(): boolean {
-    return this.client?.status === 'ready';
-  }
-
-  /**
-   * Close Redis connection
-   */
-  async disconnect(): Promise<void> {
-    if (this.client) {
-      await this.client.quit();
-      this.client = null;
-      loggers.info('Redis client disconnected');
-    }
+  public isConnected(): boolean {
+    return !this.isDisabled && this.client !== null;
   }
 
   /**
