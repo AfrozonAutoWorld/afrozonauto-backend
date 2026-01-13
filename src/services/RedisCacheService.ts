@@ -1,7 +1,7 @@
 import { injectable } from 'inversify';
-import { Redis } from '@upstash/redis';
+import Redis from 'ioredis';
 import loggers from '../utils/loggers';
-import { UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN, REDIS_CACHE_TTL_HOURS } from '../secrets';
+import { REDIS_URL, REDIS_CACHE_TTL_HOURS } from '../secrets';
 
 @injectable()
 export class RedisCacheService {
@@ -11,20 +11,51 @@ export class RedisCacheService {
 
   constructor() {
     this.defaultTTL = REDIS_CACHE_TTL_HOURS ? parseInt(REDIS_CACHE_TTL_HOURS, 10) * 3600 : 12 * 3600; // Default 12 hours in seconds
-    
-    if (UPSTASH_REDIS_REST_URL && UPSTASH_REDIS_REST_TOKEN) {
+
+    if (REDIS_URL) {
       try {
-        this.client = new Redis({
-          url: UPSTASH_REDIS_REST_URL,
-          token: UPSTASH_REDIS_REST_TOKEN,
+
+
+        this.client = new Redis(REDIS_URL, {
+          retryStrategy: (times) => {
+            if (times > 5) {
+              this.disableRedis('Max connection attempts reached');
+              return null; // Stop retrying
+            }
+            const delay = Math.min(times * 100, 5000);
+            return delay;
+          },
+          maxRetriesPerRequest: 1,
+          enableReadyCheck: true,
+          lazyConnect: true,
+          connectTimeout: 10000,
+          keepAlive: 30000,
         });
-        loggers.info('Upstash Redis client initialized');
+
+        this.client.on('ready', () => {
+          loggers.info('Redis client ready');
+          this.isDisabled = false;
+        });
+
+        this.client.on('error', (err: any) => {
+          loggers.error('Redis client error:', {
+            code: err.code || 'UNKNOWN',
+            message: err.message,
+          });
+          // Don't disable on every error, just log it
+        });
+
+        // Connect lazily
+        this.client.connect().catch((err) => {
+          loggers.error('Failed to connect to Redis:', err.message);
+          this.disableRedis(`Failed to connect: ${err.message}`);
+        });
       } catch (error) {
-        loggers.error('Failed to initialize Upstash Redis client:', error);
+        loggers.error('Failed to initialize Redis client:', error);
         this.isDisabled = true;
       }
     } else {
-      loggers.warn('UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN not configured, caching disabled');
+      loggers.warn('REDIS_URL not configured, caching disabled');
       this.isDisabled = true;
     }
   }
@@ -36,7 +67,14 @@ export class RedisCacheService {
     if (!this.isDisabled) {
       this.isDisabled = true;
       loggers.warn(`Redis disabled: ${reason}. Caching will be unavailable.`);
-      this.client = null;
+      if (this.client) {
+        try {
+          this.client.disconnect();
+        } catch (err) {
+          // Ignore disconnect errors
+        }
+        this.client = null;
+      }
     }
   }
 
@@ -44,7 +82,7 @@ export class RedisCacheService {
    * Get cached value by key
    */
   async get<T>(key: string): Promise<T | null> {
-    if (this.isDisabled || !this.client) {
+    if (this.isDisabled || !this.client || !this.isConnected()) {
       return null;
     }
 
@@ -53,15 +91,7 @@ export class RedisCacheService {
       if (!value) {
         return null;
       }
-      // Upstash Redis returns the value directly (already parsed if it was JSON)
-      if (typeof value === 'string') {
-        try {
-          return JSON.parse(value) as T;
-        } catch {
-          return value as T;
-        }
-      }
-      return value as T;
+      return JSON.parse(value) as T;
     } catch (error) {
       loggers.error(`Redis get error for key ${key}:`, error);
       return null;
@@ -72,15 +102,14 @@ export class RedisCacheService {
    * Set cached value with TTL
    */
   async set(key: string, value: any, ttlSeconds?: number): Promise<boolean> {
-    if (this.isDisabled || !this.client) {
+    if (this.isDisabled || !this.client || !this.isConnected()) {
       return false;
     }
 
     try {
       const ttl = ttlSeconds || this.defaultTTL;
       const serialized = JSON.stringify(value);
-      // Upstash Redis uses set with ex option for TTL
-      await this.client.set(key, serialized, { ex: ttl });
+      await this.client.setex(key, ttl, serialized);
       return true;
     } catch (error) {
       loggers.error(`Redis set error for key ${key}:`, error);
@@ -92,7 +121,7 @@ export class RedisCacheService {
    * Delete cached value
    */
   async delete(key: string): Promise<boolean> {
-    if (this.isDisabled || !this.client) {
+    if (this.isDisabled || !this.client || !this.isConnected()) {
       return false;
     }
 
@@ -109,7 +138,7 @@ export class RedisCacheService {
    * Delete multiple keys by pattern
    */
   async deleteByPattern(pattern: string): Promise<number> {
-    if (this.isDisabled || !this.client) {
+    if (this.isDisabled || !this.client || !this.isConnected()) {
       return 0;
     }
 
@@ -118,9 +147,7 @@ export class RedisCacheService {
       if (keys.length === 0) {
         return 0;
       }
-      // Upstash Redis del can take multiple keys
-      const result = await this.client.del(...keys);
-      return typeof result === 'number' ? result : keys.length;
+      return await this.client.del(...keys);
     } catch (error) {
       loggers.error(`Redis deleteByPattern error for pattern ${pattern}:`, error);
       return 0;
@@ -131,7 +158,7 @@ export class RedisCacheService {
    * Check if key exists
    */
   async exists(key: string): Promise<boolean> {
-    if (this.isDisabled || !this.client) {
+    if (this.isDisabled || !this.client || !this.isConnected()) {
       return false;
     }
 
@@ -148,13 +175,12 @@ export class RedisCacheService {
    * Get remaining TTL for a key
    */
   async getTTL(key: string): Promise<number> {
-    if (this.isDisabled || !this.client) {
+    if (this.isDisabled || !this.client || !this.isConnected()) {
       return -1;
     }
 
     try {
-      const ttl = await this.client.ttl(key);
-      return ttl;
+      return await this.client.ttl(key);
     } catch (error) {
       loggers.error(`Redis TTL error for key ${key}:`, error);
       return -1;
@@ -162,10 +188,10 @@ export class RedisCacheService {
   }
 
   /**
-   * Check if Redis is connected (always true for Upstash REST API)
+   * Check if Redis is connected
    */
   public isConnected(): boolean {
-    return !this.isDisabled && this.client !== null;
+    return !this.isDisabled && this.client !== null && this.client?.status === 'ready';
   }
 
   /**
@@ -190,4 +216,3 @@ export class RedisCacheService {
     return `vehicle:id:${id}`;
   }
 }
-

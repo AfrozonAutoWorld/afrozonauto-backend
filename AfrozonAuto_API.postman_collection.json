@@ -78,7 +78,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "auth", "register"]
 						},
-						"description": "Register a new user account. **Must call `/register-start` and `/verify` first** to validate email.\n\n**Required Fields:**\n- `email`: Valid email address (must be verified)\n- `firstName`: User's first name\n- `lastName`: User's last name\n\n**Optional Fields:**\n- `password`: User password (optional, can be set later)\n- `phone`: Phone number with country code (e.g., +1234567890)\n- `role`: User role - BUYER, SELLER, ADMIN, SUPER_ADMIN, OPERATIONS_ADMIN (default: BUYER)\n- `isActive`: Account active status (default: true)\n\n**Response:**\n- Returns created user object (201 Created)\n\n**Note:** Email must be verified before registration. Do NOT include `fullName` field - only `firstName` and `lastName` are accepted."
+						"description": "Register a new user account. **Must call `/register-start` and `/verify` first** to validate email.\n\n**Required Fields:**\n- `email`: Valid email address (must be verified via `/verify` endpoint)\n- `firstName`: User's first name\n- `lastName`: User's last name\n\n**Optional Fields:**\n- `password`: User password (optional, can be set later)\n- `phone`: Phone number with country code (e.g., +1234567890)\n- `role`: User role - BUYER, SELLER, ADMIN, SUPER_ADMIN, OPERATIONS_ADMIN (default: BUYER)\n- `isActive`: Account active status (default: true)\n\n**Response:**\n- Returns created user object (201 Created)\n\n**Registration Flow:**\n1. POST `/register-start` - Check if user exists, send verification token\n2. POST `/verify` - Verify email with token (use `999999` for testing)\n3. POST `/register` - Complete registration\n\n**Note:** Email must be verified before registration. Do NOT include `fullName` field - only `firstName` and `lastName` are accepted."
 					},
 					"response": []
 				},
@@ -94,14 +94,19 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"email\": \"user@example.com\",\n  \"token\": \"123456\"\n}"
+							"raw": "{\n  \"email\": \"user@example.com\",\n  \"token\": \"999999\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/auth/verify",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "auth", "verify"]
 						},
-						"description": "Verify email address using the token sent to the user's email. This is required before completing registration.\n\n**Request Body:**\n- `email` (required): Email address to verify\n- `token` (required): 6-digit verification token sent to email\n\n**Response:**\n- Returns success message if token is valid\n- Token expires after a set time (check TOKEN_EXPIRY_MINUTES in config)\n\n**Note:** Token is sent via email after calling `/register-start`."
+						"description": "Verify email address using the token sent to the user's email. This is required before completing registration.\n\n**Request Body:**\n- `email` (required): Email address to verify\n- `token` (required): 6-digit verification token sent to email OR test token `999999` (for development/testing)\n\n**Response:**\n- Returns success message if token is valid\n- Token expires after a set time (check TOKEN_EXPIRY_MINUTES in config)\n\n**Note:** Token is sent via email after calling `/register-start`. For testing, you can use token `999999` which will verify any email address in development mode."
 					},
 					"response": []
 				},
@@ -422,7 +427,7 @@
 								}
 							]
 						},
-						"description": "Get list of vehicles with filters. **Hybrid Search Strategy:**\n1. First searches database (DB)\n2. If results insufficient, checks Redis cache (12hr TTL)\n3. If cache miss, fetches from Auto.dev API and caches results\n4. Combines DB + API results\n5. Background price refresh for stale DB vehicles\n\n**Query Parameters:**\n- All filters are optional\n- `includeApi` (default: true): Whether to include Auto.dev API results if DB results insufficient\n- `page` (default: 1): Page number\n- `limit` (default: 50, max: 100): Items per page\n- `state`: Dealer state (maps to `dealerState` filter)\n\n**Response Format:**\n```json\n{\n  \"success\": true,\n  \"message\": \"Vehicles retrieved successfully\",\n  \"data\": {\n    \"data\": [/* array of vehicles */],\n    \"meta\": {\n      \"page\": 1,\n      \"limit\": 50,\n      \"total\": 100,\n      \"pages\": 2,\n      \"fromApi\": 25\n    }\n  },\n  \"timestamp\": \"2025-01-08T...\"\n}\n```\n\n**Note:** API results are cached in Redis to handle price changes efficiently."
+						"description": "Get list of vehicles with filters. **Public endpoint** - no authentication required.\n\n**Hybrid Search Strategy:**\n1. First searches database (DB)\n2. If results insufficient, checks Redis cache (12hr TTL)\n3. If cache miss, fetches from Auto.dev API and caches results\n4. Combines DB + API results\n5. Background price refresh for stale DB vehicles\n\n**Query Parameters (all optional):**\n- `make`: Vehicle make (e.g., Toyota, Jeep)\n- `model`: Vehicle model\n- `yearMin`, `yearMax`: Year range\n- `priceMin`, `priceMax`: Price range in USD\n- `mileageMax`: Maximum mileage\n- `vehicleType`: CAR, SUV, TRUCK, VAN, COUPE, SEDAN, HATCHBACK, WAGON, CONVERTIBLE\n- `status`: AVAILABLE, SOLD, PENDING, RESERVED\n- `state`: Dealer state (maps to `dealerState` filter)\n- `featured`: Filter featured vehicles (true/false)\n- `search`: Search in make, model, or VIN\n- `includeApi` (default: true): Whether to include Auto.dev API results if DB results insufficient\n- `page` (default: 1): Page number\n- `limit` (default: 50, max: 100): Items per page\n\n**Response Format:**\n```json\n{\n  \"success\": true,\n  \"message\": \"Vehicles retrieved successfully\",\n  \"data\": {\n    \"data\": [/* array of vehicles */],\n    \"meta\": {\n      \"page\": 1,\n      \"limit\": 50,\n      \"total\": 100,\n      \"pages\": 2,\n      \"fromApi\": 25\n    }\n  },\n  \"timestamp\": \"2025-01-08T...\"\n}\n```\n\n**Note:** API results are cached in Redis (12-hour TTL) to handle price changes efficiently and reduce external API calls."
 					},
 					"response": []
 				},
@@ -456,7 +461,7 @@
 								}
 							]
 						},
-						"description": "Get vehicle by ID. Public endpoint. If not found in DB and VIN provided, will check Redis cache then Auto.dev API. Does NOT auto-save to DB - use save-from-api endpoint for that."
+						"description": "Get vehicle by ID or VIN. **Public endpoint** - no authentication required.\n\n**URL Parameters:**\n- `id` (required): Vehicle ID (MongoDB ObjectId) OR VIN (17-character string)\n\n**Query Parameters:**\n- `vin` (optional): VIN to try Redis cache or Auto.dev API if ID not found in DB\n\n**Response:**\n- Vehicle object if found\n- 404 if not found\n\n**Note:** If vehicle not found in DB and VIN provided, will check Redis cache (12hr TTL) then Auto.dev API. Does NOT auto-save to DB - use `/save-from-api` endpoint for that."
 					},
 					"response": []
 				},
@@ -633,7 +638,7 @@
 					"response": []
 				}
 			],
-			"description": "Vehicle management endpoints. Supports DB-first search with Auto.dev API fallback."
+			"description": "Vehicle management endpoints. Supports DB-first search with Auto.dev API fallback.\n\n**Public Endpoints (no auth required):**\n- GET `/api/vehicles` - List vehicles with filters\n- GET `/api/vehicles/:id` - Get vehicle by ID or VIN\n\n**Protected Endpoints (require authentication):**\n- POST `/api/vehicles` - Create vehicle (Admin only)\n- POST `/api/vehicles/sync/:vin` - Sync vehicle from Auto.dev API\n- POST `/api/vehicles/save-from-api` - Save vehicle from API to DB (e.g., on payment)\n- PUT `/api/vehicles/:id` - Update vehicle (Admin only)\n- DELETE `/api/vehicles/:id` - Delete vehicle (Admin only)\n\n**Caching:**\n- Redis cache with 12-hour TTL for API responses\n- Automatic price refresh for stale DB vehicles"
 		},
 		{
 			"name": "Addresses",
@@ -913,7 +918,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "payments", "init"]
 						},
-						"description": "Initiate a payment for an order. **Requires authentication.**\n\n**Request Headers:**\n- `Authorization: Bearer {accessToken}` (required)\n\n**Request Body:**\n- `orderId` (required): Order ID (MongoDB ObjectId)\n- `amountUsd` (required): Payment amount in USD\n- `provider` (required): Payment provider - \"stripe\", \"paystack\", or \"flutterwave\"\n- `paymentType` (required): Payment type - \"DEPOSIT\", \"FULL_PAYMENT\", \"BALANCE\", \"REFUND\", \"PARTIAL_REFUND\"\n\n**Response:**\n- Payment initialization result with provider-specific payment link/instructions\n\n**⚠️ IMPORTANT:** This route is **NOT currently registered** in `app.ts`. PaymentController exists but PaymentRoutes file is missing. Will return 404 until routes are created and registered."
+						"description": "Initiate a payment for an order. **Requires authentication.**\n\n**Request Headers:**\n- `Authorization: Bearer {accessToken}` (required)\n\n**Request Body:**\n- `orderId` (required): Order ID (MongoDB ObjectId)\n- `amountUsd` (required): Payment amount in USD (positive number)\n- `provider` (required): Payment provider - \"stripe\", \"paystack\", or \"flutterwave\"\n- `paymentType` (required): Payment type - \"DEPOSIT\", \"FULL_PAYMENT\", \"BALANCE\", \"REFUND\", \"PARTIAL_REFUND\"\n\n**Response:**\n- Payment initialization result with provider-specific payment link/instructions\n\n**Note:** Payment routes are registered and active. Requires valid JWT access token."
 					},
 					"response": []
 				},
@@ -940,7 +945,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "payments", "webhooks", "paystack"]
 						},
-						"description": "Paystack webhook endpoint for payment notifications. **No authentication required** (uses webhook signature).\n\n**Request Headers:**\n- `x-paystack-signature` (required): Webhook signature for verification\n\n**Request Body:**\n- `data.reference` (required): Payment reference from Paystack\n\n**Response:**\n- Success confirmation\n\n**⚠️ IMPORTANT:** This route is **NOT currently registered** in `app.ts`. PaymentController exists but PaymentRoutes file is missing. Will return 404 until routes are created and registered."
+						"description": "Paystack webhook endpoint for payment notifications. **No authentication required** (uses webhook signature).\n\n**Request Headers:**\n- `x-paystack-signature` (required): Webhook signature for verification\n\n**Request Body:**\n- `data.reference` (required): Payment reference from Paystack\n\n**Response:**\n- Success confirmation\n\n**Note:** Webhook endpoint is registered and active. Configure this URL in your Paystack dashboard webhook settings."
 					},
 					"response": []
 				},
@@ -967,12 +972,12 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "payments", "webhooks", "stripe"]
 						},
-						"description": "Stripe webhook endpoint for payment notifications. **No authentication required** (uses webhook signature).\n\n**Request Headers:**\n- `stripe-signature` (required): Webhook signature for verification\n\n**Request Body:**\n- `data.object.metadata.reference` (required): Payment reference from Stripe metadata\n\n**Response:**\n- Success confirmation\n\n**⚠️ IMPORTANT:** This route is **NOT currently registered** in `app.ts`. PaymentController exists but PaymentRoutes file is missing. Will return 404 until routes are created and registered."
+						"description": "Stripe webhook endpoint for payment notifications. **No authentication required** (uses webhook signature).\n\n**Request Headers:**\n- `stripe-signature` (required): Webhook signature for verification\n\n**Request Body:**\n- `data.object.metadata.reference` (required): Payment reference from Stripe metadata\n\n**Response:**\n- Success confirmation\n\n**Note:** Webhook endpoint is registered and active. Configure this URL in your Stripe dashboard webhook settings."
 					},
 					"response": []
 				}
 			],
-			"description": "Payment processing endpoints for orders.\n\n**Available Endpoints:**\n- Initiate payment (requires authentication)\n- Paystack webhook (no auth, uses signature)\n- Stripe webhook (no auth, uses signature)\n\n**Payment Providers:**\n- Stripe\n- Paystack\n- Flutterwave\n\n**Payment Types:**\n- DEPOSIT: Initial deposit payment\n- FULL_PAYMENT: Complete order payment\n- BALANCE: Remaining balance payment\n- REFUND: Full refund\n- PARTIAL_REFUND: Partial refund\n\n**⚠️ IMPORTANT:** Payment routes are **NOT currently registered** in `app.ts`. PaymentController exists in code but PaymentRoutes file is missing. These endpoints will return 404 until:\n1. Create `src/routes/PaymentRoutes.ts`\n2. Register routes in `app.ts` with `this.app.use('/api/payments', PaymentRoutes);`"
+			"description": "Payment processing endpoints for orders.\n\n**Available Endpoints:**\n- Initiate payment (requires authentication)\n- Paystack webhook (no auth, uses signature)\n- Stripe webhook (no auth, uses signature)\n\n**Payment Providers:**\n- Stripe\n- Paystack\n- Flutterwave\n\n**Payment Types:**\n- DEPOSIT: Initial deposit payment\n- FULL_PAYMENT: Complete order payment\n- BALANCE: Remaining balance payment\n- REFUND: Full refund\n- PARTIAL_REFUND: Partial refund\n\n**Note:** All payment routes are registered and active. Payment initiation requires authentication via JWT token."
 		}
 	],
 	"event": [

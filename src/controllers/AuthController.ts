@@ -78,7 +78,9 @@ export class AuthController {
     if (!email || !token) {
       return res.status(400).json(ApiError.badRequest('Email and token are required'))
     }
-    await this.authService.verifyUser(email, token);
+    // Ensure token is a number
+    const tokenNumber = typeof token === 'string' ? parseInt(token, 10) : Number(token);
+    await this.authService.verifyUser(email, tokenNumber);
 
     return res.json(new ApiResponse(200, null, 'Email verified successfully'));
   });

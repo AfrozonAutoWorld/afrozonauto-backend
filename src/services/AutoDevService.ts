@@ -28,6 +28,11 @@ export class AutoDevService {
     page?: number;
     limit?: number;
   }): Promise<AutoDevListing[]> {
+    if (!this.apiKey) {
+      loggers.warn('AUTO_DEV_API_KEY is not configured. Cannot fetch listings from Auto.dev API.');
+      throw new Error('Auto.dev API key is not configured');
+    }
+
     try {
       const params = new URLSearchParams();
       if (filters.make) params.append('vehicle.make', filters.make);
@@ -46,17 +51,24 @@ export class AutoDevService {
       });
 
       if (!response.ok) {
-        throw new Error(`Auto.dev API error: ${response.statusText}`);
+        const errorText = await response.text();
+        loggers.error(`Auto.dev API error (${response.status}): ${response.statusText}`, { 
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText.substring(0, 200)
+        });
+        throw new Error(`Auto.dev API error: ${response.statusText} (Status: ${response.status})`);
       }
 
       const data: AutoDevResponse<AutoDevListing[]> = await response.json();
       
       if (data.error) {
-        throw new Error(data.error.message);
+        loggers.error('Auto.dev API returned error:', data.error);
+        throw new Error(data.error.message || 'Auto.dev API error');
       }
 
       return data.data || [];
-    } catch (error) {
+    } catch (error: any) {
       loggers.error('Auto.dev fetchListings error:', error);
       throw error;
     }
