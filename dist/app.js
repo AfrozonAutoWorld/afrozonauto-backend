@@ -15,6 +15,7 @@ const AuthRoutes_1 = __importDefault(require("./routes/AuthRoutes"));
 const VehicleRoutes_1 = __importDefault(require("./routes/VehicleRoutes"));
 const helmet_1 = __importDefault(require("helmet"));
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
+const ProfileRoutes_1 = __importDefault(require("./routes/ProfileRoutes"));
 class App {
     constructor() {
         this.app = (0, express_1.default)();
@@ -56,7 +57,7 @@ class App {
             return res.send("welcome to Afrozon AutoGlobal");
         });
         // this.app.use('/api/users', UserRoutes);
-        // this.app.use('/api/profile', ProfileRoutes);
+        this.app.use('/api/profile', ProfileRoutes_1.default);
         this.app.use('/api/auth', AuthRoutes_1.default);
         this.app.use('/api/vehicles', VehicleRoutes_1.default);
         // 404 handler - catch all unmatched routes

@@ -10,6 +10,7 @@ export const TYPES = {
     GoogleAuthService: Symbol.for('GoogleAuthService'),
     ProfileRepository: Symbol.for('ProfileRepository'),
     ProfileService: Symbol.for('ProfileService'),
+    ProfileController: Symbol.for('ProfileController'),
     // utilities services
     MailService: Symbol.for('MailService'),
     TokenService: Symbol.for('TokenService'),

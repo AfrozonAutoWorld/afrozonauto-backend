@@ -11,6 +11,7 @@ import VehicleRoutes from './routes/VehicleRoutes';
 
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import ProfileRoutes from './routes/ProfileRoutes';
 
 class App {
   public app: express.Application;
@@ -63,7 +64,7 @@ class App {
     });
 
     // this.app.use('/api/users', UserRoutes);
-    // this.app.use('/api/profile', ProfileRoutes);
+    this.app.use('/api/profile', ProfileRoutes);
     this.app.use('/api/auth', AuthRoutes);
     this.app.use('/api/vehicles', VehicleRoutes);
 

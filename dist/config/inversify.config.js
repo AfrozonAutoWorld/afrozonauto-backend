@@ -33,6 +33,7 @@ const PaymentService_1 = require("../services/PaymentService");
 const PaymentRepository_1 = require("../repositories/PaymentRepository");
 const StripeProvider_1 = require("../services/StripeProvider");
 const PaystackProvider_1 = require("../services/PaystackProvider");
+const ProfileController_1 = require("../controllers/ProfileController");
 const container = new inversify_1.Container();
 exports.container = container;
 container.bind(types_1.TYPES.UserRepository).to(UserRepository_1.UserRepository);
@@ -44,6 +45,7 @@ container.bind(types_1.TYPES.AuthController).to(AuthController_1.AuthController)
 container.bind(types_1.TYPES.UserController).to(UserController_1.UserController);
 container.bind(types_1.TYPES.AddressController).to(AddressController_1.AddressController);
 container.bind(types_1.TYPES.ProfileService).to(ProfileService_1.ProfileService);
+container.bind(types_1.TYPES.ProfileController).to(ProfileController_1.ProfileController);
 container.bind(types_1.TYPES.AddressService).to(AddressService_1.AddressService);
 // Bind services
 container.bind(types_1.TYPES.Jtoken).to(Jtoken_1.default);

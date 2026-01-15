@@ -30,6 +30,7 @@ import { PaymentService } from '../services/PaymentService';
 import { PaymentRepository } from '../repositories/PaymentRepository';
 import { StripeProvider } from '../services/StripeProvider';
 import { PaystackProvider } from '../services/PaystackProvider';
+import { ProfileController } from '../controllers/ProfileController';
 
 
 
@@ -45,6 +46,7 @@ container.bind<AuthController>(TYPES.AuthController).to(AuthController);
 container.bind<UserController>(TYPES.UserController).to(UserController);
 container.bind<AddressController>(TYPES.AddressController).to(AddressController);
 container.bind<ProfileService>(TYPES.ProfileService).to(ProfileService);
+container.bind<ProfileController>(TYPES.ProfileController).to(ProfileController);
 container.bind<AddressService>(TYPES.AddressService).to(AddressService);
 // Bind services
 container.bind<Jtoken>(TYPES.Jtoken).to(Jtoken);
