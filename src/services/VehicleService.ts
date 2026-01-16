@@ -321,33 +321,56 @@ export class VehicleService {
    * Vehicle is saved to DB only when payment is initiated
    */
   async getVehicleById(id: string, vin?: string): Promise<Vehicle> {
-    // Try DB first
-    let vehicle = await this.vehicleRepo.findById(id);
+    // Check if ID is a temporary ID (starts with "temp-")
+    const isTemporaryId = id.startsWith('temp-');
+    let extractedVin: string | undefined;
     
-    // If found in DB, check if price needs refresh
-    if (vehicle && this.isPriceStale(vehicle)) {
-      const refreshed = await this.refreshVehiclePrice(vehicle);
-      if (refreshed) {
-        vehicle = refreshed;
+    if (isTemporaryId) {
+      // Extract VIN from temporary ID (format: "temp-{VIN}")
+      extractedVin = id.replace(/^temp-/, '');
+      // Skip DB lookup for temporary IDs
+    } else {
+      // Try DB first for real MongoDB ObjectIDs
+      let vehicle = await this.vehicleRepo.findById(id);
+      
+      // If found in DB, check if price needs refresh
+      if (vehicle && this.isPriceStale(vehicle)) {
+        const refreshed = await this.refreshVehiclePrice(vehicle);
+        if (refreshed) {
+          vehicle = refreshed;
+        }
+      }
+      
+      if (vehicle) {
+        // Increment view count asynchronously
+        this.vehicleRepo.incrementViewCount(vehicle.id).catch((err) => {
+          loggers.error('Failed to increment view count:', err);
+        });
+        return vehicle;
       }
     }
     
-    // If not found, try cache, then API (but don't save to DB)
-    if (!vehicle && vin) {
+    // Use extracted VIN from temporary ID, or fall back to provided vin parameter
+    const vinToUse = extractedVin || vin;
+    
+    // If not found in DB (or temporary ID), try cache, then API (but don't save to DB)
+    let vehicle: Vehicle | null = null;
+    
+    if (vinToUse) {
       // Check Redis cache first
-      const cacheKey = RedisCacheService.getVehicleByVINKey(vin);
+      const cacheKey = RedisCacheService.getVehicleByVINKey(vinToUse);
       const cachedVehicle = await this.cache.get<any>(cacheKey);
       
       if (cachedVehicle) {
-        loggers.info(`Using cached vehicle data for VIN: ${vin}`);
+        loggers.info(`Using cached vehicle data for VIN: ${vinToUse}`);
         vehicle = cachedVehicle as Vehicle;
       } else {
         // Fetch from Auto.dev API and cache it (don't save to DB)
         try {
           const [listing, photos, specs] = await Promise.all([
-            this.autoDevService.fetchListingByVIN(vin),
-            this.autoDevService.fetchPhotos(vin),
-            this.autoDevService.fetchSpecifications(vin),
+            this.autoDevService.fetchListingByVIN(vinToUse),
+            this.autoDevService.fetchPhotos(vinToUse),
+            this.autoDevService.fetchSpecifications(vinToUse),
           ]);
 
           if (listing) {
@@ -361,16 +384,16 @@ export class VehicleService {
               isTemporary: true,
             };
             vehicleData.apiSyncStatus = 'PENDING';
-            vehicleData.id = `temp-${vin}`;
+            vehicleData.id = `temp-${vinToUse}`;
             
             // Cache the vehicle data (12hr TTL)
             await this.cache.set(cacheKey, vehicleData);
-            loggers.info(`Cached vehicle data for VIN: ${vin}`);
+            loggers.info(`Cached vehicle data for VIN: ${vinToUse}`);
             
             vehicle = vehicleData as Vehicle;
           }
         } catch (error) {
-          loggers.warn(`Failed to fetch vehicle ${vin} from Auto.dev:`, error);
+          loggers.warn(`Failed to fetch vehicle ${vinToUse} from Auto.dev:`, error);
         }
       }
     }
