@@ -38,7 +38,11 @@ export class AddressController {
     if (!req.user) {
       return res.status(401).json( ApiError.unauthorized('User not authenticated'))
     }
-    const addresses = await this.addressService.getUserAddresses(req.user.id);
+    const profileId = req.user.profile?.id;
+    if(!profileId){
+      return res.status(400).json( ApiError.badRequest('Kindly create your profile')) 
+    }
+    const addresses = await this.addressService.getUserAddresses(profileId);
     return res.json(new ApiResponse(200, addresses, 'User addresses retrieved successfully'));
   });
 
@@ -47,20 +51,13 @@ export class AddressController {
     if (!req.user) {
       return res.status(401).json( ApiError.unauthorized('User not authenticated'))
     }
-    const { error, value } = createAddressSchema.validate(req.query);
-
-    if (error) {
-      return res.status(400).json(ApiError.badRequest(
-        'Invalid query parameters',
-        error.details.map(d => ({
-          field: d.path.join('.'),
-          message: d.message
-        }))
-      ));
+    const profileId = req.user.profile?.id;
+    if(!profileId){
+      return res.status(400).json( ApiError.badRequest('Kindly create your profile')) 
     }
 
-    const type = value.type as AddressType || AddressType.NORMAL;
-    const address = await this.addressService.getDefaultAddress(req.user.id, type);
+    const type = req.body?.type as AddressType || AddressType.NORMAL;
+    const address = await this.addressService.getDefaultAddress(profileId, type);
 
     if (!address) {
       return res.status(404).json(ApiError.notFound(
@@ -72,8 +69,7 @@ export class AddressController {
         }
       ));
     }
-
-    res.json(new ApiResponse(200, address, 'Default address retrieved successfully'));
+    return res.json(new ApiResponse(200, address, 'Default address retrieved successfully'));
   });
 
   updateAddress = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
@@ -87,11 +83,9 @@ export class AddressController {
 
   deleteAddress = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const deleted = await this.addressService.deleteAddress(req.params.id);
-
     if (!deleted) {
       return res.status(404).json(ApiError.notFound('Address not found'));
     }
-
-    res.json(new ApiResponse(200, { deleted }, 'Address deleted successfully'));
+    return res.json(new ApiResponse(200, { deleted }, 'Address deleted successfully'));
   });
 }
