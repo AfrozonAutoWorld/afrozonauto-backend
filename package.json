@@ -25,6 +25,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.0.0",
     "@types/nodemailer": "^7.0.4",
+    "@upstash/redis": "^1.36.1",
     "apple-signin-auth": "^2.0.0",
     "axios": "^1.13.2",
     "bcrypt": "^6.0.0",

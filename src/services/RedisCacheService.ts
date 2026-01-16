@@ -1,7 +1,7 @@
 import { injectable } from 'inversify';
-import Redis from 'ioredis';
+import { Redis } from '@upstash/redis';
 import loggers from '../utils/loggers';
-import { REDIS_URL, REDIS_CACHE_TTL_HOURS } from '../secrets';
+import { REDIS_CACHE_TTL_HOURS, UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN } from '../secrets';
 
 @injectable()
 export class RedisCacheService {
@@ -10,53 +10,39 @@ export class RedisCacheService {
   private isDisabled: boolean = false;
 
   constructor() {
-    this.defaultTTL = REDIS_CACHE_TTL_HOURS ? parseInt(REDIS_CACHE_TTL_HOURS, 10) * 3600 : 12 * 3600; // Default 12 hours in seconds
-
-    if (REDIS_URL) {
+    this.defaultTTL = REDIS_CACHE_TTL_HOURS ? parseInt(REDIS_CACHE_TTL_HOURS, 10) * 3600 : 12 * 3600;
+  
+    if (UPSTASH_REDIS_REST_URL && UPSTASH_REDIS_REST_TOKEN) {
       try {
-
-
-        this.client = new Redis(REDIS_URL, {
-          retryStrategy: (times) => {
-            if (times > 5) {
-              this.disableRedis('Max connection attempts reached');
-              return null; // Stop retrying
-            }
-            const delay = Math.min(times * 100, 5000);
-            return delay;
-          },
-          maxRetriesPerRequest: 1,
-          enableReadyCheck: true,
-          lazyConnect: true,
-          connectTimeout: 10000,
-          keepAlive: 30000,
+        loggers.info('Initializing Upstash Redis client');
+        
+        this.client = new Redis({
+          url: UPSTASH_REDIS_REST_URL,
+          token: UPSTASH_REDIS_REST_TOKEN,
         });
 
-        this.client.on('ready', () => {
-          loggers.info('Redis client ready');
-          this.isDisabled = false;
-        });
-
-        this.client.on('error', (err: any) => {
-          loggers.error('Redis client error:', {
-            code: err.code || 'UNKNOWN',
-            message: err.message,
-          });
-          // Don't disable on every error, just log it
-        });
-
-        // Connect lazily
-        this.client.connect().catch((err) => {
-          loggers.error('Failed to connect to Redis:', err.message);
-          this.disableRedis(`Failed to connect: ${err.message}`);
-        });
+        // Test the connection
+        this.testConnection();
       } catch (error) {
-        loggers.error('Failed to initialize Redis client:', error);
+        loggers.error('Failed to initialize Upstash Redis client:', error);
         this.isDisabled = true;
       }
     } else {
-      loggers.warn('REDIS_URL not configured, caching disabled');
+      loggers.warn('Upstash Redis credentials not provided. Caching will be disabled.');
       this.isDisabled = true;
+    }
+  }
+
+  /**
+   * Test Redis connection
+   */
+  private async testConnection(): Promise<void> {
+    try {
+      await this.client?.ping();
+      loggers.info('Upstash Redis connection successful');
+    } catch (error) {
+      loggers.error('Upstash Redis connection test failed:', error);
+      this.disableRedis('Connection test failed');
     }
   }
 
@@ -67,14 +53,7 @@ export class RedisCacheService {
     if (!this.isDisabled) {
       this.isDisabled = true;
       loggers.warn(`Redis disabled: ${reason}. Caching will be unavailable.`);
-      if (this.client) {
-        try {
-          this.client.disconnect();
-        } catch (err) {
-          // Ignore disconnect errors
-        }
-        this.client = null;
-      }
+      this.client = null;
     }
   }
 
@@ -82,16 +61,22 @@ export class RedisCacheService {
    * Get cached value by key
    */
   async get<T>(key: string): Promise<T | null> {
-    if (this.isDisabled || !this.client || !this.isConnected()) {
+    if (this.isDisabled || !this.client) {
       return null;
     }
 
     try {
       const value = await this.client.get(key);
-      if (!value) {
+      if (value === null || value === undefined) {
         return null;
       }
-      return JSON.parse(value) as T;
+      
+      // Try to parse JSON, otherwise return as-is
+      try {
+        return typeof value === 'string' ? JSON.parse(value) : value as T;
+      } catch {
+        return value as T;
+      }
     } catch (error) {
       loggers.error(`Redis get error for key ${key}:`, error);
       return null;
@@ -102,14 +87,15 @@ export class RedisCacheService {
    * Set cached value with TTL
    */
   async set(key: string, value: any, ttlSeconds?: number): Promise<boolean> {
-    if (this.isDisabled || !this.client || !this.isConnected()) {
+    if (this.isDisabled || !this.client) {
       return false;
     }
 
     try {
       const ttl = ttlSeconds || this.defaultTTL;
-      const serialized = JSON.stringify(value);
-      await this.client.setex(key, ttl, serialized);
+      const serialized = typeof value === 'string' ? value : JSON.stringify(value);
+      
+      await this.client.set(key, serialized, { ex: ttl });
       return true;
     } catch (error) {
       loggers.error(`Redis set error for key ${key}:`, error);
@@ -121,7 +107,7 @@ export class RedisCacheService {
    * Delete cached value
    */
   async delete(key: string): Promise<boolean> {
-    if (this.isDisabled || !this.client || !this.isConnected()) {
+    if (this.isDisabled || !this.client) {
       return false;
     }
 
@@ -138,7 +124,7 @@ export class RedisCacheService {
    * Delete multiple keys by pattern
    */
   async deleteByPattern(pattern: string): Promise<number> {
-    if (this.isDisabled || !this.client || !this.isConnected()) {
+    if (this.isDisabled || !this.client) {
       return 0;
     }
 
@@ -147,7 +133,8 @@ export class RedisCacheService {
       if (keys.length === 0) {
         return 0;
       }
-      return await this.client.del(...keys);
+      const result = await this.client.del(...keys);
+      return result;
     } catch (error) {
       loggers.error(`Redis deleteByPattern error for pattern ${pattern}:`, error);
       return 0;
@@ -158,7 +145,7 @@ export class RedisCacheService {
    * Check if key exists
    */
   async exists(key: string): Promise<boolean> {
-    if (this.isDisabled || !this.client || !this.isConnected()) {
+    if (this.isDisabled || !this.client) {
       return false;
     }
 
@@ -175,7 +162,7 @@ export class RedisCacheService {
    * Get remaining TTL for a key
    */
   async getTTL(key: string): Promise<number> {
-    if (this.isDisabled || !this.client || !this.isConnected()) {
+    if (this.isDisabled || !this.client) {
       return -1;
     }
 
@@ -191,7 +178,24 @@ export class RedisCacheService {
    * Check if Redis is connected
    */
   public isConnected(): boolean {
-    return !this.isDisabled && this.client !== null && this.client?.status === 'ready';
+    return !this.isDisabled && this.client !== null;
+  }
+
+  /**
+   * Ping Redis to check connection
+   */
+  async ping(): Promise<boolean> {
+    if (this.isDisabled || !this.client) {
+      return false;
+    }
+
+    try {
+      const result = await this.client.ping();
+      return result === 'PONG';
+    } catch (error) {
+      loggers.error('Redis ping error:', error);
+      return false;
+    }
   }
 
   /**
@@ -214,5 +218,149 @@ export class RedisCacheService {
    */
   static getVehicleByIdKey(id: string): string {
     return `vehicle:id:${id}`;
+  }
+
+  /**
+   * Flush all keys (use with caution)
+   */
+  async flushAll(): Promise<boolean> {
+    if (this.isDisabled || !this.client) {
+      return false;
+    }
+
+    try {
+      await this.client.flushdb();
+      loggers.info('Redis cache flushed');
+      return true;
+    } catch (error) {
+      loggers.error('Redis flushAll error:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get multiple keys at once
+   */
+  async mget<T>(keys: string[]): Promise<(T | null)[]> {
+    if (this.isDisabled || !this.client || keys.length === 0) {
+      return [];
+    }
+
+    try {
+      const values = await this.client.mget(...keys);
+      return values.map(v => {
+        if (v === null || v === undefined) return null;
+        try {
+          return typeof v === 'string' ? JSON.parse(v) : v as T;
+        } catch {
+          return v as T;
+        }
+      });
+    } catch (error) {
+      loggers.error('Redis mget error:', error);
+      return keys.map(() => null);
+    }
+  }
+
+  /**
+   * Set multiple keys at once
+   * Upstash Redis accepts: mset({ key1: 'value1', key2: 'value2' })
+   */
+  async mset(keyValuePairs: Record<string, any>): Promise<boolean> {
+    if (this.isDisabled || !this.client) {
+      return false;
+    }
+
+    try {
+      // Serialize all values
+      const serializedPairs: Record<string, string> = {};
+      Object.entries(keyValuePairs).forEach(([key, value]) => {
+        serializedPairs[key] = typeof value === 'string' ? value : JSON.stringify(value);
+      });
+      
+      // Pass as a single object
+      await this.client.mset(serializedPairs);
+      return true;
+    } catch (error) {
+      loggers.error('Redis mset error:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Increment a counter
+   */
+  async increment(key: string, by: number = 1): Promise<number> {
+    if (this.isDisabled || !this.client) {
+      return 0;
+    }
+
+    try {
+      if (by === 1) {
+        return await this.client.incr(key);
+      } else {
+        return await this.client.incrby(key, by);
+      }
+    } catch (error) {
+      loggers.error(`Redis increment error for key ${key}:`, error);
+      return 0;
+    }
+  }
+
+  /**
+   * Decrement a counter
+   */
+  async decrement(key: string, by: number = 1): Promise<number> {
+    if (this.isDisabled || !this.client) {
+      return 0;
+    }
+
+    try {
+      if (by === 1) {
+        return await this.client.decr(key);
+      } else {
+        return await this.client.decrby(key, by);
+      }
+    } catch (error) {
+      loggers.error(`Redis decrement error for key ${key}:`, error);
+      return 0;
+    }
+  }
+
+  /**
+   * Set key with expiry only if it doesn't exist (NX option)
+   */
+  async setnx(key: string, value: any, ttlSeconds?: number): Promise<boolean> {
+    if (this.isDisabled || !this.client) {
+      return false;
+    }
+
+    try {
+      const ttl = ttlSeconds || this.defaultTTL;
+      const serialized = typeof value === 'string' ? value : JSON.stringify(value);
+      
+      // NX = Only set if key doesn't exist
+      const result = await this.client.set(key, serialized, { ex: ttl, nx: true });
+      return result === 'OK';
+    } catch (error) {
+      loggers.error(`Redis setnx error for key ${key}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Get all keys matching pattern
+   */
+  async keys(pattern: string): Promise<string[]> {
+    if (this.isDisabled || !this.client) {
+      return [];
+    }
+
+    try {
+      return await this.client.keys(pattern);
+    } catch (error) {
+      loggers.error(`Redis keys error for pattern ${pattern}:`, error);
+      return [];
+    }
   }
 }
