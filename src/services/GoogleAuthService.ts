@@ -30,7 +30,7 @@ export class GoogleAuthService {
   ) {
     // Only initialize Passport if Google OAuth is configured
     if (this.isConfigured()) {
-      this.initializePassport();
+    this.initializePassport();
     } else {
       loggers.warn('Google authentication environment variables are missing. Google Sign-In will be disabled.');
     }

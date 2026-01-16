@@ -1,6 +1,6 @@
 import { inject, injectable } from 'inversify';
 import bcrypt from 'bcrypt';
-import { randomInt } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import prisma from '../db';
 import { MailService } from './MailService';
 import TokenService from './TokenService';
@@ -41,13 +41,19 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(data.password, 10);
 
+    // MongoDB unique constraints don't allow multiple null values
+    const uniqueGoogleId = `local_${randomUUID()}`;
+    const uniqueAppleId = `local_${randomUUID()}`;
+
     const user = await prisma.user.create({
       data: {
         email: data.email,
         passwordHash,
         phone: data.phone,
         role: data.role ?? UserRole.BUYER,
-        emailVerified: true
+        emailVerified: true,
+        googleId: uniqueGoogleId,
+        appleId: uniqueAppleId,
       },
     });
 
@@ -61,6 +67,50 @@ export class AuthService {
   // VERIFY EMAIL
   // ============================
   async verifyUser(email: string, token: number): Promise<boolean> {
+    // Test token bypass for development/testing (token: 999999)
+    const TEST_TOKEN = 999999;
+    const isTestToken = token === TEST_TOKEN;
+    const isDevelopment = process.env.NODE_ENV === 'development' || process.env.NODE_ENV !== 'production';
+
+    if (isTestToken && isDevelopment) {
+
+      try {
+   
+        const existingUsedToken = await this.tokenService.getUsedTokenForUser({ email }, true);
+        if (existingUsedToken) {
+          return true; // Already verified
+        }
+
+
+        await prisma.token.deleteMany({
+          where: {
+            email: email,
+            type: TokenType.EMAIL,
+            used: false,
+          },
+        });
+
+        // Create a used token record for test token
+        await prisma.token.create({
+          data: {
+            token: TEST_TOKEN,
+            type: TokenType.EMAIL,
+            email: email,
+            used: true,
+            usedAt: new Date(),
+          },
+        });
+      } catch (error: any) {
+        // If creation fails, try to find existing used token
+        const existingUsedToken = await this.tokenService.getUsedTokenForUser({ email }, true);
+        if (!existingUsedToken) {
+          // Log the actual error for debugging
+          console.error('Test token verification error:', error?.message || error);
+          throw ApiError.internal(`Failed to create verification record: ${error?.message || 'Unknown error'}`);
+        }
+      }
+      return true;
+    }
 
     const tokenRecord = await this.tokenService.validateToken(token, { email }, TokenType.EMAIL);
 

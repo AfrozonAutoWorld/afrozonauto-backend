@@ -14,7 +14,13 @@ export const TokenValidationSchema = Joi.object({
 });
 export const userVerifySchema = Joi.object({
   email: Joi.string().email().required(),
-  token: Joi.string().required(),
+  token: Joi.alternatives().try(
+    Joi.number().integer().positive(),
+    Joi.string().pattern(/^\d+$/).required()
+  ).required().custom((value) => {
+    // Convert string to number if needed
+    return typeof value === 'string' ? parseInt(value, 10) : value;
+  }),
 });
 
 

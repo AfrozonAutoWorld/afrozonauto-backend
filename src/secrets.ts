@@ -51,5 +51,3 @@ export const AUTO_DEV_BASE_URL = process.env.AUTO_DEV_BASE_URL || 'https://api.a
 export const TOKEN_EXPIRY_MINUTES = process.env.TOKEN_EXPIRY_MINUTES!;
 export const REDIS_URL = process.env.REDIS_URL || '';
 export const REDIS_CACHE_TTL_HOURS = process.env.REDIS_CACHE_TTL_HOURS || '12'; // Default 12 hours
-export const UPSTASH_REDIS_REST_URL = process.env.UPSTASH_REDIS_REST_URL || '';
-export const UPSTASH_REDIS_REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';

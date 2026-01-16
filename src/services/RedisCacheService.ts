@@ -7,47 +7,74 @@ import { REDIS_URL, REDIS_CACHE_TTL_HOURS } from '../secrets';
 export class RedisCacheService {
   private client: Redis | null = null;
   private readonly defaultTTL: number;
+  private isDisabled: boolean = false;
 
   constructor() {
     this.defaultTTL = REDIS_CACHE_TTL_HOURS ? parseInt(REDIS_CACHE_TTL_HOURS, 10) * 3600 : 12 * 3600; // Default 12 hours in seconds
-    
+
     if (REDIS_URL) {
       try {
+
+
         this.client = new Redis(REDIS_URL, {
           retryStrategy: (times) => {
-            const delay = Math.min(times * 50, 2000);
+            if (times > 5) {
+              this.disableRedis('Max connection attempts reached');
+              return null; // Stop retrying
+            }
+            const delay = Math.min(times * 100, 5000);
             return delay;
           },
-          maxRetriesPerRequest: 3,
+          maxRetriesPerRequest: 1,
           enableReadyCheck: true,
           lazyConnect: true,
-        });
-
-        this.client.on('connect', () => {
-          loggers.info('Redis client connecting...');
+          connectTimeout: 10000,
+          keepAlive: 30000,
         });
 
         this.client.on('ready', () => {
           loggers.info('Redis client ready');
+          this.isDisabled = false;
         });
 
-        this.client.on('error', (err) => {
-          loggers.error('Redis client error:', err);
-        });
-
-        this.client.on('close', () => {
-          loggers.warn('Redis client connection closed');
+        this.client.on('error', (err: any) => {
+          loggers.error('Redis client error:', {
+            code: err.code || 'UNKNOWN',
+            message: err.message,
+          });
+          // Don't disable on every error, just log it
         });
 
         // Connect lazily
         this.client.connect().catch((err) => {
-          loggers.error('Failed to connect to Redis:', err);
+          loggers.error('Failed to connect to Redis:', err.message);
+          this.disableRedis(`Failed to connect: ${err.message}`);
         });
       } catch (error) {
         loggers.error('Failed to initialize Redis client:', error);
+        this.isDisabled = true;
       }
     } else {
       loggers.warn('REDIS_URL not configured, caching disabled');
+      this.isDisabled = true;
+    }
+  }
+
+  /**
+   * Disable Redis gracefully after repeated failures
+   */
+  private disableRedis(reason: string): void {
+    if (!this.isDisabled) {
+      this.isDisabled = true;
+      loggers.warn(`Redis disabled: ${reason}. Caching will be unavailable.`);
+      if (this.client) {
+        try {
+          this.client.disconnect();
+        } catch (err) {
+          // Ignore disconnect errors
+        }
+        this.client = null;
+      }
     }
   }
 
@@ -55,7 +82,7 @@ export class RedisCacheService {
    * Get cached value by key
    */
   async get<T>(key: string): Promise<T | null> {
-    if (!this.client || !this.isConnected()) {
+    if (this.isDisabled || !this.client || !this.isConnected()) {
       return null;
     }
 
@@ -75,7 +102,7 @@ export class RedisCacheService {
    * Set cached value with TTL
    */
   async set(key: string, value: any, ttlSeconds?: number): Promise<boolean> {
-    if (!this.client || !this.isConnected()) {
+    if (this.isDisabled || !this.client || !this.isConnected()) {
       return false;
     }
 
@@ -94,7 +121,7 @@ export class RedisCacheService {
    * Delete cached value
    */
   async delete(key: string): Promise<boolean> {
-    if (!this.client || !this.isConnected()) {
+    if (this.isDisabled || !this.client || !this.isConnected()) {
       return false;
     }
 
@@ -111,7 +138,7 @@ export class RedisCacheService {
    * Delete multiple keys by pattern
    */
   async deleteByPattern(pattern: string): Promise<number> {
-    if (!this.client || !this.isConnected()) {
+    if (this.isDisabled || !this.client || !this.isConnected()) {
       return 0;
     }
 
@@ -131,7 +158,7 @@ export class RedisCacheService {
    * Check if key exists
    */
   async exists(key: string): Promise<boolean> {
-    if (!this.client || !this.isConnected()) {
+    if (this.isDisabled || !this.client || !this.isConnected()) {
       return false;
     }
 
@@ -148,7 +175,7 @@ export class RedisCacheService {
    * Get remaining TTL for a key
    */
   async getTTL(key: string): Promise<number> {
-    if (!this.client || !this.isConnected()) {
+    if (this.isDisabled || !this.client || !this.isConnected()) {
       return -1;
     }
 
@@ -163,19 +190,8 @@ export class RedisCacheService {
   /**
    * Check if Redis is connected
    */
-  private isConnected(): boolean {
-    return this.client?.status === 'ready';
-  }
-
-  /**
-   * Close Redis connection
-   */
-  async disconnect(): Promise<void> {
-    if (this.client) {
-      await this.client.quit();
-      this.client = null;
-      loggers.info('Redis client disconnected');
-    }
+  public isConnected(): boolean {
+    return !this.isDisabled && this.client !== null && this.client?.status === 'ready';
   }
 
   /**
@@ -200,4 +216,3 @@ export class RedisCacheService {
     return `vehicle:id:${id}`;
   }
 }
-
