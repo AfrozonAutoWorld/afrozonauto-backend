@@ -15,48 +15,48 @@ export class UserController {
     const { email } = req.params;
     
     if (!email) {
-      throw ApiError.badRequest('Email parameter is required');
+      return res.status(400).json( ApiError.badRequest('Email parameter is required'))
     }
 
     const user = await this.userService.getUserByEmail(email);
     
     if (!user) {
-      throw ApiError.notFound('User not found');
+      return res.status(404).json( ApiError.notFound('User not found'))
     }
     
-    res.json(new ApiResponse(200, user, 'User retrieved successfully'));
+    return res.status(200).json( ApiResponse.success( user, 'User retrieved successfully'));
   });
 
   verifyUser = asyncHandler(async (req: Request, res: Response) => {
     const { userId } = req.params;
     
     if (!userId) {
-      throw ApiError.badRequest('User ID parameter is required');
+      return res.status(400).json( ApiError.badRequest('User ID parameter is required'))
     }
 
     const result = await this.userService.getUserById(userId);
     
     if (!result) {
-      throw ApiError.internal('Verification failed');
+      return res.status(500).json( ApiError.internal('Verification failed'))
     }
     
-    res.json(new ApiResponse(200, { verified: true }, 'User verified successfully'));
+    return res.json(new ApiResponse(200, { verified: true }, 'User verified successfully'));
   });
 
   deactivateAccount = asyncHandler(async (req: Request, res: Response) => {
     const { userId } = req.params;
     
     if (!userId) {
-      throw ApiError.badRequest('User ID parameter is required');
+      return res.status(404).json( ApiError.badRequest('User ID parameter is required'))
     }
 
     const result = await this.userService.deleteUser(userId);
     
     if (!result) {
-      throw ApiError.internal('Deactivation failed');
+      return res.status(500).json( ApiError.internal('Deactivation failed'))
     }
     
-    res.json(new ApiResponse(200, { deactivated: true }, 'Account deactivated successfully'));
+    return res.json( ApiResponse.success({ deactivated: true }, 'Account deactivated successfully'));
   });
 
   updatePassword = asyncHandler(async (req: Request, res: Response) => {
@@ -64,24 +64,24 @@ export class UserController {
     const { newPassword } = req.body;
     
     if (!userId) {
-      throw ApiError.badRequest('User ID parameter is required');
+      return res.status(404).json( ApiError.badRequest('User ID parameter is required'))
     }
 
     if (!newPassword) {
-      throw ApiError.badRequest('New password is required');
+      return res.status(400).json( ApiError.badRequest('New password is required'))
     }
 
     if (newPassword.length < 6) {
-      throw ApiError.badRequest('Password must be at least 6 characters long');
+      return res.status(400).json( ApiError.badRequest('Password must be at least 6 characters long'))
     }
 
     const result = await this.userService.updateUserPassword(userId, newPassword);
     
     if (!result) {
-      throw ApiError.internal('Password update failed');
+      return res.status(500).json( ApiError.internal('Password update failed'))
     }
     
-    res.json(new ApiResponse(200, { updated: true }, 'Password updated successfully'));
+    return res.json(new ApiResponse(200, { updated: true }, 'Password updated successfully'));
   });
 
 

@@ -72,7 +72,7 @@ export class VehicleController {
     const vin = req.query.vin as string;
     
     const vehicle = await this.vehicleService.getVehicleById(id, vin);
-    res.json(ApiResponse.success(vehicle, 'Vehicle retrieved successfully'));
+    return res.json(ApiResponse.success(vehicle, 'Vehicle retrieved successfully'));
   });
 
   /**
@@ -89,7 +89,7 @@ export class VehicleController {
       req.user?.id
     );
 
-    res.status(201).json(
+    return res.status(201).json(
       ApiResponse.created(vehicle, 'Vehicle created successfully')
     );
   });
@@ -106,7 +106,7 @@ export class VehicleController {
     }
 
     const vehicle = await this.vehicleService.syncFromAutoDev(vin);
-    res.json(ApiResponse.success(vehicle, 'Vehicle synced successfully'));
+    return res.json(ApiResponse.success(vehicle, 'Vehicle synced successfully'));
   });
 
   /**
@@ -132,7 +132,7 @@ export class VehicleController {
     }
     const { id } = req.params;
     await this.vehicleService.deleteVehicle(id);
-    res.json(ApiResponse.success(null, 'Vehicle deleted successfully'));
+    return res.json(ApiResponse.success(null, 'Vehicle deleted successfully'));
   });
 
   /**
@@ -154,7 +154,7 @@ export class VehicleController {
       specs
     );
 
-    res.status(201).json(
+    return res.status(201).json(
       ApiResponse.created(vehicle, 'Vehicle saved from API successfully')
     );
   });

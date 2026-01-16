@@ -1,5 +1,6 @@
 import Joi from 'joi';
 import { UserRole } from '../../generated/prisma/client';
+import { fileInfoSchema } from './files.validation';
 
 
 export const loginSchema = Joi.object({
@@ -36,8 +37,70 @@ export const createUserSchema = Joi.object({
 
 
 export const updateProfileSchema = Joi.object({
-    avatar: Joi.string().optional(),
-    businessName: Joi.string().optional(),
-    taxId: Joi.string().optional(),
-    isVerified: Joi.boolean().optional(),
-});  
+
+  uploadedFiles: Joi.array()
+    .items(fileInfoSchema)
+    .optional(),
+
+  avatar: Joi.string()
+    .uri()
+    .optional(),
+
+  // =========================
+  // Personal Information
+  // =========================
+  firstName: Joi.string()
+    .trim()
+    .min(2)
+    .max(50)
+    .optional(),
+
+  lastName: Joi.string()
+    .trim()
+    .min(2)
+    .max(50)
+    .optional(),
+
+  dateOfBirth: Joi.date()
+    .less('now')
+    .optional(),
+
+  // =========================
+  // KYC / Identification
+  // =========================
+  identificationNumber: Joi.string()
+    .trim()
+    .min(5)
+    .max(50)
+    .optional(),
+
+  identificationType: Joi.string()
+    .valid(
+      'passport',
+      'national_id',
+      'drivers_license',
+      'voters_card'
+    )
+    .optional(),
+
+  identificationDocument: Joi.string()
+    .uri()
+    .optional(),
+
+  // =========================
+  // Business Information
+  // =========================
+  businessName: Joi.string()
+    .trim()
+    .min(2)
+    .max(100)
+    .optional(),
+
+  taxId: Joi.string()
+    .trim()
+    .min(5)
+    .max(50)
+    .optional(),
+})
+  .min(1)          // Must update at least one field
+  .unknown(false); // Reject unknown fields

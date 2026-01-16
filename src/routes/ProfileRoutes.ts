@@ -8,12 +8,14 @@ import {
     TokenValidationSchema,
     forgotSchema,
     loginSchema,
-    userVerifySchema
+    userVerifySchema,
+    updateProfileSchema
 } from '../validation/schema/user.vallidation';
 import { uploadToCloudinary } from '../middleware/cloudinaryUploads';
 import { upload } from '../config/multer.config';
-import { authenticate } from '../middleware/authMiddleware';
+import { authenticate, authorize } from '../middleware/authMiddleware';
 import { ProfileController } from '../controllers/ProfileController';
+import { UserRole } from '../generated/prisma/enums';
 
 class ProfileRoutes {
     private router = Router();
@@ -44,6 +46,7 @@ class ProfileRoutes {
             authenticate,
             upload.array('files', 5),
             uploadToCloudinary,
+            validateBody(updateProfileSchema),
             this.controller.update
         );
 
@@ -51,6 +54,7 @@ class ProfileRoutes {
         this.router.delete(
             '/:id',
             authenticate,
+            authorize([UserRole.OPERATIONS_ADMIN, UserRole.SUPER_ADMIN]),
             this.controller.delete
         );
 
@@ -58,6 +62,7 @@ class ProfileRoutes {
         this.router.get(
             '/',
             authenticate,
+            authorize([UserRole.OPERATIONS_ADMIN, UserRole.SUPER_ADMIN]),
             this.controller.list
         );
 

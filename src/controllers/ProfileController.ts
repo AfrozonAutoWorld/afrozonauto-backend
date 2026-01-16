@@ -4,7 +4,6 @@ import { ProfileService } from '../services/ProfileService';
 import { TYPES } from '../config/types';
 import { AuthenticatedRequest } from '../types/customRequest';
 import { UserService } from '../services/UserService';
-
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiResponse } from '../utils/ApiResponse';
 import { ApiError } from '../utils/ApiError';
@@ -20,7 +19,9 @@ export class ProfileController {
   create = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { uploadedFiles, ...data } = req.body;
     if (!req.user) {
-      throw ApiError.unauthorized('User not authenticated');
+      return res.status(401).json(
+        ApiError.unauthorized('User not authenticated')
+      )
     }
     const userId = req.user.id;
     const uploadedFilex = req.body.uploadedFiles || [];
@@ -34,18 +35,18 @@ export class ProfileController {
 
   getById = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const result = await this.profileService.findById(req.params.id);
-
     if (!result) {
       return res.status(404).json(ApiError.notFound('Profile not found'));
     }
-
     return res.json(new ApiResponse(200, result, 'Profile retrieved successfully'));
   });
 
   update = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { uploadedFiles, phoneNumber, ...data } = req.body;
     if (!req.user) {
-      throw ApiError.unauthorized('User not authenticated');
+      return res.status(401).json(
+        ApiError.unauthorized('User not authenticated')
+      )
     }
     const userId = req.user.id;
     const uploadedFilex = req.body.uploadedFiles || [];
@@ -83,7 +84,9 @@ export class ProfileController {
 
   currentUserProfile = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     if (!req.user) {
-      throw ApiError.unauthorized('User not authenticated');
+      return res.status(401).json(
+        ApiError.unauthorized('User not authenticated')
+      )
     }
     const userId = req.user.id;
     const [profiles] = await Promise.all([
@@ -95,44 +98,53 @@ export class ProfileController {
 
   resetPassword = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { oldPassword, newPassword } = req.body;
-  
+
     if (!req.user) {
-      throw ApiError.unauthorized('User not authenticated');
+      return res.status(401).json(
+        ApiError.unauthorized('User not authenticated')
+      )
     }
-  
     if (!oldPassword || !newPassword) {
-      throw ApiError.badRequest('Old password and new password are required');
+      return res.status(400).json(
+        ApiError.badRequest('Old password and new password are required')
+      )
     }
-  
+
     if (newPassword.length < 6) {
-      throw ApiError.badRequest('New password must be at least 6 characters long');
+      return res.status(400).json(
+        ApiError.badRequest('New password must be at least 6 characters long')
+      )
     }
-  
+
     const user = await this.userService.findById(req.user.id);
     if (!user || !user.passwordHash) {
-      throw ApiError.notFound('User not found');
+      return res.status(404).json(
+        ApiError.notFound('User not found')
+      )
     }
-  
+
     const isMatch = await comparePassword(oldPassword, user.passwordHash);
     if (!isMatch) {
-      throw ApiError.badRequest('Old password is incorrect');
+      return res.status(400).json(ApiError.badRequest('Old password is incorrect'))
     }
-  
+
     const isSameAsOld = await comparePassword(newPassword, user.passwordHash);
     if (isSameAsOld) {
-      throw ApiError.badRequest(
-        'New password cannot be the same as the old password'
-      );
+      return res.status(400).json(
+        ApiError.badRequest(
+          'New password cannot be the same as the old password'
+        )
+      )
     }
-  
+
     const hashed = await hashPassword(newPassword);
-  
+
     await this.userService.updateUser(user.id, {
       passwordHash: hashed,
     });
-  
-    return res.json(
-      new ApiResponse(200, null, 'Password reset successfully')
+
+    return res.status(200).json(
+       ApiResponse.success(null, 'Password reset successfully')
     );
   });
 

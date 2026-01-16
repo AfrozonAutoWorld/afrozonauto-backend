@@ -37,7 +37,6 @@ export class AuthController {
 
   checkUser = asyncHandler(async (req: Request, res: Response) => {
     const { email } = req.body;
-    console.log("called=============")
 
     if (!email) {
       return res.status(400).json(
@@ -52,8 +51,6 @@ export class AuthController {
         ApiError.badRequest('User already exists')
       )
     }
-
-
     await this.tokenService.sendVerificationToken(undefined, email);
     return res.json(new ApiResponse(200, { email }, 'Verification token sent to email'));
   });
@@ -68,8 +65,7 @@ export class AuthController {
     }
 
     await this.tokenService.sendVerificationToken(undefined, recoveryEmail);
-
-    return res.json(new ApiResponse(200, { recoveryEmail }, 'Verification token sent to recovery email'));
+    return res.status(200).json(ApiResponse.success({ recoveryEmail }, 'Verification token sent to recovery email'));
   });
 
   verify = asyncHandler(async (req: Request, res: Response) => {
@@ -80,7 +76,7 @@ export class AuthController {
     }
     await this.authService.verifyUser(email, token);
 
-    return res.json(new ApiResponse(200, null, 'Email verified successfully'));
+    return res.json(ApiResponse.success(null, 'Email verified successfully'));
   });
 
   register = asyncHandler(async (req: Request, res: Response) => {
@@ -90,7 +86,7 @@ export class AuthController {
       return res.status(400).json(ApiError.badRequest('Email is required'))
     }
 
-    const validateTokenVerification = await this.tokenService.getUsedTokenForUser({email:value.email});
+    const validateTokenVerification = await this.tokenService.getUsedTokenForUser({ email: value.email });
     console.log(validateTokenVerification)
     if (!validateTokenVerification) {
       return res.status(400).json(ApiError.badRequest('Please complete token validation for your account'))
@@ -101,11 +97,13 @@ export class AuthController {
     await this.profileService.updateProfileByUserId(user.id.toString(), { firstName, lastName });
 
     if (!user) {
-      throw ApiError.internal('User registration failed');
+      res.status(500).json(
+        ApiError.internal('User registration failed')
+      )
     }
 
-    await this.tokenService.deleteToken({email: value.email});
-    res.status(201).json(new ApiResponse(201, { success: true }, 'Registration successful'));
+    await this.tokenService.deleteToken({ email: value.email });
+    return res.status(201).json(ApiResponse.created({ success: true }, 'Registration successful'));
   });
 
 
@@ -113,23 +111,23 @@ export class AuthController {
     const { email, ...others } = req.body;
 
     if (!email) {
-      throw ApiError.badRequest('Email is required');
+      return res.status(400).json( ApiError.badRequest('Email is required'));
     }
     const user = await this.userService.getUserByEmail(email);
 
     if (!user) {
-      throw ApiError.notFound('User does not exist');
+      return res.status(404).json( ApiError.notFound('User does not exist'));
     }
 
     const userUpdated = await this.userService.updateUserInfo(user.id, { email, ...others });
 
     if (!userUpdated) {
-      throw ApiError.internal('Failed to update user information');
+      return res.status(500).json( ApiError.internal('Failed to update user information'));
     }
 
     const { passwordHash, ...safeUser } = userUpdated;
 
-    res.json(new ApiResponse(200, { user: safeUser }, 'User information updated successfully'));
+    return res.json(ApiResponse.success({ user: safeUser }, 'User information updated successfully'));
   });
 
 
@@ -151,7 +149,7 @@ export class AuthController {
     });
 
 
-    res.json(new ApiResponse(200, {
+    return res.json(new ApiResponse(200, {
       user: { ...user, online: true },
       accessToken,
       refreshToken
@@ -163,11 +161,11 @@ export class AuthController {
     const { email } = req.body;
 
     if (!email) {
-      throw ApiError.badRequest('Email is required');
+      return res.status(400).json( ApiError.badRequest('Email is required'))
     }
 
     const user = await this.authService.sendResetToken(email);
-    res.json(new ApiResponse(200, {
+    return res.json(ApiResponse.success( {
     }, 'Reset token sent to email'));
   });
 
@@ -187,7 +185,7 @@ export class AuthController {
     const { email, token } = req.body;
 
     if (!email || !token) {
-      throw ApiError.badRequest('Email and token are required');
+      return res.status(400).json( ApiError.badRequest('Email and token are required'))
     }
 
     const userExist = await this.userService.getUserByEmail(email);
@@ -246,7 +244,7 @@ export class AuthController {
     oauthConfig.setCredentials(tokens);
 
     if (!tokens.id_token) {
-      throw ApiError.unauthorized("Failed to get Google ID token");
+      return res.status(500).json(ApiError.unauthorized("Failed to get Google ID token"))
     }
 
     const ticket = await oauthConfig.verifyIdToken({
