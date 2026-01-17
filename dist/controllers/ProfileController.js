@@ -48,7 +48,7 @@ let ProfileController = class ProfileController {
         this.create = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             const _a = req.body, { uploadedFiles } = _a, data = __rest(_a, ["uploadedFiles"]);
             if (!req.user) {
-                throw ApiError_1.ApiError.unauthorized('User not authenticated');
+                return res.status(401).json(ApiError_1.ApiError.unauthorized('User not authenticated'));
             }
             const userId = req.user.id;
             const uploadedFilex = req.body.uploadedFiles || [];
@@ -66,7 +66,7 @@ let ProfileController = class ProfileController {
             var _a;
             const _b = req.body, { uploadedFiles, phoneNumber } = _b, data = __rest(_b, ["uploadedFiles", "phoneNumber"]);
             if (!req.user) {
-                throw ApiError_1.ApiError.unauthorized('User not authenticated');
+                return res.status(401).json(ApiError_1.ApiError.unauthorized('User not authenticated'));
             }
             const userId = req.user.id;
             const uploadedFilex = req.body.uploadedFiles || [];
@@ -91,7 +91,7 @@ let ProfileController = class ProfileController {
         }));
         this.currentUserProfile = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             if (!req.user) {
-                throw ApiError_1.ApiError.unauthorized('User not authenticated');
+                return res.status(401).json(ApiError_1.ApiError.unauthorized('User not authenticated'));
             }
             const userId = req.user.id;
             const [profiles] = yield Promise.all([
@@ -102,31 +102,31 @@ let ProfileController = class ProfileController {
         this.resetPassword = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             const { oldPassword, newPassword } = req.body;
             if (!req.user) {
-                throw ApiError_1.ApiError.unauthorized('User not authenticated');
+                return res.status(401).json(ApiError_1.ApiError.unauthorized('User not authenticated'));
             }
             if (!oldPassword || !newPassword) {
-                throw ApiError_1.ApiError.badRequest('Old password and new password are required');
+                return res.status(400).json(ApiError_1.ApiError.badRequest('Old password and new password are required'));
             }
             if (newPassword.length < 6) {
-                throw ApiError_1.ApiError.badRequest('New password must be at least 6 characters long');
+                return res.status(400).json(ApiError_1.ApiError.badRequest('New password must be at least 6 characters long'));
             }
             const user = yield this.userService.findById(req.user.id);
             if (!user || !user.passwordHash) {
-                throw ApiError_1.ApiError.notFound('User not found');
+                return res.status(404).json(ApiError_1.ApiError.notFound('User not found'));
             }
             const isMatch = yield (0, password_1.comparePassword)(oldPassword, user.passwordHash);
             if (!isMatch) {
-                throw ApiError_1.ApiError.badRequest('Old password is incorrect');
+                return res.status(400).json(ApiError_1.ApiError.badRequest('Old password is incorrect'));
             }
             const isSameAsOld = yield (0, password_1.comparePassword)(newPassword, user.passwordHash);
             if (isSameAsOld) {
-                throw ApiError_1.ApiError.badRequest('New password cannot be the same as the old password');
+                return res.status(400).json(ApiError_1.ApiError.badRequest('New password cannot be the same as the old password'));
             }
             const hashed = yield (0, password_1.hashPassword)(newPassword);
             yield this.userService.updateUser(user.id, {
                 passwordHash: hashed,
             });
-            return res.json(new ApiResponse_1.ApiResponse(200, null, 'Password reset successfully'));
+            return res.status(200).json(ApiResponse_1.ApiResponse.success(null, 'Password reset successfully'));
         }));
     }
 };

@@ -32,6 +32,10 @@ let AutoDevService = class AutoDevService {
      */
     fetchListings(filters) {
         return __awaiter(this, void 0, void 0, function* () {
+            if (!this.apiKey) {
+                loggers_1.default.warn('AUTO_DEV_API_KEY is not configured. Cannot fetch listings from Auto.dev API.');
+                throw new Error('Auto.dev API key is not configured');
+            }
             try {
                 const params = new URLSearchParams();
                 if (filters.make)
@@ -55,11 +59,18 @@ let AutoDevService = class AutoDevService {
                     },
                 });
                 if (!response.ok) {
-                    throw new Error(`Auto.dev API error: ${response.statusText}`);
+                    const errorText = yield response.text();
+                    loggers_1.default.error(`Auto.dev API error (${response.status}): ${response.statusText}`, {
+                        status: response.status,
+                        statusText: response.statusText,
+                        body: errorText.substring(0, 200)
+                    });
+                    throw new Error(`Auto.dev API error: ${response.statusText} (Status: ${response.status})`);
                 }
                 const data = yield response.json();
                 if (data.error) {
-                    throw new Error(data.error.message);
+                    loggers_1.default.error('Auto.dev API returned error:', data.error);
+                    throw new Error(data.error.message || 'Auto.dev API error');
                 }
                 return data.data || [];
             }

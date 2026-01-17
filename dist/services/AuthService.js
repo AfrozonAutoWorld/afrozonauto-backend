@@ -27,6 +27,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const inversify_1 = require("inversify");
 const bcrypt_1 = __importDefault(require("bcrypt"));
+const node_crypto_1 = require("node:crypto");
 const db_1 = __importDefault(require("../db"));
 const MailService_1 = require("./MailService");
 const TokenService_1 = __importDefault(require("./TokenService"));
@@ -53,13 +54,18 @@ let AuthService = class AuthService {
                 throw ApiError_1.ApiError.badRequest('User already exists');
             }
             const passwordHash = yield bcrypt_1.default.hash(data.password, 10);
+            // MongoDB unique constraints don't allow multiple null values
+            const uniqueGoogleId = `local_${(0, node_crypto_1.randomUUID)()}`;
+            const uniqueAppleId = `local_${(0, node_crypto_1.randomUUID)()}`;
             const user = yield db_1.default.user.create({
                 data: {
                     email: data.email,
                     passwordHash,
                     phone: data.phone,
                     role: (_a = data.role) !== null && _a !== void 0 ? _a : client_1.UserRole.BUYER,
-                    emailVerified: true
+                    emailVerified: true,
+                    googleId: uniqueGoogleId,
+                    appleId: uniqueAppleId,
                 },
             });
             // Send verification token
@@ -72,9 +78,73 @@ let AuthService = class AuthService {
     // ============================
     verifyUser(email, token) {
         return __awaiter(this, void 0, void 0, function* () {
+            // Test token bypass for development/testing (token: 999999)
+            const TEST_TOKEN = 999999;
+            const isTestToken = token === TEST_TOKEN;
+            const isDevelopment = process.env.NODE_ENV === 'development' || process.env.NODE_ENV !== 'production';
+            if (isTestToken && isDevelopment) {
+                try {
+                    const existingUsedToken = yield this.tokenService.getUsedTokenForUser({ email }, true);
+                    if (existingUsedToken) {
+                        return true; // Already verified
+                    }
+                    yield db_1.default.token.deleteMany({
+                        where: {
+                            email: email,
+                            type: client_1.TokenType.EMAIL,
+                            used: false,
+                        },
+                    });
+                    // Create a used token record for test token
+                    yield db_1.default.token.create({
+                        data: {
+                            token: TEST_TOKEN,
+                            type: client_1.TokenType.EMAIL,
+                            email: email,
+                            used: true,
+                            usedAt: new Date(),
+                        },
+                    });
+                }
+                catch (error) {
+                    // If creation fails, try to find existing used token
+                    const existingUsedToken = yield this.tokenService.getUsedTokenForUser({ email }, true);
+                    if (!existingUsedToken) {
+                        // Log the actual error for debugging
+                        console.error('Test token verification error:', (error === null || error === void 0 ? void 0 : error.message) || error);
+                        throw ApiError_1.ApiError.internal(`Failed to create verification record: ${(error === null || error === void 0 ? void 0 : error.message) || 'Unknown error'}`);
+                    }
+                }
+                return true;
+            }
             const tokenRecord = yield this.tokenService.validateToken(token, { email }, client_1.TokenType.EMAIL);
             if (!tokenRecord) {
-                throw ApiError_1.ApiError.badRequest('Invalid or expired token');
+                // Check if token exists but is already used
+                const usedToken = yield db_1.default.token.findFirst({
+                    where: {
+                        token: Number(token),
+                        email,
+                        type: client_1.TokenType.EMAIL,
+                        used: true,
+                    },
+                });
+                if (usedToken) {
+                    throw ApiError_1.ApiError.badRequest('This token has already been used. Please request a new verification token.');
+                }
+                // Check if any token exists for this email
+                const anyToken = yield db_1.default.token.findFirst({
+                    where: {
+                        email,
+                        type: client_1.TokenType.EMAIL,
+                    },
+                    orderBy: {
+                        createdAt: 'desc',
+                    },
+                });
+                if (!anyToken) {
+                    throw ApiError_1.ApiError.badRequest('No verification token found for this email. Please request a new token.');
+                }
+                throw ApiError_1.ApiError.badRequest('Invalid token. Please check the token and try again, or request a new verification token.');
             }
             yield this.tokenService.updateTokenUsablility(tokenRecord.id);
             return true;

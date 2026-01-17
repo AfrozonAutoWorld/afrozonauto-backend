@@ -68,16 +68,22 @@ let VehicleController = class VehicleController {
             }, 'Vehicles retrieved successfully'));
         }));
         /**
-         * GET /api/vehicles/:id
-         * Get vehicle by ID (with Redis cache and Auto.dev fallback)
-         * Query param: vin=XXX - Optional VIN to try cache/API if ID not found
+         * GET /api/vehicles/:identifier
+         * Get vehicle by ID or VIN
+         * Query param: type="id" | "vin" (default: "id")
+         * Flow:
+         *   - type="id": DB → Redis → API
+         *   - type="vin": Redis → API
          * Does NOT save to DB - only returns cached/API data
          */
-        this.getVehicleById = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
-            const { id } = req.params;
-            const vin = req.query.vin;
-            const vehicle = yield this.vehicleService.getVehicleById(id, vin);
-            res.json(ApiResponse_1.ApiResponse.success(vehicle, 'Vehicle retrieved successfully'));
+        this.getVehicle = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            const { identifier } = req.params;
+            const type = req.query.type || 'id';
+            if (!identifier) {
+                throw ApiError_1.ApiError.badRequest('Vehicle identifier is required');
+            }
+            const vehicle = yield this.vehicleService.getVehicle(identifier, type);
+            return res.json(ApiResponse_1.ApiResponse.success(vehicle, 'Vehicle retrieved successfully'));
         }));
         /**
          * POST /api/vehicles
@@ -89,7 +95,7 @@ let VehicleController = class VehicleController {
                 throw ApiError_1.ApiError.forbidden('Only admins can create vehicles');
             }
             const vehicle = yield this.vehicleService.createVehicle(req.body, (_c = req.user) === null || _c === void 0 ? void 0 : _c.id);
-            res.status(201).json(ApiResponse_1.ApiResponse.created(vehicle, 'Vehicle created successfully'));
+            return res.status(201).json(ApiResponse_1.ApiResponse.created(vehicle, 'Vehicle created successfully'));
         }));
         /**
          * POST /api/vehicles/sync/:vin
@@ -101,7 +107,7 @@ let VehicleController = class VehicleController {
                 throw ApiError_1.ApiError.badRequest('Invalid VIN. Must be 17 characters');
             }
             const vehicle = yield this.vehicleService.syncFromAutoDev(vin);
-            res.json(ApiResponse_1.ApiResponse.success(vehicle, 'Vehicle synced successfully'));
+            return res.json(ApiResponse_1.ApiResponse.success(vehicle, 'Vehicle synced successfully'));
         }));
         /**
          * PUT /api/vehicles/:id
@@ -127,7 +133,7 @@ let VehicleController = class VehicleController {
             }
             const { id } = req.params;
             yield this.vehicleService.deleteVehicle(id);
-            res.json(ApiResponse_1.ApiResponse.success(null, 'Vehicle deleted successfully'));
+            return res.json(ApiResponse_1.ApiResponse.success(null, 'Vehicle deleted successfully'));
         }));
         /**
          * POST /api/vehicles/save-from-api
@@ -141,7 +147,7 @@ let VehicleController = class VehicleController {
                 throw ApiError_1.ApiError.badRequest('VIN and listing are required');
             }
             const vehicle = yield this.vehicleService.saveVehicleFromApiListing(listing, photos || [], specs);
-            res.status(201).json(ApiResponse_1.ApiResponse.created(vehicle, 'Vehicle saved from API successfully'));
+            return res.status(201).json(ApiResponse_1.ApiResponse.created(vehicle, 'Vehicle saved from API successfully'));
         }));
     }
 };

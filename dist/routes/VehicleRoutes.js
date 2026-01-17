@@ -10,7 +10,7 @@ const router = (0, express_1.Router)();
 const vehicleController = inversify_config_1.container.get(types_1.TYPES.VehicleController);
 // Public routes
 router.get('/', vehicleController.getVehicles);
-router.get('/:id', vehicleController.getVehicleById);
+router.get('/:identifier', vehicleController.getVehicle);
 // Protected routes (require authentication)
 router.post('/', authMiddleware_1.authenticate, (0, bodyValidate_1.validateBody)(vehicle_validation_1.createVehicleSchema), vehicleController.createVehicle);
 router.post('/sync/:vin', authMiddleware_1.authenticate, vehicleController.syncVehicle);

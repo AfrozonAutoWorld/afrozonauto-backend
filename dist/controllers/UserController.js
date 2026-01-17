@@ -34,53 +34,53 @@ let UserController = class UserController {
         this.getUserByEmail = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             const { email } = req.params;
             if (!email) {
-                throw ApiError_1.ApiError.badRequest('Email parameter is required');
+                return res.status(400).json(ApiError_1.ApiError.badRequest('Email parameter is required'));
             }
             const user = yield this.userService.getUserByEmail(email);
             if (!user) {
-                throw ApiError_1.ApiError.notFound('User not found');
+                return res.status(404).json(ApiError_1.ApiError.notFound('User not found'));
             }
-            res.json(new ApiResponse_1.ApiResponse(200, user, 'User retrieved successfully'));
+            return res.status(200).json(ApiResponse_1.ApiResponse.success(user, 'User retrieved successfully'));
         }));
         this.verifyUser = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             const { userId } = req.params;
             if (!userId) {
-                throw ApiError_1.ApiError.badRequest('User ID parameter is required');
+                return res.status(400).json(ApiError_1.ApiError.badRequest('User ID parameter is required'));
             }
             const result = yield this.userService.getUserById(userId);
             if (!result) {
-                throw ApiError_1.ApiError.internal('Verification failed');
+                return res.status(500).json(ApiError_1.ApiError.internal('Verification failed'));
             }
-            res.json(new ApiResponse_1.ApiResponse(200, { verified: true }, 'User verified successfully'));
+            return res.json(new ApiResponse_1.ApiResponse(200, { verified: true }, 'User verified successfully'));
         }));
         this.deactivateAccount = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             const { userId } = req.params;
             if (!userId) {
-                throw ApiError_1.ApiError.badRequest('User ID parameter is required');
+                return res.status(404).json(ApiError_1.ApiError.badRequest('User ID parameter is required'));
             }
             const result = yield this.userService.deleteUser(userId);
             if (!result) {
-                throw ApiError_1.ApiError.internal('Deactivation failed');
+                return res.status(500).json(ApiError_1.ApiError.internal('Deactivation failed'));
             }
-            res.json(new ApiResponse_1.ApiResponse(200, { deactivated: true }, 'Account deactivated successfully'));
+            return res.json(ApiResponse_1.ApiResponse.success({ deactivated: true }, 'Account deactivated successfully'));
         }));
         this.updatePassword = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             const { userId } = req.params;
             const { newPassword } = req.body;
             if (!userId) {
-                throw ApiError_1.ApiError.badRequest('User ID parameter is required');
+                return res.status(404).json(ApiError_1.ApiError.badRequest('User ID parameter is required'));
             }
             if (!newPassword) {
-                throw ApiError_1.ApiError.badRequest('New password is required');
+                return res.status(400).json(ApiError_1.ApiError.badRequest('New password is required'));
             }
             if (newPassword.length < 6) {
-                throw ApiError_1.ApiError.badRequest('Password must be at least 6 characters long');
+                return res.status(400).json(ApiError_1.ApiError.badRequest('Password must be at least 6 characters long'));
             }
             const result = yield this.userService.updateUserPassword(userId, newPassword);
             if (!result) {
-                throw ApiError_1.ApiError.internal('Password update failed');
+                return res.status(500).json(ApiError_1.ApiError.internal('Password update failed'));
             }
-            res.json(new ApiResponse_1.ApiResponse(200, { updated: true }, 'Password updated successfully'));
+            return res.json(new ApiResponse_1.ApiResponse(200, { updated: true }, 'Password updated successfully'));
         }));
     }
 };

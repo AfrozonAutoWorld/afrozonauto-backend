@@ -13,6 +13,8 @@ const ApiError_1 = require("./utils/ApiError");
 // import ProfileRoutes from './routes/ProfileRoutes';
 const AuthRoutes_1 = __importDefault(require("./routes/AuthRoutes"));
 const VehicleRoutes_1 = __importDefault(require("./routes/VehicleRoutes"));
+const AddressRoutes_1 = __importDefault(require("./routes/AddressRoutes"));
+const PaymentRoutes_1 = __importDefault(require("./routes/PaymentRoutes"));
 const helmet_1 = __importDefault(require("helmet"));
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const ProfileRoutes_1 = __importDefault(require("./routes/ProfileRoutes"));
@@ -60,6 +62,8 @@ class App {
         this.app.use('/api/profile', ProfileRoutes_1.default);
         this.app.use('/api/auth', AuthRoutes_1.default);
         this.app.use('/api/vehicles', VehicleRoutes_1.default);
+        this.app.use('/api/addresses', AddressRoutes_1.default);
+        this.app.use('/api/payments', PaymentRoutes_1.default);
         // 404 handler - catch all unmatched routes
         this.app.use((req, res) => {
             res.status(404).json({

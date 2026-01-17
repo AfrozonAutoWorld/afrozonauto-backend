@@ -288,60 +288,101 @@ let VehicleService = class VehicleService {
         });
     }
     /**
-     * Get vehicle by ID (with Redis cache and Auto.dev fallback)
-     * Refreshes price if stale (older than cache TTL)
+     * Get vehicle by identifier (ID or VIN) with type parameter
+     * Flow: DB → Redis → API
      * Does NOT save new vehicles to DB - only returns cached/API data
      * Vehicle is saved to DB only when payment is initiated
      */
-    getVehicleById(id, vin) {
-        return __awaiter(this, void 0, void 0, function* () {
-            // Try DB first
-            let vehicle = yield this.vehicleRepo.findById(id);
-            // If found in DB, check if price needs refresh
-            if (vehicle && this.isPriceStale(vehicle)) {
-                const refreshed = yield this.refreshVehiclePrice(vehicle);
-                if (refreshed) {
-                    vehicle = refreshed;
-                }
-            }
-            // If not found, try cache, then API (but don't save to DB)
-            if (!vehicle && vin) {
-                // Check Redis cache first
-                const cacheKey = RedisCacheService_1.RedisCacheService.getVehicleByVINKey(vin);
-                const cachedVehicle = yield this.cache.get(cacheKey);
-                if (cachedVehicle) {
-                    loggers_1.default.info(`Using cached vehicle data for VIN: ${vin}`);
-                    vehicle = cachedVehicle;
-                }
-                else {
-                    // Fetch from Auto.dev API and cache it (don't save to DB)
+    getVehicle(identifier_1) {
+        return __awaiter(this, arguments, void 0, function* (identifier, type = 'id') {
+            if (type === 'id') {
+                // Type is ID: Try DB first, then Redis/API fallback
+                if (this.isValidId(identifier)) {
                     try {
-                        const [listing, photos, specs] = yield Promise.all([
-                            this.autoDevService.fetchListingByVIN(vin),
-                            this.autoDevService.fetchPhotos(vin),
-                            this.autoDevService.fetchSpecifications(vin),
-                        ]);
-                        if (listing) {
-                            const vehicleData = vehicle_transformer_1.VehicleTransformer.fromAutoDevListing(listing, photos, specs);
-                            vehicleData.apiData = {
-                                listing,
-                                specs,
-                                photos,
-                                raw: listing,
-                                cached: true,
-                                isTemporary: true,
-                            };
-                            vehicleData.apiSyncStatus = 'PENDING';
-                            vehicleData.id = `temp-${vin}`;
-                            // Cache the vehicle data (12hr TTL)
-                            yield this.cache.set(cacheKey, vehicleData);
-                            loggers_1.default.info(`Cached vehicle data for VIN: ${vin}`);
-                            vehicle = vehicleData;
+                        let vehicle = yield this.vehicleRepo.findById(identifier);
+                        // If found in DB, check if price needs refresh
+                        if (vehicle && this.isPriceStale(vehicle)) {
+                            const refreshed = yield this.refreshVehiclePrice(vehicle);
+                            if (refreshed) {
+                                vehicle = refreshed;
+                            }
+                        }
+                        if (vehicle) {
+                            // Increment view count asynchronously
+                            this.vehicleRepo.incrementViewCount(vehicle.id).catch((err) => {
+                                loggers_1.default.error('Failed to increment view count:', err);
+                            });
+                            return vehicle;
                         }
                     }
                     catch (error) {
-                        loggers_1.default.warn(`Failed to fetch vehicle ${vin} from Auto.dev:`, error);
+                        // If DB lookup fails, log and continue to Redis/API lookup
+                        loggers_1.default.warn(`Failed to lookup vehicle by ID ${identifier}, falling back to Redis/API:`, error);
                     }
+                }
+                // ID not found in DB or invalid, try Redis/API with VIN if available
+                // For temporary IDs, extract VIN
+                const vinToUse = identifier.startsWith('temp-')
+                    ? identifier.replace(/^temp-/, '')
+                    : undefined;
+                if (!vinToUse) {
+                    throw ApiError_1.ApiError.notFound('Vehicle not found');
+                }
+                return this.getVehicleByVIN(vinToUse);
+            }
+            else {
+                // Type is VIN: Try Redis first, then API
+                return this.getVehicleByVIN(identifier);
+            }
+        });
+    }
+    /**
+     * Get vehicle by VIN (Redis cache and Auto.dev API)
+     * Flow: Redis → API
+     * Does NOT save to DB - only returns cached/API data
+     */
+    getVehicleByVIN(vin) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!vin || vin.trim().length !== 17) {
+                throw ApiError_1.ApiError.badRequest('Invalid VIN. Must be 17 characters');
+            }
+            const normalizedVin = vin.trim().toUpperCase();
+            let vehicle = null;
+            // Check Redis cache first
+            const cacheKey = RedisCacheService_1.RedisCacheService.getVehicleByVINKey(normalizedVin);
+            const cachedVehicle = yield this.cache.get(cacheKey);
+            if (cachedVehicle) {
+                loggers_1.default.info(`Using cached vehicle data for VIN: ${normalizedVin}`);
+                vehicle = cachedVehicle;
+            }
+            else {
+                // Fetch from Auto.dev API and cache it (don't save to DB)
+                try {
+                    const [listing, photos, specs] = yield Promise.all([
+                        this.autoDevService.fetchListingByVIN(normalizedVin),
+                        this.autoDevService.fetchPhotos(normalizedVin),
+                        this.autoDevService.fetchSpecifications(normalizedVin),
+                    ]);
+                    if (listing) {
+                        const vehicleData = vehicle_transformer_1.VehicleTransformer.fromAutoDevListing(listing, photos, specs);
+                        vehicleData.apiData = {
+                            listing,
+                            specs,
+                            photos,
+                            raw: listing,
+                            cached: true,
+                            isTemporary: true,
+                        };
+                        vehicleData.apiSyncStatus = 'PENDING';
+                        vehicleData.id = `temp-${normalizedVin}`;
+                        // Cache the vehicle data (12hr TTL)
+                        yield this.cache.set(cacheKey, vehicleData);
+                        loggers_1.default.info(`Cached vehicle data for VIN: ${normalizedVin}`);
+                        vehicle = vehicleData;
+                    }
+                }
+                catch (error) {
+                    loggers_1.default.warn(`Failed to fetch vehicle ${normalizedVin} from Auto.dev:`, error);
                 }
             }
             if (!vehicle) {
@@ -357,9 +398,9 @@ let VehicleService = class VehicleService {
         });
     }
     /**
-     * Get vehicle by VIN
+     * Get vehicle by VIN from database only (internal use)
      */
-    getVehicleByVIN(vin) {
+    getVehicleByVINFromDB(vin) {
         return __awaiter(this, void 0, void 0, function* () {
             return this.vehicleRepo.findByVIN(vin);
         });
@@ -436,15 +477,34 @@ let VehicleService = class VehicleService {
         });
     }
     /**
+     * Check if ID is valid (not null, empty, or invalid route parameter)
+     */
+    isValidId(id) {
+        return !!(id && id.trim() && !id.startsWith(':') && id !== 'null' && id !== 'undefined');
+    }
+    /**
      * Update vehicle
      */
     updateVehicle(id, data) {
         return __awaiter(this, void 0, void 0, function* () {
-            const existing = yield this.vehicleRepo.findById(id);
-            if (!existing) {
-                throw ApiError_1.ApiError.notFound('Vehicle not found');
+            var _a;
+            if (!this.isValidId(id)) {
+                throw ApiError_1.ApiError.badRequest('Invalid vehicle ID provided');
             }
-            return this.vehicleRepo.update(id, data);
+            try {
+                const existing = yield this.vehicleRepo.findById(id);
+                if (!existing) {
+                    throw ApiError_1.ApiError.notFound('Vehicle not found');
+                }
+                return this.vehicleRepo.update(id, data);
+            }
+            catch (error) {
+                // If Prisma error due to invalid ObjectID format
+                if (error.code === 'P2023' || ((_a = error.message) === null || _a === void 0 ? void 0 : _a.includes('Malformed ObjectID'))) {
+                    throw ApiError_1.ApiError.badRequest('Invalid vehicle ID format');
+                }
+                throw error;
+            }
         });
     }
     /**
@@ -452,7 +512,20 @@ let VehicleService = class VehicleService {
      */
     deleteVehicle(id) {
         return __awaiter(this, void 0, void 0, function* () {
-            yield this.vehicleRepo.delete(id);
+            var _a;
+            if (!this.isValidId(id)) {
+                throw ApiError_1.ApiError.badRequest('Invalid vehicle ID provided');
+            }
+            try {
+                yield this.vehicleRepo.delete(id);
+            }
+            catch (error) {
+                // If Prisma error due to invalid ObjectID format
+                if (error.code === 'P2023' || ((_a = error.message) === null || _a === void 0 ? void 0 : _a.includes('Malformed ObjectID'))) {
+                    throw ApiError_1.ApiError.badRequest('Invalid vehicle ID format');
+                }
+                throw error;
+            }
         });
     }
     /**

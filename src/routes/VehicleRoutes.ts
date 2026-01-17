@@ -11,7 +11,7 @@ const vehicleController = container.get<VehicleController>(TYPES.VehicleControll
 
 // Public routes
 router.get('/', vehicleController.getVehicles);
-router.get('/:id', vehicleController.getVehicleById);
+router.get('/:identifier', vehicleController.getVehicle);
 
 // Protected routes (require authentication)
 router.post('/', authenticate, validateBody(createVehicleSchema), vehicleController.createVehicle);

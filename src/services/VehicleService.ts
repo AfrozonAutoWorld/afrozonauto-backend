@@ -315,90 +315,106 @@ export class VehicleService {
   }
 
   /**
-   * Get vehicle by ID (with Redis cache and Auto.dev fallback)
-   * Refreshes price if stale (older than cache TTL)
+   * Get vehicle by identifier (ID or VIN) with type parameter
+   * Flow: DB → Redis → API
    * Does NOT save new vehicles to DB - only returns cached/API data
    * Vehicle is saved to DB only when payment is initiated
    */
-  async getVehicleById(id: string, vin?: string): Promise<Vehicle> {
-    // Check if ID is null, empty, or invalid (like ":id" route parameter)
-    const hasValidId = this.isValidId(id);
-    const isTemporaryId = hasValidId && id.startsWith('temp-');
-    let extractedVin: string | undefined;
-    
-    if (isTemporaryId) {
-      // Extract VIN from temporary ID (format: "temp-{VIN}")
-      extractedVin = id.replace(/^temp-/, '');
-    } else if (hasValidId) {
-      // Try DB first for valid IDs
-      try {
-        let vehicle = await this.vehicleRepo.findById(id);
-        
-        // If found in DB, check if price needs refresh
-        if (vehicle && this.isPriceStale(vehicle)) {
-          const refreshed = await this.refreshVehiclePrice(vehicle);
-          if (refreshed) {
-            vehicle = refreshed;
-          }
-        }
-        
-        if (vehicle) {
-          // Increment view count asynchronously
-          this.vehicleRepo.incrementViewCount(vehicle.id).catch((err) => {
-            loggers.error('Failed to increment view count:', err);
-          });
-          return vehicle;
-        }
-      } catch (error) {
-        // If DB lookup fails (e.g., invalid ObjectID), log and continue to VIN lookup
-        loggers.warn(`Failed to lookup vehicle by ID ${id}, falling back to VIN lookup:`, error);
-      }
-    }
-    // Use extracted VIN from temporary ID, or fall back to provided vin parameter
-    const vinToUse = extractedVin || vin;
-    
-    // If not found in DB (or temporary ID), try cache, then API (but don't save to DB)
-    let vehicle: Vehicle | null = null;
-    
-    if (vinToUse) {
-      // Check Redis cache first
-      const cacheKey = RedisCacheService.getVehicleByVINKey(vinToUse);
-      const cachedVehicle = await this.cache.get<any>(cacheKey);
-      
-      if (cachedVehicle) {
-        loggers.info(`Using cached vehicle data for VIN: ${vinToUse}`);
-        vehicle = cachedVehicle as Vehicle;
-      } else {
-        // Fetch from Auto.dev API and cache it (don't save to DB)
+  async getVehicle(identifier: string, type: 'id' | 'vin' = 'id'): Promise<Vehicle> {
+    if (type === 'id') {
+      // Type is ID: Try DB first, then Redis/API fallback
+      if (this.isValidId(identifier)) {
         try {
-          const [listing, photos, specs] = await Promise.all([
-            this.autoDevService.fetchListingByVIN(vinToUse),
-            this.autoDevService.fetchPhotos(vinToUse),
-            this.autoDevService.fetchSpecifications(vinToUse),
-          ]);
-
-          if (listing) {
-            const vehicleData = VehicleTransformer.fromAutoDevListing(listing, photos, specs);
-            vehicleData.apiData = {
-              listing,
-              specs,
-              photos,
-              raw: listing,
-              cached: true,
-              isTemporary: true,
-            };
-            vehicleData.apiSyncStatus = 'PENDING';
-            vehicleData.id = `temp-${vinToUse}`;
-            
-            // Cache the vehicle data (12hr TTL)
-            await this.cache.set(cacheKey, vehicleData);
-            loggers.info(`Cached vehicle data for VIN: ${vinToUse}`);
-            
-            vehicle = vehicleData as Vehicle;
+          let vehicle = await this.vehicleRepo.findById(identifier);
+          
+          // If found in DB, check if price needs refresh
+          if (vehicle && this.isPriceStale(vehicle)) {
+            const refreshed = await this.refreshVehiclePrice(vehicle);
+            if (refreshed) {
+              vehicle = refreshed;
+            }
+          }
+          
+          if (vehicle) {
+            // Increment view count asynchronously
+            this.vehicleRepo.incrementViewCount(vehicle.id).catch((err) => {
+              loggers.error('Failed to increment view count:', err);
+            });
+            return vehicle;
           }
         } catch (error) {
-          loggers.warn(`Failed to fetch vehicle ${vinToUse} from Auto.dev:`, error);
+          // If DB lookup fails, log and continue to Redis/API lookup
+          loggers.warn(`Failed to lookup vehicle by ID ${identifier}, falling back to Redis/API:`, error);
         }
+      }
+      
+      // ID not found in DB or invalid, try Redis/API with VIN if available
+      // For temporary IDs, extract VIN
+      const vinToUse = identifier.startsWith('temp-') 
+        ? identifier.replace(/^temp-/, '') 
+        : undefined;
+      
+      if (!vinToUse) {
+        throw ApiError.notFound('Vehicle not found');
+      }
+      
+      return this.getVehicleByVIN(vinToUse);
+    } else {
+      // Type is VIN: Try Redis first, then API
+      return this.getVehicleByVIN(identifier);
+    }
+  }
+
+  /**
+   * Get vehicle by VIN (Redis cache and Auto.dev API)
+   * Flow: Redis → API
+   * Does NOT save to DB - only returns cached/API data
+   */
+  async getVehicleByVIN(vin: string): Promise<Vehicle> {
+    if (!vin || vin.trim().length !== 17) {
+      throw ApiError.badRequest('Invalid VIN. Must be 17 characters');
+    }
+
+    const normalizedVin = vin.trim().toUpperCase();
+    let vehicle: Vehicle | null = null;
+    
+    // Check Redis cache first
+    const cacheKey = RedisCacheService.getVehicleByVINKey(normalizedVin);
+    const cachedVehicle = await this.cache.get<any>(cacheKey);
+    
+    if (cachedVehicle) {
+      loggers.info(`Using cached vehicle data for VIN: ${normalizedVin}`);
+      vehicle = cachedVehicle as Vehicle;
+    } else {
+      // Fetch from Auto.dev API and cache it (don't save to DB)
+      try {
+        const [listing, photos, specs] = await Promise.all([
+          this.autoDevService.fetchListingByVIN(normalizedVin),
+          this.autoDevService.fetchPhotos(normalizedVin),
+          this.autoDevService.fetchSpecifications(normalizedVin),
+        ]);
+
+        if (listing) {
+          const vehicleData = VehicleTransformer.fromAutoDevListing(listing, photos, specs);
+          vehicleData.apiData = {
+            listing,
+            specs,
+            photos,
+            raw: listing,
+            cached: true,
+            isTemporary: true,
+          };
+          vehicleData.apiSyncStatus = 'PENDING';
+          vehicleData.id = `temp-${normalizedVin}`;
+          
+          // Cache the vehicle data (12hr TTL)
+          await this.cache.set(cacheKey, vehicleData);
+          loggers.info(`Cached vehicle data for VIN: ${normalizedVin}`);
+          
+          vehicle = vehicleData as Vehicle;
+        }
+      } catch (error) {
+        loggers.warn(`Failed to fetch vehicle ${normalizedVin} from Auto.dev:`, error);
       }
     }
 
@@ -417,9 +433,9 @@ export class VehicleService {
   }
 
   /**
-   * Get vehicle by VIN
+   * Get vehicle by VIN from database only (internal use)
    */
-  async getVehicleByVIN(vin: string): Promise<Vehicle | null> {
+  async getVehicleByVINFromDB(vin: string): Promise<Vehicle | null> {
     return this.vehicleRepo.findByVIN(vin);
   }
 

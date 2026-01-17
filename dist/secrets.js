@@ -57,5 +57,5 @@ exports.AUTO_DEV_BASE_URL = process.env.AUTO_DEV_BASE_URL || 'https://api.auto.d
 exports.TOKEN_EXPIRY_MINUTES = process.env.TOKEN_EXPIRY_MINUTES;
 exports.REDIS_URL = process.env.REDIS_URL || '';
 exports.REDIS_CACHE_TTL_HOURS = process.env.REDIS_CACHE_TTL_HOURS || '12'; // Default 12 hours
-exports.UPSTASH_REDIS_REST_URL = process.env.UPSTASH_REDIS_REST_URL || '';
-exports.UPSTASH_REDIS_REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
+exports.UPSTASH_REDIS_REST_URL = process.env.UPSTASH_REDIS_REST_URL;
+exports.UPSTASH_REDIS_REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;

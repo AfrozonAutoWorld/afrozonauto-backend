@@ -62,16 +62,23 @@ export class VehicleController {
   });
 
   /**
-   * GET /api/vehicles/:id
-   * Get vehicle by ID (with Redis cache and Auto.dev fallback)
-   * Query param: vin=XXX - Optional VIN to try cache/API if ID not found
+   * GET /api/vehicles/:identifier
+   * Get vehicle by ID or VIN
+   * Query param: type="id" | "vin" (default: "id")
+   * Flow: 
+   *   - type="id": DB → Redis → API
+   *   - type="vin": Redis → API
    * Does NOT save to DB - only returns cached/API data
    */
-  getVehicleById = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const { id } = req.params;
-    const vin = req.query.vin as string;
+  getVehicle = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const { identifier } = req.params;
+    const type = (req.query.type as 'id' | 'vin') || 'id';
     
-    const vehicle = await this.vehicleService.getVehicleById(id, vin);
+    if (!identifier) {
+      throw ApiError.badRequest('Vehicle identifier is required');
+    }
+    
+    const vehicle = await this.vehicleService.getVehicle(identifier, type);
     return res.json(ApiResponse.success(vehicle, 'Vehicle retrieved successfully'));
   });
 

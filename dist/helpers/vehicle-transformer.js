@@ -7,29 +7,32 @@ class VehicleTransformer {
      * Transform Auto.dev listing to our Vehicle model
      */
     static fromAutoDevListing(listing, photos = [], specs) {
+        const vehicle = listing.vehicle || listing;
+        const retailListing = listing.retailListing || {};
         return {
-            vin: listing.vin,
-            slug: this.generateSlug(listing.make, listing.model, listing.year, listing.vin),
-            make: listing.make,
-            model: listing.model,
-            year: listing.year,
-            priceUsd: listing.price || 0,
-            mileage: listing.mileage,
-            vehicleType: this.mapVehicleType(listing.bodyStyle || ''),
-            transmission: listing.transmission,
-            fuelType: listing.fuelType,
-            engineSize: listing.engineSize,
-            exteriorColor: listing.exteriorColor,
-            interiorColor: listing.interiorColor,
-            dealerName: listing.dealerName,
-            dealerState: listing.dealerState,
-            dealerCity: listing.dealerCity,
-            dealerZipCode: listing.dealerZipCode,
+            vin: listing.vin || vehicle.vin,
+            slug: this.generateSlug(vehicle.make, vehicle.model, vehicle.year, listing.vin || vehicle.vin),
+            make: vehicle.make,
+            model: vehicle.model,
+            year: vehicle.year,
+            priceUsd: retailListing.price || listing.price || 0,
+            mileage: retailListing.mileage || listing.mileage,
+            vehicleType: this.mapVehicleType(vehicle.bodyStyle || listing.bodyStyle || ''),
+            transmission: vehicle.transmission || listing.transmission,
+            fuelType: vehicle.fuel || listing.fuelType,
+            engineSize: vehicle.engine || listing.engineSize,
+            drivetrain: vehicle.drivetrain,
+            exteriorColor: retailListing.exteriorColor || listing.exteriorColor,
+            interiorColor: retailListing.interiorColor || listing.interiorColor,
+            dealerName: retailListing.dealer || listing.dealerName,
+            dealerState: retailListing.state || listing.dealerState,
+            dealerCity: retailListing.city || listing.dealerCity,
+            dealerZipCode: retailListing.zip || listing.dealerZipCode,
             images: photos,
             features: listing.features || [],
             source: client_1.VehicleSource.API,
             apiProvider: 'autodev',
-            apiListingId: listing.vin,
+            apiListingId: listing.vin || vehicle.vin,
             status: client_1.VehicleStatus.AVAILABLE,
             specifications: specs,
             isActive: true,
@@ -58,10 +61,11 @@ class VehicleTransformer {
      * Generate SEO-friendly slug
      */
     static generateSlug(make, model, year, vin) {
-        const makeSlug = make.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-        const modelSlug = model.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-        const vinSuffix = vin.slice(-6).toLowerCase();
-        return `${year}-${makeSlug}-${modelSlug}-${vinSuffix}`;
+        const makeSlug = (make || 'unknown').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        const modelSlug = (model || 'unknown').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        const yearStr = year || 'unknown';
+        const vinSuffix = (vin || 'unknown').slice(-6).toLowerCase();
+        return `${yearStr}-${makeSlug}-${modelSlug}-${vinSuffix}`;
     }
     /**
      * Map body style to VehicleType enum

@@ -29,41 +29,132 @@ const secrets_1 = require("../secrets");
 let RedisCacheService = class RedisCacheService {
     constructor() {
         this.client = null;
-        this.defaultTTL = secrets_1.REDIS_CACHE_TTL_HOURS ? parseInt(secrets_1.REDIS_CACHE_TTL_HOURS, 10) * 3600 : 12 * 3600; // Default 12 hours in seconds
+        this.isDisabled = false;
+        this.keepAliveInterval = null;
+        this.defaultTTL = secrets_1.REDIS_CACHE_TTL_HOURS ? parseInt(secrets_1.REDIS_CACHE_TTL_HOURS, 10) * 3600 : 12 * 3600;
         if (secrets_1.REDIS_URL) {
             try {
+                loggers_1.default.info('Initializing ioredis client');
                 this.client = new ioredis_1.default(secrets_1.REDIS_URL, {
                     retryStrategy: (times) => {
-                        const delay = Math.min(times * 50, 2000);
+                        // Exponential backoff with max delay of 5 seconds
+                        const delay = Math.min(times * 100, 5000);
                         return delay;
                     },
-                    maxRetriesPerRequest: 3,
+                    maxRetriesPerRequest: null, // Allow unlimited retries for connection issues
                     enableReadyCheck: true,
-                    lazyConnect: true,
+                    lazyConnect: false,
+                    connectTimeout: 10000,
+                    keepAlive: 30000, // Send keepalive packets every 30 seconds
+                    family: 4, // Force IPv4
+                    enableOfflineQueue: true, // Queue commands when offline
+                    enableAutoPipelining: false, // Disable auto-pipelining to avoid issues
                 });
+                // Set up event handlers
                 this.client.on('connect', () => {
-                    loggers_1.default.info('Redis client connecting...');
+                    loggers_1.default.info('Redis client connected');
                 });
-                this.client.on('ready', () => {
+                this.client.on('ready', () => __awaiter(this, void 0, void 0, function* () {
                     loggers_1.default.info('Redis client ready');
-                });
-                this.client.on('error', (err) => {
-                    loggers_1.default.error('Redis client error:', err);
+                    // Test connection once ready
+                    yield this.testConnection();
+                    // Start keepalive ping interval
+                    this.startKeepAlive();
+                }));
+                this.client.on('error', (error) => {
+                    // Don't disable on connection errors - let it retry
+                    // Only log errors, don't disable unless it's a fatal error
+                    if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+                        loggers_1.default.warn('Redis connection error (will retry):', error.message);
+                    }
+                    else if (error.code === 'ECONNRESET') {
+                        loggers_1.default.warn('Redis connection reset (will reconnect):', error.message);
+                    }
+                    else {
+                        loggers_1.default.error('Redis client error:', error);
+                    }
                 });
                 this.client.on('close', () => {
-                    loggers_1.default.warn('Redis client connection closed');
+                    loggers_1.default.warn('Redis connection closed');
+                    this.stopKeepAlive();
                 });
-                // Connect lazily
-                this.client.connect().catch((err) => {
-                    loggers_1.default.error('Failed to connect to Redis:', err);
+                this.client.on('reconnecting', (delay) => {
+                    loggers_1.default.info(`Redis reconnecting in ${delay}ms`);
+                });
+                this.client.on('end', () => {
+                    loggers_1.default.warn('Redis connection ended');
+                    this.stopKeepAlive();
                 });
             }
             catch (error) {
                 loggers_1.default.error('Failed to initialize Redis client:', error);
+                this.isDisabled = true;
             }
         }
         else {
             loggers_1.default.warn('REDIS_URL not configured, caching disabled');
+            this.isDisabled = true;
+        }
+    }
+    /**
+     * Start periodic keepalive pings to prevent connection timeout
+     */
+    startKeepAlive() {
+        this.stopKeepAlive(); // Clear any existing interval
+        // Ping every 20 seconds to keep connection alive
+        this.keepAliveInterval = setInterval(() => __awaiter(this, void 0, void 0, function* () {
+            if (this.client && this.client.status === 'ready') {
+                try {
+                    yield this.client.ping();
+                }
+                catch (error) {
+                    loggers_1.default.warn('Keepalive ping failed:', error);
+                }
+            }
+        }), 20000); // 20 seconds
+    }
+    /**
+     * Stop keepalive interval
+     */
+    stopKeepAlive() {
+        if (this.keepAliveInterval) {
+            clearInterval(this.keepAliveInterval);
+            this.keepAliveInterval = null;
+        }
+    }
+    /**
+     * Test Redis connection
+     */
+    testConnection() {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                if (this.client && this.client.status === 'ready') {
+                    const result = yield this.client.ping();
+                    if (result === 'PONG') {
+                        loggers_1.default.info('Redis connection test successful');
+                    }
+                    else {
+                        loggers_1.default.warn('Redis ping returned unexpected result:', result);
+                    }
+                }
+                else {
+                    loggers_1.default.warn('Redis client not ready for connection test');
+                }
+            }
+            catch (error) {
+                loggers_1.default.error('Redis connection test failed:', error);
+                // Don't disable on test failure - let it retry
+            }
+        });
+    }
+    /**
+     * Disable Redis gracefully after repeated failures
+     */
+    disableRedis(reason) {
+        if (!this.isDisabled) {
+            this.isDisabled = true;
+            loggers_1.default.warn(`Redis disabled: ${reason}. Caching will be unavailable.`);
+            this.client = null;
         }
     }
     /**
@@ -71,15 +162,21 @@ let RedisCacheService = class RedisCacheService {
      */
     get(key) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (!this.client || !this.isConnected()) {
+            if (this.isDisabled || !this.client) {
                 return null;
             }
             try {
                 const value = yield this.client.get(key);
-                if (!value) {
+                if (value === null || value === undefined) {
                     return null;
                 }
-                return JSON.parse(value);
+                // Try to parse JSON, otherwise return as-is
+                try {
+                    return typeof value === 'string' ? JSON.parse(value) : value;
+                }
+                catch (_a) {
+                    return value;
+                }
             }
             catch (error) {
                 loggers_1.default.error(`Redis get error for key ${key}:`, error);
@@ -92,12 +189,12 @@ let RedisCacheService = class RedisCacheService {
      */
     set(key, value, ttlSeconds) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (!this.client || !this.isConnected()) {
+            if (this.isDisabled || !this.client) {
                 return false;
             }
             try {
                 const ttl = ttlSeconds || this.defaultTTL;
-                const serialized = JSON.stringify(value);
+                const serialized = typeof value === 'string' ? value : JSON.stringify(value);
                 yield this.client.setex(key, ttl, serialized);
                 return true;
             }
@@ -112,12 +209,12 @@ let RedisCacheService = class RedisCacheService {
      */
     delete(key) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (!this.client || !this.isConnected()) {
+            if (this.isDisabled || !this.client) {
                 return false;
             }
             try {
-                yield this.client.del(key);
-                return true;
+                const result = yield this.client.del(key);
+                return result > 0;
             }
             catch (error) {
                 loggers_1.default.error(`Redis delete error for key ${key}:`, error);
@@ -130,7 +227,7 @@ let RedisCacheService = class RedisCacheService {
      */
     deleteByPattern(pattern) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (!this.client || !this.isConnected()) {
+            if (this.isDisabled || !this.client) {
                 return 0;
             }
             try {
@@ -138,7 +235,8 @@ let RedisCacheService = class RedisCacheService {
                 if (keys.length === 0) {
                     return 0;
                 }
-                return yield this.client.del(...keys);
+                const result = yield this.client.del(...keys);
+                return result;
             }
             catch (error) {
                 loggers_1.default.error(`Redis deleteByPattern error for pattern ${pattern}:`, error);
@@ -151,7 +249,7 @@ let RedisCacheService = class RedisCacheService {
      */
     exists(key) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (!this.client || !this.isConnected()) {
+            if (this.isDisabled || !this.client) {
                 return false;
             }
             try {
@@ -169,7 +267,7 @@ let RedisCacheService = class RedisCacheService {
      */
     getTTL(key) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (!this.client || !this.isConnected()) {
+            if (this.isDisabled || !this.client) {
                 return -1;
             }
             try {
@@ -185,18 +283,23 @@ let RedisCacheService = class RedisCacheService {
      * Check if Redis is connected
      */
     isConnected() {
-        var _a;
-        return ((_a = this.client) === null || _a === void 0 ? void 0 : _a.status) === 'ready';
+        return !this.isDisabled && this.client !== null;
     }
     /**
-     * Close Redis connection
+     * Ping Redis to check connection
      */
-    disconnect() {
+    ping() {
         return __awaiter(this, void 0, void 0, function* () {
-            if (this.client) {
-                yield this.client.quit();
-                this.client = null;
-                loggers_1.default.info('Redis client disconnected');
+            if (this.isDisabled || !this.client) {
+                return false;
+            }
+            try {
+                const result = yield this.client.ping();
+                return result === 'PONG';
+            }
+            catch (error) {
+                loggers_1.default.error('Redis ping error:', error);
+                return false;
             }
         });
     }
@@ -218,6 +321,178 @@ let RedisCacheService = class RedisCacheService {
      */
     static getVehicleByIdKey(id) {
         return `vehicle:id:${id}`;
+    }
+    /**
+     * Flush all keys (use with caution)
+     */
+    flushAll() {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (this.isDisabled || !this.client) {
+                return false;
+            }
+            try {
+                yield this.client.flushdb();
+                loggers_1.default.info('Redis cache flushed');
+                return true;
+            }
+            catch (error) {
+                loggers_1.default.error('Redis flushAll error:', error);
+                return false;
+            }
+        });
+    }
+    /**
+     * Get multiple keys at once
+     */
+    mget(keys) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (this.isDisabled || !this.client || keys.length === 0) {
+                return [];
+            }
+            try {
+                const values = yield this.client.mget(...keys);
+                return values.map(v => {
+                    if (v === null || v === undefined)
+                        return null;
+                    try {
+                        return typeof v === 'string' ? JSON.parse(v) : v;
+                    }
+                    catch (_a) {
+                        return v;
+                    }
+                });
+            }
+            catch (error) {
+                loggers_1.default.error('Redis mget error:', error);
+                return keys.map(() => null);
+            }
+        });
+    }
+    /**
+     * Set multiple keys at once
+     * ioredis accepts: mset('key1', 'value1', 'key2', 'value2')
+     */
+    mset(keyValuePairs) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (this.isDisabled || !this.client) {
+                return false;
+            }
+            try {
+                // Serialize all values and flatten to array [key1, value1, key2, value2, ...]
+                const args = [];
+                Object.entries(keyValuePairs).forEach(([key, value]) => {
+                    args.push(key);
+                    args.push(typeof value === 'string' ? value : JSON.stringify(value));
+                });
+                yield this.client.mset(...args);
+                return true;
+            }
+            catch (error) {
+                loggers_1.default.error('Redis mset error:', error);
+                return false;
+            }
+        });
+    }
+    /**
+     * Increment a counter
+     */
+    increment(key_1) {
+        return __awaiter(this, arguments, void 0, function* (key, by = 1) {
+            if (this.isDisabled || !this.client) {
+                return 0;
+            }
+            try {
+                if (by === 1) {
+                    return yield this.client.incr(key);
+                }
+                else {
+                    return yield this.client.incrby(key, by);
+                }
+            }
+            catch (error) {
+                loggers_1.default.error(`Redis increment error for key ${key}:`, error);
+                return 0;
+            }
+        });
+    }
+    /**
+     * Decrement a counter
+     */
+    decrement(key_1) {
+        return __awaiter(this, arguments, void 0, function* (key, by = 1) {
+            if (this.isDisabled || !this.client) {
+                return 0;
+            }
+            try {
+                if (by === 1) {
+                    return yield this.client.decr(key);
+                }
+                else {
+                    return yield this.client.decrby(key, by);
+                }
+            }
+            catch (error) {
+                loggers_1.default.error(`Redis decrement error for key ${key}:`, error);
+                return 0;
+            }
+        });
+    }
+    /**
+     * Set key with expiry only if it doesn't exist (NX option)
+     */
+    setnx(key, value, ttlSeconds) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (this.isDisabled || !this.client) {
+                return false;
+            }
+            try {
+                const ttl = ttlSeconds || this.defaultTTL;
+                const serialized = typeof value === 'string' ? value : JSON.stringify(value);
+                // NX = Only set if key doesn't exist, EX = set expiry
+                const result = yield this.client.set(key, serialized, 'EX', ttl, 'NX');
+                return result === 'OK';
+            }
+            catch (error) {
+                loggers_1.default.error(`Redis setnx error for key ${key}:`, error);
+                return false;
+            }
+        });
+    }
+    /**
+     * Get all keys matching pattern
+     */
+    keys(pattern) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (this.isDisabled || !this.client) {
+                return [];
+            }
+            try {
+                return yield this.client.keys(pattern);
+            }
+            catch (error) {
+                loggers_1.default.error(`Redis keys error for pattern ${pattern}:`, error);
+                return [];
+            }
+        });
+    }
+    /**
+     * Cleanup and disconnect Redis client
+     */
+    disconnect() {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.stopKeepAlive();
+            if (this.client) {
+                try {
+                    yield this.client.quit();
+                    loggers_1.default.info('Redis client disconnected gracefully');
+                }
+                catch (error) {
+                    loggers_1.default.error('Error disconnecting Redis client:', error);
+                    this.client.disconnect();
+                }
+                this.client = null;
+            }
+        });
     }
 };
 exports.RedisCacheService = RedisCacheService;

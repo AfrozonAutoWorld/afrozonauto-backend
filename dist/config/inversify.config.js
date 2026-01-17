@@ -31,6 +31,7 @@ const RedisCacheService_1 = require("../services/RedisCacheService");
 const PaymentController_1 = require("../controllers/PaymentController");
 const PaymentService_1 = require("../services/PaymentService");
 const PaymentRepository_1 = require("../repositories/PaymentRepository");
+const OrderRepository_1 = require("../repositories/OrderRepository");
 const StripeProvider_1 = require("../services/StripeProvider");
 const PaystackProvider_1 = require("../services/PaystackProvider");
 const ProfileController_1 = require("../controllers/ProfileController");
@@ -57,6 +58,7 @@ container.bind(types_1.TYPES.TokenService).to(TokenService_1.default);
 container.bind(types_1.TYPES.PaymentController).to(PaymentController_1.PaymentController);
 container.bind(types_1.TYPES.PaymentService).to(PaymentService_1.PaymentService);
 container.bind(types_1.TYPES.PaymentRepository).to(PaymentRepository_1.PaymentRepository);
+container.bind(types_1.TYPES.OrderRepository).to(OrderRepository_1.OrderRepository);
 container.bind(types_1.TYPES.StripeProvider).to(StripeProvider_1.StripeProvider);
 container.bind(types_1.TYPES.PaystackProvider).to(PaystackProvider_1.PaystackProvider);
 // Vehicle bindings

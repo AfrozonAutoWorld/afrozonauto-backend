@@ -26,7 +26,6 @@ const inversify_1 = require("inversify");
 const types_1 = require("../config/types");
 const AddressService_1 = require("../services/AddressService");
 const client_1 = require("../generated/prisma/client");
-const address_validation_1 = require("../validation/schema/address.validation");
 const asyncHandler_1 = require("../utils/asyncHandler");
 const ApiResponse_1 = require("../utils/ApiResponse");
 const ApiError_1 = require("../utils/ApiError");
@@ -38,35 +37,38 @@ let AddressController = class AddressController {
                 throw ApiError_1.ApiError.unauthorized('User not authenticated');
             }
             if (!req.user.profile) {
-                throw ApiError_1.ApiError.badRequest('User profile not found');
+                return res.status(400).json(ApiError_1.ApiError.badRequest('User profile not found'));
             }
             const userId = req.user.id;
             const address = yield this.addressService.createAddress(req.user.profile.id, Object.assign(Object.assign({}, req.body), { userId }));
-            res
+            return res
                 .status(201)
                 .json(new ApiResponse_1.ApiResponse(201, address, 'Address created successfully'));
         }));
         this.getUserAddresses = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            var _a;
             if (!req.user) {
-                throw ApiError_1.ApiError.unauthorized('User not authenticated');
+                return res.status(401).json(ApiError_1.ApiError.unauthorized('User not authenticated'));
             }
-            const addresses = yield this.addressService.getUserAddresses(req.user.id);
-            res.json(new ApiResponse_1.ApiResponse(200, addresses, 'User addresses retrieved successfully'));
+            const profileId = (_a = req.user.profile) === null || _a === void 0 ? void 0 : _a.id;
+            if (!profileId) {
+                return res.status(400).json(ApiError_1.ApiError.badRequest('Kindly create your profile'));
+            }
+            const addresses = yield this.addressService.getUserAddresses(profileId);
+            return res.json(new ApiResponse_1.ApiResponse(200, addresses, 'User addresses retrieved successfully'));
         }));
         this.getDefaultAddress = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            var _a, _b;
             // Validate query parameters
             if (!req.user) {
-                throw ApiError_1.ApiError.unauthorized('User not authenticated');
+                return res.status(401).json(ApiError_1.ApiError.unauthorized('User not authenticated'));
             }
-            const { error, value } = address_validation_1.createAddressSchema.validate(req.query);
-            if (error) {
-                return res.status(400).json(ApiError_1.ApiError.badRequest('Invalid query parameters', error.details.map(d => ({
-                    field: d.path.join('.'),
-                    message: d.message
-                }))));
+            const profileId = (_a = req.user.profile) === null || _a === void 0 ? void 0 : _a.id;
+            if (!profileId) {
+                return res.status(400).json(ApiError_1.ApiError.badRequest('Kindly create your profile'));
             }
-            const type = value.type || client_1.AddressType.NORMAL;
-            const address = yield this.addressService.getDefaultAddress(req.user.id, type);
+            const type = ((_b = req.body) === null || _b === void 0 ? void 0 : _b.type) || client_1.AddressType.NORMAL;
+            const address = yield this.addressService.getDefaultAddress(profileId, type);
             if (!address) {
                 return res.status(404).json(ApiError_1.ApiError.notFound('Default address not found', {
                     requestedType: type,
@@ -74,21 +76,21 @@ let AddressController = class AddressController {
                     allowedTypes: Object.values(client_1.AddressType)
                 }));
             }
-            res.json(new ApiResponse_1.ApiResponse(200, address, 'Default address retrieved successfully'));
+            return res.json(new ApiResponse_1.ApiResponse(200, address, 'Default address retrieved successfully'));
         }));
         this.updateAddress = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             const address = yield this.addressService.updateAddress(req.params.id, req.body);
             if (!address) {
                 return res.status(404).json(ApiError_1.ApiError.notFound('Address not found'));
             }
-            res.json(new ApiResponse_1.ApiResponse(200, address, 'Address updated successfully'));
+            return res.json(new ApiResponse_1.ApiResponse(200, address, 'Address updated successfully'));
         }));
         this.deleteAddress = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             const deleted = yield this.addressService.deleteAddress(req.params.id);
             if (!deleted) {
                 return res.status(404).json(ApiError_1.ApiError.notFound('Address not found'));
             }
-            res.json(new ApiResponse_1.ApiResponse(200, { deleted }, 'Address deleted successfully'));
+            return res.json(new ApiResponse_1.ApiResponse(200, { deleted }, 'Address deleted successfully'));
         }));
     }
 };

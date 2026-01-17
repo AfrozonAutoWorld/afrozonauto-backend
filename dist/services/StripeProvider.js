@@ -5,6 +5,9 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -21,17 +24,38 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.StripeProvider = void 0;
 const stripe_1 = __importDefault(require("stripe"));
 const inversify_1 = require("inversify");
+const secrets_1 = require("../secrets");
+const loggers_1 = __importDefault(require("../utils/loggers"));
 let StripeProvider = class StripeProvider {
     constructor() {
-        this.stripe = new stripe_1.default(process.env.STRIPE_SECRET, {
-            apiVersion: '2025-12-15.clover'
-        });
+        this.stripe = null;
+        this.isConfigured = false;
+        if (secrets_1.STRIPE_API_KEY) {
+            try {
+                this.stripe = new stripe_1.default(secrets_1.STRIPE_API_KEY, {
+                    apiVersion: '2025-12-15.clover'
+                });
+                this.isConfigured = true;
+                loggers_1.default.info('Stripe provider initialized');
+            }
+            catch (error) {
+                loggers_1.default.error('Failed to initialize Stripe provider:', error);
+                this.isConfigured = false;
+            }
+        }
+        else {
+            loggers_1.default.warn('STRIPE_API_KEY not configured. Stripe payments will be unavailable.');
+            this.isConfigured = false;
+        }
     }
     initializePayment(data) {
         return __awaiter(this, void 0, void 0, function* () {
+            if (!this.isConfigured || !this.stripe) {
+                throw new Error('Stripe is not configured. Please set STRIPE_API_KEY environment variable.');
+            }
             const intent = yield this.stripe.paymentIntents.create({
                 amount: data.amount * 100,
-                currency: data.currency,
+                currency: data.currency || 'usd',
                 metadata: data.metadata
             });
             return {
@@ -43,6 +67,9 @@ let StripeProvider = class StripeProvider {
     verifyPayment(reference) {
         return __awaiter(this, void 0, void 0, function* () {
             var _a;
+            if (!this.isConfigured || !this.stripe) {
+                throw new Error('Stripe is not configured. Please set STRIPE_API_KEY environment variable.');
+            }
             const intent = yield this.stripe.paymentIntents.retrieve(reference);
             let receiptUrl;
             if (intent.latest_charge) {
@@ -62,5 +89,6 @@ let StripeProvider = class StripeProvider {
 };
 exports.StripeProvider = StripeProvider;
 exports.StripeProvider = StripeProvider = __decorate([
-    (0, inversify_1.injectable)()
+    (0, inversify_1.injectable)(),
+    __metadata("design:paramtypes", [])
 ], StripeProvider);

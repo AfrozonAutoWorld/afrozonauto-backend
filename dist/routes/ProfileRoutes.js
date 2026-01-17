@@ -3,9 +3,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const inversify_config_1 = require("../config/inversify.config");
 const types_1 = require("../config/types");
+const bodyValidate_1 = require("../middleware/bodyValidate");
+const user_vallidation_1 = require("../validation/schema/user.vallidation");
 const cloudinaryUploads_1 = require("../middleware/cloudinaryUploads");
 const multer_config_1 = require("../config/multer.config");
 const authMiddleware_1 = require("../middleware/authMiddleware");
+const enums_1 = require("../generated/prisma/enums");
 class ProfileRoutes {
     constructor() {
         this.router = (0, express_1.Router)();
@@ -17,11 +20,11 @@ class ProfileRoutes {
         this.router.post('/', authMiddleware_1.authenticate, this.controller.create);
         this.router.get('/:id', authMiddleware_1.authenticate, this.controller.getById);
         // Update current user's profile
-        this.router.patch('/', authMiddleware_1.authenticate, multer_config_1.upload.array('files', 5), cloudinaryUploads_1.uploadToCloudinary, this.controller.update);
+        this.router.patch('/', authMiddleware_1.authenticate, multer_config_1.upload.array('files', 5), cloudinaryUploads_1.uploadToCloudinary, (0, bodyValidate_1.validateBody)(user_vallidation_1.updateProfileSchema), this.controller.update);
         // Delete profile by ID (admin or owner – enforce in middleware/service)
-        this.router.delete('/:id', authMiddleware_1.authenticate, this.controller.delete);
+        this.router.delete('/:id', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([enums_1.UserRole.OPERATIONS_ADMIN, enums_1.UserRole.SUPER_ADMIN]), this.controller.delete);
         // List all profiles (admin-only – enforce role in middleware)
-        this.router.get('/', authMiddleware_1.authenticate, this.controller.list);
+        this.router.get('/', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([enums_1.UserRole.OPERATIONS_ADMIN, enums_1.UserRole.SUPER_ADMIN]), this.controller.list);
         // Get current authenticated user's profile
         this.router.get('/me', authMiddleware_1.authenticate, this.controller.currentUserProfile);
         // Reset password for current user
