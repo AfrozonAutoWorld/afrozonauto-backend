@@ -1,35 +1,111 @@
 import { injectable } from 'inversify';
-import { Redis } from '@upstash/redis';
+import Redis from 'ioredis';
 import loggers from '../utils/loggers';
-import { REDIS_CACHE_TTL_HOURS, UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN } from '../secrets';
+import { REDIS_CACHE_TTL_HOURS, REDIS_URL } from '../secrets';
 
 @injectable()
 export class RedisCacheService {
   private client: Redis | null = null;
   private readonly defaultTTL: number;
   private isDisabled: boolean = false;
+  private keepAliveInterval: NodeJS.Timeout | null = null;
 
   constructor() {
     this.defaultTTL = REDIS_CACHE_TTL_HOURS ? parseInt(REDIS_CACHE_TTL_HOURS, 10) * 3600 : 12 * 3600;
   
-    if (UPSTASH_REDIS_REST_URL && UPSTASH_REDIS_REST_TOKEN) {
+    if (REDIS_URL) {
       try {
-        loggers.info('Initializing Upstash Redis client');
+        loggers.info('Initializing ioredis client');
         
-        this.client = new Redis({
-          url: UPSTASH_REDIS_REST_URL,
-          token: UPSTASH_REDIS_REST_TOKEN,
+        this.client = new Redis(REDIS_URL, {
+          retryStrategy: (times) => {
+            // Exponential backoff with max delay of 5 seconds
+            const delay = Math.min(times * 100, 5000);
+            return delay;
+          },
+          maxRetriesPerRequest: null, // Allow unlimited retries for connection issues
+          enableReadyCheck: true,
+          lazyConnect: false,
+          connectTimeout: 10000,
+          keepAlive: 30000, // Send keepalive packets every 30 seconds
+          family: 4, // Force IPv4
+          enableOfflineQueue: true, // Queue commands when offline
+          enableAutoPipelining: false, // Disable auto-pipelining to avoid issues
         });
 
-        // Test the connection
-        this.testConnection();
+        // Set up event handlers
+        this.client.on('connect', () => {
+          loggers.info('Redis client connected');
+        });
+
+        this.client.on('ready', async () => {
+          loggers.info('Redis client ready');
+          // Test connection once ready
+          await this.testConnection();
+          // Start keepalive ping interval
+          this.startKeepAlive();
+        });
+
+        this.client.on('error', (error: any) => {
+          // Don't disable on connection errors - let it retry
+          // Only log errors, don't disable unless it's a fatal error
+          if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+            loggers.warn('Redis connection error (will retry):', error.message);
+          } else if (error.code === 'ECONNRESET') {
+            loggers.warn('Redis connection reset (will reconnect):', error.message);
+          } else {
+            loggers.error('Redis client error:', error);
+          }
+        });
+
+        this.client.on('close', () => {
+          loggers.warn('Redis connection closed');
+          this.stopKeepAlive();
+        });
+
+        this.client.on('reconnecting', (delay: number) => {
+          loggers.info(`Redis reconnecting in ${delay}ms`);
+        });
+
+        this.client.on('end', () => {
+          loggers.warn('Redis connection ended');
+          this.stopKeepAlive();
+        });
       } catch (error) {
-        loggers.error('Failed to initialize Upstash Redis client:', error);
+        loggers.error('Failed to initialize Redis client:', error);
         this.isDisabled = true;
       }
     } else {
-      loggers.warn('Upstash Redis credentials not provided. Caching will be disabled.');
+      loggers.warn('REDIS_URL not configured, caching disabled');
       this.isDisabled = true;
+    }
+  }
+
+  /**
+   * Start periodic keepalive pings to prevent connection timeout
+   */
+  private startKeepAlive(): void {
+    this.stopKeepAlive(); // Clear any existing interval
+    
+    // Ping every 20 seconds to keep connection alive
+    this.keepAliveInterval = setInterval(async () => {
+      if (this.client && this.client.status === 'ready') {
+        try {
+          await this.client.ping();
+        } catch (error) {
+          loggers.warn('Keepalive ping failed:', error);
+        }
+      }
+    }, 20000); // 20 seconds
+  }
+
+  /**
+   * Stop keepalive interval
+   */
+  private stopKeepAlive(): void {
+    if (this.keepAliveInterval) {
+      clearInterval(this.keepAliveInterval);
+      this.keepAliveInterval = null;
     }
   }
 
@@ -38,11 +114,19 @@ export class RedisCacheService {
    */
   private async testConnection(): Promise<void> {
     try {
-      await this.client?.ping();
-      loggers.info('Upstash Redis connection successful');
+      if (this.client && this.client.status === 'ready') {
+        const result = await this.client.ping();
+        if (result === 'PONG') {
+          loggers.info('Redis connection test successful');
+        } else {
+          loggers.warn('Redis ping returned unexpected result:', result);
+        }
+      } else {
+        loggers.warn('Redis client not ready for connection test');
+      }
     } catch (error) {
-      loggers.error('Upstash Redis connection test failed:', error);
-      this.disableRedis('Connection test failed');
+      loggers.error('Redis connection test failed:', error);
+      // Don't disable on test failure - let it retry
     }
   }
 
@@ -95,7 +179,7 @@ export class RedisCacheService {
       const ttl = ttlSeconds || this.defaultTTL;
       const serialized = typeof value === 'string' ? value : JSON.stringify(value);
       
-      await this.client.set(key, serialized, { ex: ttl });
+      await this.client.setex(key, ttl, serialized);
       return true;
     } catch (error) {
       loggers.error(`Redis set error for key ${key}:`, error);
@@ -112,8 +196,8 @@ export class RedisCacheService {
     }
 
     try {
-      await this.client.del(key);
-      return true;
+      const result = await this.client.del(key);
+      return result > 0;
     } catch (error) {
       loggers.error(`Redis delete error for key ${key}:`, error);
       return false;
@@ -264,7 +348,7 @@ export class RedisCacheService {
 
   /**
    * Set multiple keys at once
-   * Upstash Redis accepts: mset({ key1: 'value1', key2: 'value2' })
+   * ioredis accepts: mset('key1', 'value1', 'key2', 'value2')
    */
   async mset(keyValuePairs: Record<string, any>): Promise<boolean> {
     if (this.isDisabled || !this.client) {
@@ -272,14 +356,14 @@ export class RedisCacheService {
     }
 
     try {
-      // Serialize all values
-      const serializedPairs: Record<string, string> = {};
+      // Serialize all values and flatten to array [key1, value1, key2, value2, ...]
+      const args: string[] = [];
       Object.entries(keyValuePairs).forEach(([key, value]) => {
-        serializedPairs[key] = typeof value === 'string' ? value : JSON.stringify(value);
+        args.push(key);
+        args.push(typeof value === 'string' ? value : JSON.stringify(value));
       });
       
-      // Pass as a single object
-      await this.client.mset(serializedPairs);
+      await this.client.mset(...args);
       return true;
     } catch (error) {
       loggers.error('Redis mset error:', error);
@@ -339,8 +423,8 @@ export class RedisCacheService {
       const ttl = ttlSeconds || this.defaultTTL;
       const serialized = typeof value === 'string' ? value : JSON.stringify(value);
       
-      // NX = Only set if key doesn't exist
-      const result = await this.client.set(key, serialized, { ex: ttl, nx: true });
+      // NX = Only set if key doesn't exist, EX = set expiry
+      const result = await this.client.set(key, serialized, 'EX', ttl, 'NX');
       return result === 'OK';
     } catch (error) {
       loggers.error(`Redis setnx error for key ${key}:`, error);
@@ -361,6 +445,23 @@ export class RedisCacheService {
     } catch (error) {
       loggers.error(`Redis keys error for pattern ${pattern}:`, error);
       return [];
+    }
+  }
+
+  /**
+   * Cleanup and disconnect Redis client
+   */
+  async disconnect(): Promise<void> {
+    this.stopKeepAlive();
+    if (this.client) {
+      try {
+        await this.client.quit();
+        loggers.info('Redis client disconnected gracefully');
+      } catch (error) {
+        loggers.error('Error disconnecting Redis client:', error);
+        this.client.disconnect();
+      }
+      this.client = null;
     }
   }
 }

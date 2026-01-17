@@ -1003,7 +1003,7 @@
 	"variable": [
 		{
 			"key": "baseUrl",
-			"value": "http://localhost:2026",
+			"value": "http://localhost:3000",
 			"type": "string"
 		},
 		{

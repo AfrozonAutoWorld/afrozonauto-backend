@@ -321,35 +321,39 @@ export class VehicleService {
    * Vehicle is saved to DB only when payment is initiated
    */
   async getVehicleById(id: string, vin?: string): Promise<Vehicle> {
-    // Check if ID is a temporary ID (starts with "temp-")
-    const isTemporaryId = id.startsWith('temp-');
+    // Check if ID is null, empty, or invalid (like ":id" route parameter)
+    const hasValidId = this.isValidId(id);
+    const isTemporaryId = hasValidId && id.startsWith('temp-');
     let extractedVin: string | undefined;
     
     if (isTemporaryId) {
       // Extract VIN from temporary ID (format: "temp-{VIN}")
       extractedVin = id.replace(/^temp-/, '');
-      // Skip DB lookup for temporary IDs
-    } else {
-      // Try DB first for real MongoDB ObjectIDs
-      let vehicle = await this.vehicleRepo.findById(id);
-      
-      // If found in DB, check if price needs refresh
-      if (vehicle && this.isPriceStale(vehicle)) {
-        const refreshed = await this.refreshVehiclePrice(vehicle);
-        if (refreshed) {
-          vehicle = refreshed;
+    } else if (hasValidId) {
+      // Try DB first for valid IDs
+      try {
+        let vehicle = await this.vehicleRepo.findById(id);
+        
+        // If found in DB, check if price needs refresh
+        if (vehicle && this.isPriceStale(vehicle)) {
+          const refreshed = await this.refreshVehiclePrice(vehicle);
+          if (refreshed) {
+            vehicle = refreshed;
+          }
         }
-      }
-      
-      if (vehicle) {
-        // Increment view count asynchronously
-        this.vehicleRepo.incrementViewCount(vehicle.id).catch((err) => {
-          loggers.error('Failed to increment view count:', err);
-        });
-        return vehicle;
+        
+        if (vehicle) {
+          // Increment view count asynchronously
+          this.vehicleRepo.incrementViewCount(vehicle.id).catch((err) => {
+            loggers.error('Failed to increment view count:', err);
+          });
+          return vehicle;
+        }
+      } catch (error) {
+        // If DB lookup fails (e.g., invalid ObjectID), log and continue to VIN lookup
+        loggers.warn(`Failed to lookup vehicle by ID ${id}, falling back to VIN lookup:`, error);
       }
     }
-    
     // Use extracted VIN from temporary ID, or fall back to provided vin parameter
     const vinToUse = extractedVin || vin;
     
@@ -500,22 +504,53 @@ export class VehicleService {
   }
 
   /**
+   * Check if ID is valid (not null, empty, or invalid route parameter)
+   */
+  private isValidId(id: string): boolean {
+    return !!(id && id.trim() && !id.startsWith(':') && id !== 'null' && id !== 'undefined');
+  }
+
+  /**
    * Update vehicle
    */
   async updateVehicle(id: string, data: Partial<Vehicle>): Promise<Vehicle> {
-    const existing = await this.vehicleRepo.findById(id);
-    if (!existing) {
-      throw ApiError.notFound('Vehicle not found');
+    if (!this.isValidId(id)) {
+      throw ApiError.badRequest('Invalid vehicle ID provided');
     }
 
-    return this.vehicleRepo.update(id, data as Prisma.VehicleUpdateInput);
+    try {
+      const existing = await this.vehicleRepo.findById(id);
+      if (!existing) {
+        throw ApiError.notFound('Vehicle not found');
+      }
+
+      return this.vehicleRepo.update(id, data as Prisma.VehicleUpdateInput);
+    } catch (error: any) {
+      // If Prisma error due to invalid ObjectID format
+      if (error.code === 'P2023' || error.message?.includes('Malformed ObjectID')) {
+        throw ApiError.badRequest('Invalid vehicle ID format');
+      }
+      throw error;
+    }
   }
 
   /**
    * Delete vehicle (soft delete)
    */
   async deleteVehicle(id: string): Promise<void> {
-    await this.vehicleRepo.delete(id);
+    if (!this.isValidId(id)) {
+      throw ApiError.badRequest('Invalid vehicle ID provided');
+    }
+
+    try {
+      await this.vehicleRepo.delete(id);
+    } catch (error: any) {
+      // If Prisma error due to invalid ObjectID format
+      if (error.code === 'P2023' || error.message?.includes('Malformed ObjectID')) {
+        throw ApiError.badRequest('Invalid vehicle ID format');
+      }
+      throw error;
+    }
   }
 
   /**

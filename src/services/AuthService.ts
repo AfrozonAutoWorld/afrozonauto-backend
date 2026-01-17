@@ -115,7 +115,36 @@ export class AuthService {
     const tokenRecord = await this.tokenService.validateToken(token, { email }, TokenType.EMAIL);
 
     if (!tokenRecord) {
-      throw ApiError.badRequest('Invalid or expired token');
+      // Check if token exists but is already used
+      const usedToken = await prisma.token.findFirst({
+        where: {
+          token: Number(token),
+          email,
+          type: TokenType.EMAIL,
+          used: true,
+        },
+      });
+
+      if (usedToken) {
+        throw ApiError.badRequest('This token has already been used. Please request a new verification token.');
+      }
+
+      // Check if any token exists for this email
+      const anyToken = await prisma.token.findFirst({
+        where: {
+          email,
+          type: TokenType.EMAIL,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      if (!anyToken) {
+        throw ApiError.badRequest('No verification token found for this email. Please request a new token.');
+      }
+
+      throw ApiError.badRequest('Invalid token. Please check the token and try again, or request a new verification token.');
     }
 
 
