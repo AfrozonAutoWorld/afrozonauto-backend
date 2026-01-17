@@ -2,8 +2,9 @@
 // Designed for flexibility, multi-country support, and API integration
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider      = "prisma-client"
+  output        = "../src/generated/prisma"
+  binaryTargets = ["native", "darwin", "darwin-arm64"]
 }
 
 datasource db {
