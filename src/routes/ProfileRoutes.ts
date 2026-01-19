@@ -31,6 +31,8 @@ class ProfileRoutes {
         this.router.post(
             '/',
             authenticate,
+            upload.array('files', 5),
+            uploadToCloudinary,
             this.controller.create
         );
 
