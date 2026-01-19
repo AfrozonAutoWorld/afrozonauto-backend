@@ -295,45 +295,30 @@ let VehicleService = class VehicleService {
      */
     getVehicle(identifier_1) {
         return __awaiter(this, arguments, void 0, function* (identifier, type = 'id') {
-            if (type === 'id') {
-                // Type is ID: Try DB first, then Redis/API fallback
-                if (this.isValidId(identifier)) {
-                    try {
-                        let vehicle = yield this.vehicleRepo.findById(identifier);
-                        // If found in DB, check if price needs refresh
-                        if (vehicle && this.isPriceStale(vehicle)) {
-                            const refreshed = yield this.refreshVehiclePrice(vehicle);
-                            if (refreshed) {
-                                vehicle = refreshed;
-                            }
-                        }
-                        if (vehicle) {
-                            // Increment view count asynchronously
-                            this.vehicleRepo.incrementViewCount(vehicle.id).catch((err) => {
-                                loggers_1.default.error('Failed to increment view count:', err);
-                            });
-                            return vehicle;
-                        }
-                    }
-                    catch (error) {
-                        // If DB lookup fails, log and continue to Redis/API lookup
-                        loggers_1.default.warn(`Failed to lookup vehicle by ID ${identifier}, falling back to Redis/API:`, error);
-                    }
-                }
-                // ID not found in DB or invalid, try Redis/API with VIN if available
-                // For temporary IDs, extract VIN
-                const vinToUse = identifier.startsWith('temp-')
-                    ? identifier.replace(/^temp-/, '')
-                    : undefined;
-                if (!vinToUse) {
-                    throw ApiError_1.ApiError.notFound('Vehicle not found');
-                }
-                return this.getVehicleByVIN(vinToUse);
-            }
-            else {
-                // Type is VIN: Try Redis first, then API
+            if (type === 'vin') {
                 return this.getVehicleByVIN(identifier);
             }
+            const trim = (identifier || '').trim();
+            if (trim.startsWith('temp-')) {
+                return this.getVehicleByVIN(trim.replace(/^temp-/, ''));
+            }
+            if (this.looksLikeVin(trim)) {
+                return this.getVehicleByVIN(trim);
+            }
+            if (this.isMongoObjectId(trim)) {
+                let vehicle = yield this.vehicleRepo.findById(trim);
+                if (vehicle && this.isPriceStale(vehicle)) {
+                    const refreshed = yield this.refreshVehiclePrice(vehicle);
+                    if (refreshed)
+                        vehicle = refreshed;
+                }
+                if (vehicle) {
+                    this.vehicleRepo.incrementViewCount(vehicle.id).catch((err) => loggers_1.default.error('Failed to increment view count:', err));
+                    return vehicle;
+                }
+                throw ApiError_1.ApiError.notFound('Vehicle not found');
+            }
+            throw ApiError_1.ApiError.badRequest('Invalid identifier. Use a 24-character vehicle id or a 17-character VIN. For VIN use ?type=vin');
         });
     }
     /**
@@ -348,7 +333,19 @@ let VehicleService = class VehicleService {
             }
             const normalizedVin = vin.trim().toUpperCase();
             let vehicle = null;
-            // Check Redis cache first
+            // Prefer DB if we have this vehicle (create/sync)
+            const fromDb = yield this.vehicleRepo.findByVIN(normalizedVin);
+            if (fromDb) {
+                vehicle = fromDb;
+                if (this.isPriceStale(vehicle)) {
+                    const refreshed = yield this.refreshVehiclePrice(vehicle);
+                    if (refreshed)
+                        vehicle = refreshed;
+                }
+                this.vehicleRepo.incrementViewCount(vehicle.id).catch((err) => loggers_1.default.error('Failed to increment view count:', err));
+                return vehicle;
+            }
+            // Check Redis cache, then Auto.dev
             const cacheKey = RedisCacheService_1.RedisCacheService.getVehicleByVINKey(normalizedVin);
             const cachedVehicle = yield this.cache.get(cacheKey);
             if (cachedVehicle) {
@@ -482,29 +479,31 @@ let VehicleService = class VehicleService {
     isValidId(id) {
         return !!(id && id.trim() && !id.startsWith(':') && id !== 'null' && id !== 'undefined');
     }
+    /** MongoDB ObjectId: exactly 24 hex characters */
+    isMongoObjectId(s) {
+        return /^[a-fA-F0-9]{24}$/.test((s || '').trim());
+    }
+    /** VIN: exactly 17 alphanumeric characters */
+    looksLikeVin(s) {
+        const t = (s || '').trim();
+        return t.length === 17 && /^[A-HJ-NPR-Z0-9]+$/i.test(t);
+    }
     /**
      * Update vehicle
      */
     updateVehicle(id, data) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a;
             if (!this.isValidId(id)) {
                 throw ApiError_1.ApiError.badRequest('Invalid vehicle ID provided');
             }
-            try {
-                const existing = yield this.vehicleRepo.findById(id);
-                if (!existing) {
-                    throw ApiError_1.ApiError.notFound('Vehicle not found');
-                }
-                return this.vehicleRepo.update(id, data);
+            if (!this.isMongoObjectId(id)) {
+                throw ApiError_1.ApiError.badRequest('Vehicle ID must be a 24-character hex string (MongoDB ObjectId). This endpoint does not accept VINs.');
             }
-            catch (error) {
-                // If Prisma error due to invalid ObjectID format
-                if (error.code === 'P2023' || ((_a = error.message) === null || _a === void 0 ? void 0 : _a.includes('Malformed ObjectID'))) {
-                    throw ApiError_1.ApiError.badRequest('Invalid vehicle ID format');
-                }
-                throw error;
+            const existing = yield this.vehicleRepo.findById(id);
+            if (!existing) {
+                throw ApiError_1.ApiError.notFound('Vehicle not found');
             }
+            return this.vehicleRepo.update(id, data);
         });
     }
     /**
@@ -512,20 +511,17 @@ let VehicleService = class VehicleService {
      */
     deleteVehicle(id) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a;
             if (!this.isValidId(id)) {
                 throw ApiError_1.ApiError.badRequest('Invalid vehicle ID provided');
             }
-            try {
-                yield this.vehicleRepo.delete(id);
+            if (!this.isMongoObjectId(id)) {
+                throw ApiError_1.ApiError.badRequest('Vehicle ID must be a 24-character hex string (MongoDB ObjectId). This endpoint does not accept VINs.');
             }
-            catch (error) {
-                // If Prisma error due to invalid ObjectID format
-                if (error.code === 'P2023' || ((_a = error.message) === null || _a === void 0 ? void 0 : _a.includes('Malformed ObjectID'))) {
-                    throw ApiError_1.ApiError.badRequest('Invalid vehicle ID format');
-                }
-                throw error;
+            const existing = yield this.vehicleRepo.findById(id);
+            if (!existing) {
+                throw ApiError_1.ApiError.notFound('Vehicle not found');
             }
+            yield this.vehicleRepo.delete(id);
         });
     }
     /**

@@ -78,7 +78,9 @@ let VehicleController = class VehicleController {
          */
         this.getVehicle = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             const { identifier } = req.params;
-            const type = req.query.type || 'id';
+            const raw = req.query.type;
+            const typeParam = (Array.isArray(raw) ? raw[0] : raw) || '';
+            const type = typeParam.toString().trim().toLowerCase() === 'vin' ? 'vin' : 'id';
             if (!identifier) {
                 throw ApiError_1.ApiError.badRequest('Vehicle identifier is required');
             }

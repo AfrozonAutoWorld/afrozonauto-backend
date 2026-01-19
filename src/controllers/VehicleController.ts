@@ -72,12 +72,14 @@ export class VehicleController {
    */
   getVehicle = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { identifier } = req.params;
-    const type = (req.query.type as 'id' | 'vin') || 'id';
-    
+    const raw = req.query.type;
+    const typeParam = (Array.isArray(raw) ? raw[0] : raw) || '';
+    const type: 'id' | 'vin' = typeParam.toString().trim().toLowerCase() === 'vin' ? 'vin' : 'id';
+
     if (!identifier) {
       throw ApiError.badRequest('Vehicle identifier is required');
     }
-    
+
     const vehicle = await this.vehicleService.getVehicle(identifier, type);
     return res.json(ApiResponse.success(vehicle, 'Vehicle retrieved successfully'));
   });
