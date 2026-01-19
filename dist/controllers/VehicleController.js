@@ -77,10 +77,14 @@ let VehicleController = class VehicleController {
          * Does NOT save to DB - only returns cached/API data
          */
         this.getVehicle = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            var _a;
             const { identifier } = req.params;
-            const type = req.query.type || 'id';
+            let type = ((_a = req.query) === null || _a === void 0 ? void 0 : _a.type) || 'vin';
+            if (identifier.startsWith('temp-')) {
+                type = 'id';
+            }
             if (!identifier) {
-                throw ApiError_1.ApiError.badRequest('Vehicle identifier is required');
+                return res.json(ApiError_1.ApiError.badRequest('Vehicle identifier is required'));
             }
             const vehicle = yield this.vehicleService.getVehicle(identifier, type);
             return res.json(ApiResponse_1.ApiResponse.success(vehicle, 'Vehicle retrieved successfully'));

@@ -18,7 +18,8 @@ exports.AddressType = {
 exports.DocumentName = {
     businessRegistration: 'businessRegistration',
     vendorNIN: 'vendorNIN',
-    storeLogo: 'storeLogo'
+    storeLogo: 'storeLogo',
+    profilePicture: 'profilePicture'
 };
 exports.InspectionCondition = {
     EXCELLENT: 'EXCELLENT',

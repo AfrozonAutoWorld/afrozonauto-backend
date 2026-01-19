@@ -171,15 +171,17 @@ export class AuthController {
     }, 'Reset token sent to email'));
   });
 
+
   resetPassword = asyncHandler(async (req: Request, res: Response) => {
     const { email, token, newPassword } = req.body;
-
+  
     if (!email || !token || !newPassword) {
       return res.status(400).json(ApiError.badRequest('Email, token, and new password are required'))
     }
-
-    await this.authService.resetPassword(email, token, newPassword);
-
+  
+    // Pass identifier as an object with email property
+    await this.authService.resetPassword({ email }, token, newPassword);
+  
     return res.json(new ApiResponse(200, null, 'Password reset successful'));
   });
 

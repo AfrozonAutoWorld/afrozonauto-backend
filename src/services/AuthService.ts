@@ -210,6 +210,7 @@ export class AuthService {
     const token = await this.tokenService.generateToken();
 
     await this.tokenService.invalidateExistingTokens(
+      undefined,
       email,
       TokenType.PASSWORD_RESET
     );
@@ -235,12 +236,13 @@ export class AuthService {
   // RESET PASSWORD
   // ============================
   async resetPassword(
-    email: string,
-    token: number,
+    identifier: { email: string }, 
+    token: number, 
     newPassword: string
-  ): Promise<boolean> {
+  ) {
+    // Validate the token with the email identifier
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: identifier.email },
     });
 
     if (!user) {
@@ -248,9 +250,9 @@ export class AuthService {
     }
 
     const tokenRecord = await this.tokenService.validateToken(
-      token,
-      {email},
-      TokenType.PASSWORD_RESET
+      token, 
+      { email: identifier.email }, 
+      TokenType.PASSWORD_RESET // or whatever type you use
     );
 
     if (!tokenRecord) {

@@ -17,7 +17,7 @@ class ProfileRoutes {
     }
     initializeRoutes() {
         // Create profile (authenticated)
-        this.router.post('/', authMiddleware_1.authenticate, this.controller.create);
+        this.router.post('/', authMiddleware_1.authenticate, multer_config_1.upload.array('files', 5), cloudinaryUploads_1.uploadToCloudinary, this.controller.create);
         this.router.get('/:id', authMiddleware_1.authenticate, this.controller.getById);
         // Update current user's profile
         this.router.patch('/', authMiddleware_1.authenticate, multer_config_1.upload.array('files', 5), cloudinaryUploads_1.uploadToCloudinary, (0, bodyValidate_1.validateBody)(user_vallidation_1.updateProfileSchema), this.controller.update);

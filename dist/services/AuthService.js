@@ -195,7 +195,7 @@ let AuthService = class AuthService {
             }
             const profile = yield this.profileService.findUserById(user.id);
             const token = yield this.tokenService.generateToken();
-            yield this.tokenService.invalidateExistingTokens(email, client_1.TokenType.PASSWORD_RESET);
+            yield this.tokenService.invalidateExistingTokens(undefined, email, client_1.TokenType.PASSWORD_RESET);
             yield db_1.default.token.create({
                 data: {
                     email,
@@ -210,15 +210,17 @@ let AuthService = class AuthService {
     // ============================
     // RESET PASSWORD
     // ============================
-    resetPassword(email, token, newPassword) {
+    resetPassword(identifier, token, newPassword) {
         return __awaiter(this, void 0, void 0, function* () {
+            // Validate the token with the email identifier
             const user = yield db_1.default.user.findUnique({
-                where: { email },
+                where: { email: identifier.email },
             });
             if (!user) {
                 throw ApiError_1.ApiError.notFound('User not found');
             }
-            const tokenRecord = yield this.tokenService.validateToken(token, { email }, client_1.TokenType.PASSWORD_RESET);
+            const tokenRecord = yield this.tokenService.validateToken(token, { email: identifier.email }, client_1.TokenType.PASSWORD_RESET // or whatever type you use
+            );
             if (!tokenRecord) {
                 throw ApiError_1.ApiError.badRequest('Invalid or expired token');
             }

@@ -163,7 +163,8 @@ let AuthController = class AuthController {
             if (!email || !token || !newPassword) {
                 return res.status(400).json(ApiError_1.ApiError.badRequest('Email, token, and new password are required'));
             }
-            yield this.authService.resetPassword(email, token, newPassword);
+            // Pass identifier as an object with email property
+            yield this.authService.resetPassword({ email }, token, newPassword);
             return res.json(new ApiResponse_1.ApiResponse(200, null, 'Password reset successful'));
         }));
         this.tokenValidation = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {

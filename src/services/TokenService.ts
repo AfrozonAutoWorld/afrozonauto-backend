@@ -89,32 +89,47 @@ export default class TokenService {
   /* ----------------------------------------------------
      VALIDATE TOKEN
   ---------------------------------------------------- */
+/* ----------------------------------------------------
+     VALIDATE TOKEN
+  ---------------------------------------------------- */
   async validateToken(
     token: number,
-    identifier: TokenIdentifier,
+    identifier: string | { userId?: string; email?: string },
     type?: TokenType
   ): Promise<Token | null> {
-    // return prisma.token.findFirst({
-    //   where: {
-    //     token: Number(token),
-    //     ...(type ? { type } : {}),
-    //     OR: [
-    //       { userId: identifier },
-    //       { email: identifier },
-    //     ],
-    //   },
-    // });
-
+    const whereConditions: any = {
+      token: Number(token),
+      ...(type ? { type } : {}),
+      used: false,
+    };
+  
+    // Handle both string identifier (email) or object identifier
+    if (typeof identifier === 'string') {
+      // It's a string - check if it's an email or userId
+      if (identifier.includes('@')) {
+        whereConditions.email = identifier;
+      } else {
+        whereConditions.userId = identifier;
+      }
+    } else {
+      // It's an object with userId and/or email
+      const orConditions = [];
+      if (identifier.userId) {
+        orConditions.push({ userId: identifier.userId });
+      }
+      if (identifier.email) {
+        orConditions.push({ email: identifier.email });
+      }
+      
+      if (orConditions.length > 0) {
+        whereConditions.OR = orConditions;
+      }
+    }
+  
     return prisma.token.findFirst({
-      where: {
-        token: Number(token),
-        type,
-        used: false,
-        ...identifier,
-      },
+      where: whereConditions,
     });
   }
-
 
   /* ----------------------------------------------------
     DELETE TOKENS FOR USER / EMAIL
@@ -154,19 +169,46 @@ export default class TokenService {
   /* ----------------------------------------------------
      INVALIDATE EXISTING TOKENS
   ---------------------------------------------------- */
+  // async invalidateExistingTokens(
+  //   identifier: string,
+  //   type?: TokenType
+  // ) {
+  //   await prisma.token.updateMany({
+  //     where: {
+  //       usedAt: null,
+  //       ...(type ? { type } : {}),
+  //       OR: [
+  //         { userId: identifier },
+  //         { email: identifier },
+  //       ],
+  //     },
+  //     data: {
+  //       used: true,
+  //       usedAt: new Date(),
+  //     },
+  //   });
+  // }
+
   async invalidateExistingTokens(
-    identifier: string,
+    userId?: string,
+    email?: string,
     type?: TokenType
   ) {
+    const whereConditions: any = {
+      usedAt: null,
+      ...(type ? { type } : {}),
+    };
+  
+    if (userId) {
+      whereConditions.userId = userId;
+    } else if (email) {
+      whereConditions.email = email;
+    } else {
+      throw new Error('Either userId or email must be provided');
+    }
+  
     await prisma.token.updateMany({
-      where: {
-        usedAt: null,
-        ...(type ? { type } : {}),
-        OR: [
-          { userId: identifier },
-          { email: identifier },
-        ],
-      },
+      where: whereConditions,
       data: {
         used: true,
         usedAt: new Date(),
