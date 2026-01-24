@@ -3,15 +3,11 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import { errors as celebrateErrors } from 'celebrate';
 import { CORS_ORIGINS, DATABASE_URL, NODE_ENV } from "./secrets"
-
 import { ApiError } from './utils/ApiError';
-// import UserRoutes from './routes/UserRoutes';
-// import ProfileRoutes from './routes/ProfileRoutes';
 import AuthRoutes from './routes/AuthRoutes';
 import VehicleRoutes from './routes/VehicleRoutes';
 import AddressRoutes from './routes/AddressRoutes';
 import PaymentRoutes from './routes/PaymentRoutes';
-
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import ProfileRoutes from './routes/ProfileRoutes';
@@ -32,6 +28,7 @@ class App {
   private config(): void {
     this.app.set('trust proxy', 1);
     const isProd = NODE_ENV === 'production';
+    
     // Security headers
     this.app.use(
       helmet({
@@ -39,9 +36,11 @@ class App {
         crossOriginEmbedderPolicy: false,
       })
     );
+    
+    // Rate limiting
     const limiter = rateLimit({
       windowMs: 15 * 60 * 1000,
-      max: 200, // requests per IP
+      max: 200,
       standardHeaders: true,
       legacyHeaders: false,
       message: {
@@ -49,108 +48,93 @@ class App {
         message: 'Too many requests, please try again later.',
       },
     });
+    
     this.app.use('/api', limiter);
-    this.app.use(express.json());
-    this.app.use(express.urlencoded({ extended: true }));
-    this.app.use(
-      cors({
-        origin: '*',
-        credentials: true,
-        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization'],
-      })
-    );
-
-        // Parse and clean origins
-        const allowedOrigins = CORS_ORIGINS
-        ? CORS_ORIGINS.split(',')
+    
+    // Body parsers
+    this.app.use(express.json({ limit: '10mb' }));
+    this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+  
+    // Parse and clean origins
+    const allowedOrigins = CORS_ORIGINS
+      ? CORS_ORIGINS.split(',')
           .map(origin => origin.trim())
           .filter(origin => origin.length > 0)
-        : [];
-      // Log configuration on startup
-      loggers.info('CORS Configuration', {
-        isProd,
-        allowedOrigins,
-        raw: CORS_ORIGINS,
-      });
-      this.app.use(
-        cors({
-          origin: (origin, callback) => {
-            // Log every CORS request for debugging
-            loggers.info('CORS Request', {
-              origin,
-              isProd,
-              allowedOrigins,
-            });
+      : [];
+    
+    // Log configuration on startup
+    loggers.info('CORS Configuration', {
+      isProd,
+      allowedOrigins,
+      raw: CORS_ORIGINS,
+    });
   
-            // Allow requests with no origin (mobile apps, Postman, curl, server-to-server)
-            if (!origin) {
-              loggers.info('CORS: Allowing request with no origin');
-              return callback(null, true);
-            }
-  
-            // Allow all origins in development
-            if (!isProd) {
-              loggers.info('CORS: Allowing origin (dev mode)', { origin });
-              return callback(null, true);
-            }
-  
-            // Check if origin is allowed in production
-            if (allowedOrigins.includes(origin)) {
-              loggers.info('CORS: Origin allowed', { origin });
-              return callback(null, true);
-            }
-  
-            // Check with trailing slash removed (common mismatch)
-            const originWithoutSlash = origin.endsWith('/')
-              ? origin.slice(0, -1)
-              : origin;
-  
-            if (allowedOrigins.includes(originWithoutSlash)) {
-              loggers.info('CORS: Origin allowed (without trailing slash)', { origin });
-              return callback(null, true);
-            }
-  
-            // Check with trailing slash added (another common mismatch)
-            const originWithSlash = !origin.endsWith('/')
-              ? `${origin}/`
-              : origin;
-  
-            if (allowedOrigins.includes(originWithSlash)) {
-              loggers.info('CORS: Origin allowed (with trailing slash)', { origin });
-              return callback(null, true);
-            }
-  
-            // Origin not allowed
-            loggers.error('CORS: Origin blocked', {
-              origin,
-              allowedOrigins,
-              isProd,
-            });
-  
-            return callback(
-              new ApiError(403, `CORS policy: Origin ${origin} is not allowed`)
-            );
-          },
-          credentials: true,
-          methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-          allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-          exposedHeaders: ['Content-Range', 'X-Content-Range'],
-          maxAge: 600, // Cache preflight requests for 10 minutes
-        })
-      );
-      // Handle preflight requests explicitly
-      this.app.options('*', cors());
+    // CORS configuration - SIMPLIFIED VERSION
+    const corsOptions = {
+      origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+        // Allow requests with no origin (mobile apps, Postman, curl, server-to-server)
+        if (!origin) {
+          return callback(null, true);
+        }
+
+        // Allow all origins in development
+        if (!isProd) {
+          return callback(null, true);
+        }
+
+        // In production, check if origin is allowed
+        if (allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+
+        // Check variations with/without trailing slash
+        const originWithoutSlash = origin.endsWith('/') ? origin.slice(0, -1) : origin;
+        const originWithSlash = !origin.endsWith('/') ? `${origin}/` : origin;
+
+        if (allowedOrigins.includes(originWithoutSlash) || allowedOrigins.includes(originWithSlash)) {
+          return callback(null, true);
+        }
+
+        // Origin not allowed
+        loggers.error('CORS: Origin blocked', {
+          origin,
+          allowedOrigins,
+          isProd,
+        });
+
+        return callback(new Error('Not allowed by CORS'));
+      },
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+      exposedHeaders: ['Content-Range', 'X-Content-Range'],
+      maxAge: 600,
+      optionsSuccessStatus: 200,
+    };
+
+    // Apply CORS middleware
+    this.app.use(cors(corsOptions));
+    
+    // Handle preflight requests manually (REMOVED WILDCARD ISSUE)
+    this.app.use((req, res, next) => {
+      if (req.method === 'OPTIONS') {
+        res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+        res.header('Access-Control-Max-Age', '600');
+        return res.status(200).json({});
+      }
+      next();
+    });
+    
+    // Celebrate errors
     this.app.use(celebrateErrors());
   }
 
   private setupRoutes(): void {
- 
     this.app.get('/', (_, res) => {
       return res.send("welcome to Afrozon AutoGlobal");
     });
 
-    // this.app.use('/api/users', UserRoutes);
     this.app.use('/api/profile', ProfileRoutes);
     this.app.use('/api/auth', AuthRoutes);
     this.app.use('/api/vehicles', VehicleRoutes);
@@ -166,7 +150,9 @@ class App {
         path: req.path 
       });
     });
+  }
 
+  private errorHandler(): void {
     // Validation error handler (celebrate/joi)
     this.app.use((err: any, req: Request, res: Response, next: NextFunction) => {
       if (err.joi) {
@@ -175,6 +161,7 @@ class App {
           message: d.message.replace(/["]/g, '')
         }));
         return res.status(400).json({
+          success: false,
           error: 'Validation failed',
           message: 'One or more fields are invalid or missing.',
           details
@@ -182,13 +169,9 @@ class App {
       }
       next(err);
     });
-  }
 
-  private errorHandler(): void {
-    // Final catch-all error handler that forces JSON output
+    // API Error handler
     this.app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-      console.error("ErrorHandler:", err);
-
       if (err instanceof ApiError) {
         return res.status(err.statusCode).json({
           success: false,
@@ -199,11 +182,29 @@ class App {
         });
       }
 
-      // fallback internal server error
+      // CORS errors
+      if (err.message === 'Not allowed by CORS') {
+        return res.status(403).json({
+          success: false,
+          message: 'CORS policy: Origin not allowed'
+        });
+      }
+
+      // Prisma/Mongoose errors
+      if (err.name === 'ValidationError' || err.code?.startsWith('P')) {
+        return res.status(400).json({
+          success: false,
+          message: err.message || 'Validation error',
+          details: err.errors || null
+        });
+      }
+
+      // Default error
+      console.error("Unhandled Error:", err);
       return res.status(500).json({
         success: false,
         message: "Internal Server Error",
-        error: err.message || "Something went wrong"
+        error: process.env.NODE_ENV === 'production' ? 'Something went wrong' : err.message
       });
     });
   }
