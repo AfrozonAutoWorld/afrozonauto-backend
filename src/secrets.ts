@@ -53,3 +53,4 @@ export const REDIS_URL = process.env.REDIS_URL || '';
 export const REDIS_CACHE_TTL_HOURS = process.env.REDIS_CACHE_TTL_HOURS || '12'; // Default 12 hours
 export const UPSTASH_REDIS_REST_URL = process.env.UPSTASH_REDIS_REST_URL
 export const UPSTASH_REDIS_REST_TOKEN= process.env.UPSTASH_REDIS_REST_TOKEN
+export const CORS_ORIGINS = process.env.CORS_ORIGINS!;

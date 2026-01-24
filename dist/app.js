@@ -18,6 +18,8 @@ const PaymentRoutes_1 = __importDefault(require("./routes/PaymentRoutes"));
 const helmet_1 = __importDefault(require("helmet"));
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const ProfileRoutes_1 = __importDefault(require("./routes/ProfileRoutes"));
+const loggers_1 = __importDefault(require("./utils/loggers"));
+const UserRoutes_1 = __importDefault(require("./routes/UserRoutes"));
 class App {
     constructor() {
         this.app = (0, express_1.default)();
@@ -28,6 +30,7 @@ class App {
     }
     config() {
         this.app.set('trust proxy', 1);
+        const isProd = secrets_1.NODE_ENV === 'production';
         // Security headers
         this.app.use((0, helmet_1.default)({
             crossOriginResourcePolicy: { policy: 'cross-origin' },
@@ -52,6 +55,73 @@ class App {
             methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
             allowedHeaders: ['Content-Type', 'Authorization'],
         }));
+        // Parse and clean origins
+        const allowedOrigins = secrets_1.CORS_ORIGINS
+            ? secrets_1.CORS_ORIGINS.split(',')
+                .map(origin => origin.trim())
+                .filter(origin => origin.length > 0)
+            : [];
+        // Log configuration on startup
+        loggers_1.default.info('CORS Configuration', {
+            isProd,
+            allowedOrigins,
+            raw: secrets_1.CORS_ORIGINS,
+        });
+        this.app.use((0, cors_1.default)({
+            origin: (origin, callback) => {
+                // Log every CORS request for debugging
+                loggers_1.default.info('CORS Request', {
+                    origin,
+                    isProd,
+                    allowedOrigins,
+                });
+                // Allow requests with no origin (mobile apps, Postman, curl, server-to-server)
+                if (!origin) {
+                    loggers_1.default.info('CORS: Allowing request with no origin');
+                    return callback(null, true);
+                }
+                // Allow all origins in development
+                if (!isProd) {
+                    loggers_1.default.info('CORS: Allowing origin (dev mode)', { origin });
+                    return callback(null, true);
+                }
+                // Check if origin is allowed in production
+                if (allowedOrigins.includes(origin)) {
+                    loggers_1.default.info('CORS: Origin allowed', { origin });
+                    return callback(null, true);
+                }
+                // Check with trailing slash removed (common mismatch)
+                const originWithoutSlash = origin.endsWith('/')
+                    ? origin.slice(0, -1)
+                    : origin;
+                if (allowedOrigins.includes(originWithoutSlash)) {
+                    loggers_1.default.info('CORS: Origin allowed (without trailing slash)', { origin });
+                    return callback(null, true);
+                }
+                // Check with trailing slash added (another common mismatch)
+                const originWithSlash = !origin.endsWith('/')
+                    ? `${origin}/`
+                    : origin;
+                if (allowedOrigins.includes(originWithSlash)) {
+                    loggers_1.default.info('CORS: Origin allowed (with trailing slash)', { origin });
+                    return callback(null, true);
+                }
+                // Origin not allowed
+                loggers_1.default.error('CORS: Origin blocked', {
+                    origin,
+                    allowedOrigins,
+                    isProd,
+                });
+                return callback(new ApiError_1.ApiError(403, `CORS policy: Origin ${origin} is not allowed`));
+            },
+            credentials: true,
+            methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+            allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+            exposedHeaders: ['Content-Range', 'X-Content-Range'],
+            maxAge: 600, // Cache preflight requests for 10 minutes
+        }));
+        // Handle preflight requests explicitly
+        this.app.options('*', (0, cors_1.default)());
         this.app.use((0, celebrate_1.errors)());
     }
     setupRoutes() {
@@ -64,6 +134,7 @@ class App {
         this.app.use('/api/vehicles', VehicleRoutes_1.default);
         this.app.use('/api/addresses', AddressRoutes_1.default);
         this.app.use('/api/payments', PaymentRoutes_1.default);
+        this.app.use('/api/users', UserRoutes_1.default);
         // 404 handler - catch all unmatched routes
         this.app.use((req, res) => {
             res.status(404).json({

@@ -13,7 +13,7 @@ import { UserRole } from '../generated/prisma/client';
 export class VehicleController {
   constructor(
     @inject(TYPES.VehicleService) private vehicleService: VehicleService
-  ) {}
+  ) { }
 
   /**
    * GET /api/vehicles
@@ -74,10 +74,10 @@ export class VehicleController {
     const { identifier } = req.params;
     let raw = req.query?.type;
     const typeParam = (Array.isArray(raw) ? raw[0] : raw) || '';
-    const type: 'id' | 'vin' = typeParam.toString().trim().toLowerCase() === 'vin' ? 'vin' : 'vin';
-    if(identifier.startsWith('temp-')){
+    let type: 'id' | 'vin' = typeParam?.toString().trim().toLowerCase() === 'vin' ? 'vin' : 'vin';
+    if (identifier.startsWith('temp-')) {
       type = 'id';
-}
+    }
     if (!identifier) {
       return res.json(
         ApiError.badRequest('Vehicle identifier is required')
@@ -113,7 +113,7 @@ export class VehicleController {
    */
   syncVehicle = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { vin } = req.params;
-    
+
     if (!vin || vin.length !== 17) {
       throw ApiError.badRequest('Invalid VIN. Must be 17 characters');
     }

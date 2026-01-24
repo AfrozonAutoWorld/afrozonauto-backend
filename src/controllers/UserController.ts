@@ -27,7 +27,7 @@ export class UserController {
     return res.status(200).json( ApiResponse.success( user, 'User retrieved successfully'));
   });
 
-  verifyUser = asyncHandler(async (req: Request, res: Response) => {
+  getUserById = asyncHandler(async (req: Request, res: Response) => {
     const { userId } = req.params;
     
     if (!userId) {
@@ -40,7 +40,11 @@ export class UserController {
       return res.status(500).json( ApiError.internal('Verification failed'))
     }
     
-    return res.json(new ApiResponse(200, { verified: true }, 'User verified successfully'));
+    return res.status(200).json(ApiResponse.success(result));
+  });
+  getUsers = asyncHandler(async (req: Request, res: Response) => {
+    const users = await this.userService.getAllUsers();
+    return res.status(200).json(ApiResponse.success(users));
   });
 
   deactivateAccount = asyncHandler(async (req: Request, res: Response) => {

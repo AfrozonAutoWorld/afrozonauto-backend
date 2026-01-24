@@ -42,7 +42,7 @@ let UserController = class UserController {
             }
             return res.status(200).json(ApiResponse_1.ApiResponse.success(user, 'User retrieved successfully'));
         }));
-        this.verifyUser = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+        this.getUserById = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             const { userId } = req.params;
             if (!userId) {
                 return res.status(400).json(ApiError_1.ApiError.badRequest('User ID parameter is required'));
@@ -52,6 +52,10 @@ let UserController = class UserController {
                 return res.status(500).json(ApiError_1.ApiError.internal('Verification failed'));
             }
             return res.json(new ApiResponse_1.ApiResponse(200, { verified: true }, 'User verified successfully'));
+        }));
+        this.getUsers = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            const users = yield this.userService.getAllUsers();
+            return res.status(200).json(ApiResponse_1.ApiResponse.success(users));
         }));
         this.deactivateAccount = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             const { userId } = req.params;
