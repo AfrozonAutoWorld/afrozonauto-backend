@@ -23,8 +23,8 @@ export class UserController {
     if (!user) {
       return res.status(404).json( ApiError.notFound('User not found'))
     }
-    
-    return res.status(200).json( ApiResponse.success( user, 'User retrieved successfully'));
+    const {passwordHash, ...userDetails} = user
+    return res.status(200).json( ApiResponse.success( userDetails, 'User retrieved successfully'));
   });
 
   getUserById = asyncHandler(async (req: Request, res: Response) => {
@@ -40,7 +40,8 @@ export class UserController {
       return res.status(500).json( ApiError.internal('Verification failed'))
     }
     
-    return res.status(200).json(ApiResponse.success(result));
+    const {passwordHash, ...userDetails} = result
+    return res.status(200).json( ApiResponse.success( userDetails, 'User retrieved successfully'));
   });
   getUsers = asyncHandler(async (req: Request, res: Response) => {
     const users = await this.userService.getAllUsers();

@@ -25,6 +25,12 @@ class UserRoutes {
             authorize([UserRole.OPERATIONS_ADMIN, UserRole.SUPER_ADMIN]),
             this.controller.getUsers
         );
+        this.router.delete(
+            '/user-deactivate/:userId',
+            authenticate,
+            authorize([UserRole.OPERATIONS_ADMIN, UserRole.SUPER_ADMIN]),
+            this.controller.deactivateAccount
+        );
 
         this.router.get(
             '/user-id/:userId',
