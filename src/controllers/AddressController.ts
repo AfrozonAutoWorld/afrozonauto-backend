@@ -60,13 +60,9 @@ export class AddressController {
     const address = await this.addressService.getDefaultAddress(profileId, type);
 
     if (!address) {
-      return res.status(404).json(ApiError.notFound(
-        'Default address not found',
-        {
-          requestedType: type,
-          suggestion: 'Try creating a default address first',
-          allowedTypes: Object.values(AddressType)
-        }
+      return res.status(404).json(ApiResponse.success(
+        {},
+        'Default address not set'
       ));
     }
     return res.json(new ApiResponse(200, address, 'Default address retrieved successfully'));
