@@ -13,6 +13,7 @@ import rateLimit from 'express-rate-limit';
 import ProfileRoutes from './routes/ProfileRoutes';
 import loggers from './utils/loggers';
 import UserRoutes from './routes/UserRoutes';
+import TestimonialRoutes from './routes/TestimonialRoutes';
 
 class App {
   public app: express.Application;
@@ -139,6 +140,7 @@ class App {
     this.app.use('/api/auth', AuthRoutes);
     this.app.use('/api/vehicles', VehicleRoutes);
     this.app.use('/api/addresses', AddressRoutes);
+    this.app.use('/api/testimonials', TestimonialRoutes);
     this.app.use('/api/payments', PaymentRoutes);
     this.app.use('/api/users', UserRoutes);
 

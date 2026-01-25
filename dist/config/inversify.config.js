@@ -35,6 +35,9 @@ const OrderRepository_1 = require("../repositories/OrderRepository");
 const StripeProvider_1 = require("../services/StripeProvider");
 const PaystackProvider_1 = require("../services/PaystackProvider");
 const ProfileController_1 = require("../controllers/ProfileController");
+const TestimonialRepository_1 = require("../repositories/TestimonialRepository");
+const TestimonialService_1 = require("../services/TestimonialService");
+const TestimonialController_1 = require("../controllers/TestimonialController");
 const container = new inversify_1.Container();
 exports.container = container;
 container.bind(types_1.TYPES.UserRepository).to(UserRepository_1.UserRepository);
@@ -67,3 +70,7 @@ container.bind(types_1.TYPES.VehicleService).to(VehicleService_1.VehicleService)
 container.bind(types_1.TYPES.VehicleController).to(VehicleController_1.VehicleController);
 container.bind(types_1.TYPES.AutoDevService).to(AutoDevService_1.AutoDevService);
 container.bind(types_1.TYPES.RedisCacheService).to(RedisCacheService_1.RedisCacheService).inSingletonScope();
+// Testimonial bindings
+container.bind(types_1.TYPES.TestimonialRepository).to(TestimonialRepository_1.TestimonialRepository);
+container.bind(types_1.TYPES.TestimonialService).to(TestimonialService_1.TestimonialService);
+container.bind(types_1.TYPES.TestimonialController).to(TestimonialController_1.TestimonialController);

@@ -14,6 +14,7 @@ class UserRoutes {
     initializeRoutes() {
         this.router.get('/user-email/:email', authMiddleware_1.authenticate, this.controller.getUserByEmail);
         this.router.get('/', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([enums_1.UserRole.OPERATIONS_ADMIN, enums_1.UserRole.SUPER_ADMIN]), this.controller.getUsers);
+        this.router.delete('/user-deactivate/:userId', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([enums_1.UserRole.OPERATIONS_ADMIN, enums_1.UserRole.SUPER_ADMIN]), this.controller.deactivateAccount);
         this.router.get('/user-id/:userId', authMiddleware_1.authenticate, this.controller.getUserById);
     }
     getRouter() {

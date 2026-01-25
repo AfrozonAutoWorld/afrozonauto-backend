@@ -48,9 +48,6 @@ export const updateProfileSchema = Joi.object({
     .items(fileInfoSchema)
     .optional(),
 
-  avatar: Joi.string()
-    .uri()
-    .optional(),
 
   // =========================
   // Personal Information

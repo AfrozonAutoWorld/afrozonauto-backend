@@ -32,6 +32,9 @@ import { OrderRepository } from '../repositories/OrderRepository';
 import { StripeProvider } from '../services/StripeProvider';
 import { PaystackProvider } from '../services/PaystackProvider';
 import { ProfileController } from '../controllers/ProfileController';
+import { TestimonialRepository } from '../repositories/TestimonialRepository';
+import { TestimonialService } from '../services/TestimonialService';
+import { TestimonialController } from '../controllers/TestimonialController';
 
 
 
@@ -69,5 +72,10 @@ container.bind<VehicleService>(TYPES.VehicleService).to(VehicleService);
 container.bind<VehicleController>(TYPES.VehicleController).to(VehicleController);
 container.bind<AutoDevService>(TYPES.AutoDevService).to(AutoDevService);
 container.bind<RedisCacheService>(TYPES.RedisCacheService).to(RedisCacheService).inSingletonScope();
+// Testimonial bindings
+container.bind<TestimonialRepository>(TYPES.TestimonialRepository).to(TestimonialRepository);
+container.bind<TestimonialService>(TYPES.TestimonialService).to(TestimonialService);
+container.bind<TestimonialController>(TYPES.TestimonialController).to(TestimonialController);
+
 
 export { container };

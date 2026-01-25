@@ -42,9 +42,6 @@ exports.updateProfileSchema = joi_1.default.object({
     uploadedFiles: joi_1.default.array()
         .items(files_validation_1.fileInfoSchema)
         .optional(),
-    avatar: joi_1.default.string()
-        .uri()
-        .optional(),
     // =========================
     // Personal Information
     // =========================

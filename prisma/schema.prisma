@@ -44,7 +44,6 @@ model Address {
   @@map("addresses")
 }
 
-
 // ============================================
 // ADMIN & OPERATIONS
 // ============================================
@@ -214,8 +213,8 @@ enum DocumentName {
   businessRegistration
   vendorNIN
   storeLogo
+  picture
 }
-
 
 model FileInfo {
   id           String        @id @default(auto()) @map("_id") @db.ObjectId
@@ -227,14 +226,15 @@ model FileInfo {
   imageName    String?
   documentName DocumentName?
 
-  profileId String   @db.ObjectId
-  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profileId String  @db.ObjectId
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime @default(now())
+  createdAt     DateTime     @default(now())
+  testimonial   Testimonial? @relation(fields: [testimonialId], references: [id])
+  testimonialId String?      @db.ObjectId
 
   @@map("file_infos")
 }
-
 
 // ============================================
 // INSPECTIONS
@@ -462,8 +462,6 @@ model Order {
   customerNotes   String?
   specialRequests String?
 
-  
-
   // Cancellation & Refunds
   cancelledAt        DateTime?
   cancelledBy        String? // user_id or admin_id
@@ -481,6 +479,7 @@ model Order {
 
   // Relations
   payments     Payment[]
+  testimonials Testimonial[]
   inspection   Inspection?
   shipment     Shipment?
   messages     Message[]
@@ -567,7 +566,7 @@ model Payment {
   escrowStatus EscrowStatus  @default(HELD)
 
   // Transaction Info
-  transactionRef String @unique 
+  transactionRef        String  @unique
   providerTransactionId String? // Payment gateway transaction ID
   receiptUrl            String?
 
@@ -708,10 +707,8 @@ enum TokenType {
   PHONE
 }
 
-
-
 model Token {
-   id String @id @default(auto()) @map("_id") @db.ObjectId
+  id String @id @default(auto()) @map("_id") @db.ObjectId
 
   userId String? @db.ObjectId
   user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -719,9 +716,9 @@ model Token {
   email     String?
   token     Int
   type      TokenType
-  used      Boolean     @default(false)
+  used      Boolean   @default(false)
   usedAt    DateTime?
-  createdAt DateTime    @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId])
   @@index([email])
@@ -745,9 +742,9 @@ model User {
   role             UserRole  @default(BUYER)
   isActive         Boolean   @default(true)
   isSuspended      Boolean   @default(false)
-  googleId        String?   @unique
-  appleId         String?   @unique
-  isDeleted       Boolean   @default(false)
+  googleId         String?   @unique
+  appleId          String?   @unique
+  isDeleted        Boolean   @default(false)
   suspensionReason String?
   suspensionUntil  DateTime?
 
@@ -768,6 +765,7 @@ model User {
   // Relations
   profile          Profile?
   orders           Order[]
+  testimonials     Testimonial[]
   payments         Payment[]
   savedVehicles    SavedVehicle[]
   messages         Message[]      @relation("SentMessages")
@@ -975,4 +973,63 @@ model SavedVehicle {
   @@index([userId])
   @@index([vehicleId])
   @@map("saved_vehicles")
+}
+
+// ============================================
+// TESTIMONIALS (Marketing & Trust)
+// ============================================
+
+model Testimonial {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  // Relations 
+  userId String? @db.ObjectId
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  orderId String? @db.ObjectId
+  order   Order?  @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  // Customer Info (snapshot)
+  customerName    String
+  customerCity    String?
+  customerState   String?
+  customerCountry String  @default("Nigeria")
+
+  // Testimonial Content
+  rating  Int    @default(5) // 1–5 stars
+  comment String
+
+  // Vehicle Snapshot (IMPORTANT)
+  vehicleSnapshot Json
+  /**
+   * {
+   * make: "Toyota",
+   * model: "Highlander",
+   * year: 2021,
+   * vin: "XXXX",
+   * source: "API" | "MANUAL",
+   * thumbnail: "...",
+   * externalListingId: "...",
+   * provider: "autodev"
+   * }
+   */
+
+  files FileInfo[]
+
+  // Publishing
+  isApproved  Boolean   @default(false)
+  isFeatured  Boolean   @default(false)
+  publishedAt DateTime?
+
+  // Moderation
+  approvedBy     String? @db.ObjectId
+  rejectedReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isApproved])
+  @@index([isFeatured])
+  @@index([rating])
+  @@map("testimonials")
 }

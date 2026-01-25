@@ -9,8 +9,6 @@ const cors_1 = __importDefault(require("cors"));
 const celebrate_1 = require("celebrate");
 const secrets_1 = require("./secrets");
 const ApiError_1 = require("./utils/ApiError");
-// import UserRoutes from './routes/UserRoutes';
-// import ProfileRoutes from './routes/ProfileRoutes';
 const AuthRoutes_1 = __importDefault(require("./routes/AuthRoutes"));
 const VehicleRoutes_1 = __importDefault(require("./routes/VehicleRoutes"));
 const AddressRoutes_1 = __importDefault(require("./routes/AddressRoutes"));
@@ -20,6 +18,7 @@ const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const ProfileRoutes_1 = __importDefault(require("./routes/ProfileRoutes"));
 const loggers_1 = __importDefault(require("./utils/loggers"));
 const UserRoutes_1 = __importDefault(require("./routes/UserRoutes"));
+const TestimonialRoutes_1 = __importDefault(require("./routes/TestimonialRoutes"));
 class App {
     constructor() {
         this.app = (0, express_1.default)();
@@ -36,9 +35,10 @@ class App {
             crossOriginResourcePolicy: { policy: 'cross-origin' },
             crossOriginEmbedderPolicy: false,
         }));
+        // Rate limiting
         const limiter = (0, express_rate_limit_1.default)({
             windowMs: 15 * 60 * 1000,
-            max: 200, // requests per IP
+            max: 200,
             standardHeaders: true,
             legacyHeaders: false,
             message: {
@@ -47,14 +47,9 @@ class App {
             },
         });
         this.app.use('/api', limiter);
-        this.app.use(express_1.default.json());
-        this.app.use(express_1.default.urlencoded({ extended: true }));
-        this.app.use((0, cors_1.default)({
-            origin: '*',
-            credentials: true,
-            methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-            allowedHeaders: ['Content-Type', 'Authorization'],
-        }));
+        // Body parsers
+        this.app.use(express_1.default.json({ limit: '10mb' }));
+        this.app.use(express_1.default.urlencoded({ extended: true, limit: '10mb' }));
         // Parse and clean origins
         const allowedOrigins = secrets_1.CORS_ORIGINS
             ? secrets_1.CORS_ORIGINS.split(',')
@@ -67,43 +62,25 @@ class App {
             allowedOrigins,
             raw: secrets_1.CORS_ORIGINS,
         });
-        this.app.use((0, cors_1.default)({
+        // CORS configuration - SIMPLIFIED VERSION
+        const corsOptions = {
             origin: (origin, callback) => {
-                // Log every CORS request for debugging
-                loggers_1.default.info('CORS Request', {
-                    origin,
-                    isProd,
-                    allowedOrigins,
-                });
                 // Allow requests with no origin (mobile apps, Postman, curl, server-to-server)
                 if (!origin) {
-                    loggers_1.default.info('CORS: Allowing request with no origin');
                     return callback(null, true);
                 }
                 // Allow all origins in development
                 if (!isProd) {
-                    loggers_1.default.info('CORS: Allowing origin (dev mode)', { origin });
                     return callback(null, true);
                 }
-                // Check if origin is allowed in production
+                // In production, check if origin is allowed
                 if (allowedOrigins.includes(origin)) {
-                    loggers_1.default.info('CORS: Origin allowed', { origin });
                     return callback(null, true);
                 }
-                // Check with trailing slash removed (common mismatch)
-                const originWithoutSlash = origin.endsWith('/')
-                    ? origin.slice(0, -1)
-                    : origin;
-                if (allowedOrigins.includes(originWithoutSlash)) {
-                    loggers_1.default.info('CORS: Origin allowed (without trailing slash)', { origin });
-                    return callback(null, true);
-                }
-                // Check with trailing slash added (another common mismatch)
-                const originWithSlash = !origin.endsWith('/')
-                    ? `${origin}/`
-                    : origin;
-                if (allowedOrigins.includes(originWithSlash)) {
-                    loggers_1.default.info('CORS: Origin allowed (with trailing slash)', { origin });
+                // Check variations with/without trailing slash
+                const originWithoutSlash = origin.endsWith('/') ? origin.slice(0, -1) : origin;
+                const originWithSlash = !origin.endsWith('/') ? `${origin}/` : origin;
+                if (allowedOrigins.includes(originWithoutSlash) || allowedOrigins.includes(originWithSlash)) {
                     return callback(null, true);
                 }
                 // Origin not allowed
@@ -112,27 +89,39 @@ class App {
                     allowedOrigins,
                     isProd,
                 });
-                return callback(new ApiError_1.ApiError(403, `CORS policy: Origin ${origin} is not allowed`));
+                return callback(new Error('Not allowed by CORS'));
             },
             credentials: true,
             methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
             allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
             exposedHeaders: ['Content-Range', 'X-Content-Range'],
-            maxAge: 600, // Cache preflight requests for 10 minutes
-        }));
-        // Handle preflight requests explicitly
-        this.app.options('*', (0, cors_1.default)());
+            maxAge: 600,
+            optionsSuccessStatus: 200,
+        };
+        // Apply CORS middleware
+        this.app.use((0, cors_1.default)(corsOptions));
+        // Handle preflight requests manually (REMOVED WILDCARD ISSUE)
+        this.app.use((req, res, next) => {
+            if (req.method === 'OPTIONS') {
+                res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+                res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+                res.header('Access-Control-Max-Age', '600');
+                return res.status(200).json({});
+            }
+            next();
+        });
+        // Celebrate errors
         this.app.use((0, celebrate_1.errors)());
     }
     setupRoutes() {
         this.app.get('/', (_, res) => {
             return res.send("welcome to Afrozon AutoGlobal");
         });
-        // this.app.use('/api/users', UserRoutes);
         this.app.use('/api/profile', ProfileRoutes_1.default);
         this.app.use('/api/auth', AuthRoutes_1.default);
         this.app.use('/api/vehicles', VehicleRoutes_1.default);
         this.app.use('/api/addresses', AddressRoutes_1.default);
+        this.app.use('/api/testimonials', TestimonialRoutes_1.default);
         this.app.use('/api/payments', PaymentRoutes_1.default);
         this.app.use('/api/users', UserRoutes_1.default);
         // 404 handler - catch all unmatched routes
@@ -143,6 +132,8 @@ class App {
                 path: req.path
             });
         });
+    }
+    errorHandler() {
         // Validation error handler (celebrate/joi)
         this.app.use((err, req, res, next) => {
             if (err.joi) {
@@ -154,6 +145,7 @@ class App {
                     });
                 });
                 return res.status(400).json({
+                    success: false,
                     error: 'Validation failed',
                     message: 'One or more fields are invalid or missing.',
                     details
@@ -161,12 +153,9 @@ class App {
             }
             next(err);
         });
-    }
-    errorHandler() {
-        // Final catch-all error handler that forces JSON output
+        // API Error handler
         this.app.use((err, req, res, next) => {
-            var _a, _b, _c;
-            console.error("ErrorHandler:", err);
+            var _a, _b, _c, _d;
             if (err instanceof ApiError_1.ApiError) {
                 return res.status(err.statusCode).json({
                     success: false,
@@ -176,11 +165,27 @@ class App {
                     code: ((_c = err.data) === null || _c === void 0 ? void 0 : _c.code) || 'API_ERROR'
                 });
             }
-            // fallback internal server error
+            // CORS errors
+            if (err.message === 'Not allowed by CORS') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'CORS policy: Origin not allowed'
+                });
+            }
+            // Prisma/Mongoose errors
+            if (err.name === 'ValidationError' || ((_d = err.code) === null || _d === void 0 ? void 0 : _d.startsWith('P'))) {
+                return res.status(400).json({
+                    success: false,
+                    message: err.message || 'Validation error',
+                    details: err.errors || null
+                });
+            }
+            // Default error
+            console.error("Unhandled Error:", err);
             return res.status(500).json({
                 success: false,
                 message: "Internal Server Error",
-                error: err.message || "Something went wrong"
+                error: process.env.NODE_ENV === 'production' ? 'Something went wrong' : err.message
             });
         });
     }

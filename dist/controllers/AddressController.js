@@ -70,11 +70,7 @@ let AddressController = class AddressController {
             const type = ((_b = req.body) === null || _b === void 0 ? void 0 : _b.type) || client_1.AddressType.NORMAL;
             const address = yield this.addressService.getDefaultAddress(profileId, type);
             if (!address) {
-                return res.status(404).json(ApiError_1.ApiError.notFound('Default address not found', {
-                    requestedType: type,
-                    suggestion: 'Try creating a default address first',
-                    allowedTypes: Object.values(client_1.AddressType)
-                }));
+                return res.status(404).json(ApiResponse_1.ApiResponse.success({}, 'Default address not set'));
             }
             return res.json(new ApiResponse_1.ApiResponse(200, address, 'Default address retrieved successfully'));
         }));
