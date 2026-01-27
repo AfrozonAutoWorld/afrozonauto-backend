@@ -39,23 +39,44 @@ let VehicleController = class VehicleController {
          * API results are cached in Redis (12hr TTL) to handle price changes
          */
         this.getVehicles = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
-            const filters = {
-                make: req.query.make,
-                model: req.query.model,
-                yearMin: req.query.yearMin ? parseInt(req.query.yearMin) : undefined,
-                yearMax: req.query.yearMax ? parseInt(req.query.yearMax) : undefined,
-                priceMin: req.query.priceMin ? parseFloat(req.query.priceMin) : undefined,
-                priceMax: req.query.priceMax ? parseFloat(req.query.priceMax) : undefined,
-                mileageMax: req.query.mileageMax ? parseInt(req.query.mileageMax) : undefined,
-                vehicleType: req.query.vehicleType,
-                status: req.query.status,
-                dealerState: req.query.state,
-                featured: req.query.featured === 'true',
-                search: req.query.search,
+            const q = req.query;
+            const str = (v) => {
+                const s = Array.isArray(v) ? v[0] : v;
+                return typeof s === 'string' && s.trim() !== '' ? s.trim() : undefined;
             };
+            const filters = {};
+            if (str(q.make))
+                filters.make = str(q.make);
+            if (str(q.model))
+                filters.model = str(q.model);
+            const yearMin = q.yearMin ? parseInt(q.yearMin, 10) : undefined;
+            const yearMax = q.yearMax ? parseInt(q.yearMax, 10) : undefined;
+            if (Number.isFinite(yearMin))
+                filters.yearMin = yearMin;
+            if (Number.isFinite(yearMax))
+                filters.yearMax = yearMax;
+            const priceMin = q.priceMin ? parseFloat(q.priceMin) : undefined;
+            const priceMax = q.priceMax ? parseFloat(q.priceMax) : undefined;
+            if (Number.isFinite(priceMin))
+                filters.priceMin = priceMin;
+            if (Number.isFinite(priceMax))
+                filters.priceMax = priceMax;
+            const mileageMax = q.mileageMax ? parseInt(q.mileageMax, 10) : undefined;
+            if (Number.isFinite(mileageMax))
+                filters.mileageMax = mileageMax;
+            if (str(q.vehicleType))
+                filters.vehicleType = str(q.vehicleType);
+            if (str(q.status))
+                filters.status = str(q.status);
+            if (str(q.state))
+                filters.dealerState = str(q.state);
+            if (q.featured !== undefined && q.featured !== '')
+                filters.featured = q.featured === 'true';
+            if (str(q.search))
+                filters.search = str(q.search);
             const pagination = {
-                page: req.query.page ? parseInt(req.query.page) : 1,
-                limit: req.query.limit ? parseInt(req.query.limit) : 50,
+                page: Math.max(1, q.page ? parseInt(q.page, 10) : 1),
+                limit: Math.min(100, Math.max(1, q.limit ? parseInt(q.limit, 10) : 50)),
             };
             const includeApi = req.query.includeApi !== 'false';
             const result = yield this.vehicleService.getVehicles(filters, pagination, includeApi);

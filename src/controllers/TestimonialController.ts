@@ -14,9 +14,8 @@ import { AddressType } from "../generated/prisma/enums";
 @injectable()
 export class TestimonialController {
   constructor(
-    @inject(TYPES.TestimonialService)
-    private readonly service: TestimonialService,
-    private readonly profileService: ProfileService,
+    @inject(TYPES.TestimonialService) private readonly service: TestimonialService,
+    @inject(TYPES.ProfileService)  private readonly profileService: ProfileService,
     @inject(TYPES.AddressService) private addressService: AddressService
   ) { }
 
@@ -46,9 +45,7 @@ export class TestimonialController {
   // Get grouped testimonials (featured + unfeatured)
   getGroupedTestimonials = asyncHandler(async (req: Request, res: Response) => {
     const limit = parseInt(req.query.limit as string) || 6;
-
     const data = await this.service.getAllTestimonialsGrouped(limit);
-
     return res.status(200).json(
       ApiResponse.success(data, "Grouped testimonials retrieved")
     );

@@ -121,6 +121,7 @@ exports.TestimonialController = TestimonialController;
 exports.TestimonialController = TestimonialController = __decorate([
     (0, inversify_1.injectable)(),
     __param(0, (0, inversify_1.inject)(types_1.TYPES.TestimonialService)),
+    __param(1, (0, inversify_1.inject)(types_1.TYPES.ProfileService)),
     __param(2, (0, inversify_1.inject)(types_1.TYPES.AddressService)),
     __metadata("design:paramtypes", [TestimonialService_1.TestimonialService,
         ProfileService_1.ProfileService,

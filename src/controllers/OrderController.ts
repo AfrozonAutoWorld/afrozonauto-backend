@@ -4,11 +4,13 @@ import { ApiResponse } from '../utils/ApiResponse';
 import { ApiError } from '../utils/ApiError';
 import { OrderStatus, ShippingMethod, OrderPriority } from '../generated/prisma/client';
 import { asyncHandler } from '../utils/asyncHandler';
-
+import { TYPES } from '../config/types';
+import { inject, injectable } from 'inversify';
 
 export class OrderController {
-  constructor(private service: OrderService) {}
-
+  constructor(
+    @inject(TYPES.OrderService) private service: OrderService
+  ) {}
   // ========== CREATE ==========
   
   createOrder = asyncHandler(async (req: Request, res: Response) => {

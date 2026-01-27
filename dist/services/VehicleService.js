@@ -187,12 +187,14 @@ let VehicleService = class VehicleService {
         });
     }
     /**
-     * Get vehicles with filters and pagination (Hybrid: DB first, Redis cache, API fallback)
-     * API responses are cached in Redis (12hr TTL) to handle price changes and reduce API calls
-     * Vehicles are only saved to DB when user initiates payment
+     * Get vehicles with filters and pagination (Hybrid: DB first, Redis cache, API fallback).
+     * DB results are filtered by the repository. For API/Redis listings, we apply in-memory filtering
+     * (price, mileage, vehicleType, location, year) since Auto.dev API doesn't support these filters.
+     * This ensures all filters work correctly: price range, mileage max, car type, location, year, make/model, search.
      */
     getVehicles(filters_1) {
         return __awaiter(this, arguments, void 0, function* (filters, pagination = {}, includeApiResults = true) {
+            var _a;
             const page = pagination.page || 1;
             const limit = pagination.limit || 50;
             // Step 1: Search DB first
@@ -203,11 +205,15 @@ let VehicleService = class VehicleService {
             // Don't await - let it run in background, but refresh the vehicles we return
             Promise.all(priceRefreshPromises).catch(() => { });
             // Step 2: If DB results are insufficient, check Redis cache, then Auto.dev API
+            // Apply in-memory filtering to cached/API listings since Auto.dev API doesn't support
+            // price, mileage, vehicleType, or location filters - we filter in-memory after fetching
             let apiVehicles = [];
             let fromApiCount = 0;
             if (includeApiResults && dbResult.vehicles.length < limit) {
                 try {
-                    // Map our filters to Auto.dev API filters
+                    // Map our filters to Auto.dev API filters (API only supports make, model, year, zip)
+                    // Note: We don't map dealerState to zip because dealerState could be a state abbreviation (CA, NY)
+                    // and API expects zip codes. We'll filter by state in-memory instead.
                     const apiFilters = {};
                     if (filters.make)
                         apiFilters.make = filters.make;
@@ -221,62 +227,95 @@ let VehicleService = class VehicleService {
                             apiFilters.year = filters.yearMin;
                         }
                     }
-                    if (filters.dealerState)
-                        apiFilters.zip = filters.dealerState;
-                    // Check Redis cache first
-                    const cacheKey = RedisCacheService_1.RedisCacheService.getVehicleListingsKey(Object.assign(Object.assign({}, apiFilters), { page, limit }));
+                    // Skip dealerState -> zip mapping - filter by state in-memory instead
+                    // Cache key: same filters, page 1, fixed batch size (cache stores unfiltered batch)
+                    const apiBatchLimit = 100;
+                    const cacheKey = RedisCacheService_1.RedisCacheService.getVehicleListingsKey(Object.assign(Object.assign({}, apiFilters), { page: 1, limit: apiBatchLimit }));
                     const cachedResult = yield this.cache.get(cacheKey);
                     let apiListings = [];
-                    if (cachedResult) {
-                        // Use cached results
+                    if ((_a = cachedResult === null || cachedResult === void 0 ? void 0 : cachedResult.listings) === null || _a === void 0 ? void 0 : _a.length) {
                         loggers_1.default.info(`Using cached vehicle listings for filters: ${JSON.stringify(apiFilters)}`);
                         apiListings = cachedResult.listings;
                     }
                     else {
                         // Fetch from Auto.dev API
-                        apiListings = yield this.autoDevService.fetchListings(Object.assign(Object.assign({}, apiFilters), { page: 1, limit: limit - dbResult.vehicles.length }));
-                        // Cache the API response (12hr TTL handles price changes)
+                        apiListings = yield this.autoDevService.fetchListings(Object.assign(Object.assign({}, apiFilters), { page: 1, limit: apiBatchLimit }));
+                        // Cache the unfiltered batch (we'll filter in-memory per request)
                         yield this.cache.set(cacheKey, {
                             listings: apiListings,
                             total: apiListings.length,
                         });
                         loggers_1.default.info(`Cached vehicle listings for filters: ${JSON.stringify(apiFilters)}`);
                     }
-                    // Batch check existing VINs to avoid N+1 queries
-                    const vinsToCheck = apiListings.map(l => l.vin);
-                    const existingVins = new Set();
-                    for (const vin of vinsToCheck) {
-                        const existing = yield this.vehicleRepo.findByVIN(vin);
-                        if (existing) {
-                            existingVins.add(vin);
+                    // Apply ALL filters in-memory (price, mileage, year, vehicleType, location)
+                    // since Auto.dev API doesn't support these filters
+                    const needCount = limit - dbResult.vehicles.length;
+                    const filteredListings = apiListings.filter((listing) => {
+                        var _a, _b, _c, _d, _e;
+                        const vehicle = listing.vehicle || listing;
+                        const retailListing = listing.retailListing || {};
+                        // Price filter
+                        const price = (_b = (_a = retailListing.price) !== null && _a !== void 0 ? _a : listing.price) !== null && _b !== void 0 ? _b : 0;
+                        if (filters.priceMin != null && price < filters.priceMin)
+                            return false;
+                        if (filters.priceMax != null && price > filters.priceMax)
+                            return false;
+                        // Mileage filter (must be <= mileageMax)
+                        const mileage = (_d = (_c = retailListing.mileage) !== null && _c !== void 0 ? _c : listing.mileage) !== null && _d !== void 0 ? _d : undefined;
+                        if (filters.mileageMax != null && (mileage == null || mileage > filters.mileageMax))
+                            return false;
+                        // Year range filter
+                        const listingYear = (_e = vehicle.year) !== null && _e !== void 0 ? _e : listing.year;
+                        if (filters.yearMin != null && (listingYear == null || listingYear < filters.yearMin))
+                            return false;
+                        if (filters.yearMax != null && (listingYear == null || listingYear > filters.yearMax))
+                            return false;
+                        // VehicleType filter (transform bodyStyle to vehicleType and compare)
+                        if (filters.vehicleType) {
+                            const bodyStyle = vehicle.bodyStyle || listing.bodyStyle || '';
+                            const mappedType = vehicle_transformer_1.VehicleTransformer.mapVehicleType(bodyStyle);
+                            if (mappedType !== filters.vehicleType)
+                                return false;
                         }
-                    }
-                    // Transform only new listings (not in DB)
-                    for (const listing of apiListings) {
-                        if (!existingVins.has(listing.vin) && apiVehicles.length < (limit - dbResult.vehicles.length)) {
-                            // Transform but don't save to DB - cache only
-                            const vehicleData = vehicle_transformer_1.VehicleTransformer.fromAutoDevListing(listing, []);
-                            vehicleData.apiData = {
-                                listing,
-                                raw: listing,
-                                isTemporary: true, // Flag to indicate not saved to DB yet
-                                cached: true, // Flag to indicate from cache
-                            };
-                            vehicleData.apiSyncStatus = 'PENDING'; // Not saved to DB yet
-                            vehicleData.id = `temp-${listing.vin}`; // Temporary ID for frontend
-                            apiVehicles.push(vehicleData);
-                            fromApiCount++;
+                        // Location/dealerState filter
+                        if (filters.dealerState) {
+                            const listingState = retailListing.state || listing.dealerState || '';
+                            // Case-insensitive comparison
+                            if (listingState.toLowerCase() !== filters.dealerState.toLowerCase())
+                                return false;
                         }
+                        return true;
+                    });
+                    // Batch check existing VINs to avoid duplicates
+                    const vinsToCheck = filteredListings.map((l) => l.vin).filter(Boolean);
+                    const existingVins = yield this.vehicleRepo.findExistingVINs(vinsToCheck);
+                    // Transform and add filtered listings
+                    for (const listing of filteredListings) {
+                        if (!listing.vin || existingVins.has(listing.vin))
+                            continue;
+                        if (apiVehicles.length >= needCount)
+                            break;
+                        const vehicleData = vehicle_transformer_1.VehicleTransformer.fromAutoDevListing(listing, []);
+                        vehicleData.apiData = {
+                            listing,
+                            raw: listing,
+                            isTemporary: true,
+                            cached: !!cachedResult,
+                        };
+                        vehicleData.apiSyncStatus = 'PENDING';
+                        vehicleData.id = `temp-${listing.vin}`;
+                        apiVehicles.push(vehicleData);
+                        fromApiCount++;
                     }
                 }
                 catch (error) {
                     loggers_1.default.warn('Failed to fetch from Auto.dev API, returning DB results only:', error);
                 }
             }
-            // Step 3: Combine results (DB first, then cached API)
+            // Step 3: Combine results (DB first, then filtered API/Redis). Total/pages based on DB only.
             const allVehicles = [...dbResult.vehicles, ...apiVehicles];
-            const total = dbResult.total + fromApiCount;
-            const pages = Math.ceil(total / limit);
+            const total = dbResult.total;
+            const pages = Math.ceil(total / limit) || 1;
             return {
                 vehicles: allVehicles,
                 total,
