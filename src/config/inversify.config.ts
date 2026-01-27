@@ -35,6 +35,8 @@ import { ProfileController } from '../controllers/ProfileController';
 import { TestimonialRepository } from '../repositories/TestimonialRepository';
 import { TestimonialService } from '../services/TestimonialService';
 import { TestimonialController } from '../controllers/TestimonialController';
+import { OrderService } from '../services/OrderService';
+import { OrderController } from '../controllers/OrderController';
 
 
 
@@ -76,6 +78,10 @@ container.bind<RedisCacheService>(TYPES.RedisCacheService).to(RedisCacheService)
 container.bind<TestimonialRepository>(TYPES.TestimonialRepository).to(TestimonialRepository);
 container.bind<TestimonialService>(TYPES.TestimonialService).to(TestimonialService);
 container.bind<TestimonialController>(TYPES.TestimonialController).to(TestimonialController);
+// Testimonial bindings
+container.bind<OrderRepository>(TYPES.OrderRepository).to(OrderRepository);
+container.bind<OrderService>(TYPES.OrderService).to(OrderService);
+container.bind<OrderController>(TYPES.OrderController).to(OrderController);
 
 
 export { container };
