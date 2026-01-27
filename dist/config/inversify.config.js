@@ -38,6 +38,8 @@ const ProfileController_1 = require("../controllers/ProfileController");
 const TestimonialRepository_1 = require("../repositories/TestimonialRepository");
 const TestimonialService_1 = require("../services/TestimonialService");
 const TestimonialController_1 = require("../controllers/TestimonialController");
+const OrderService_1 = require("../services/OrderService");
+const OrderController_1 = require("../controllers/OrderController");
 const container = new inversify_1.Container();
 exports.container = container;
 container.bind(types_1.TYPES.UserRepository).to(UserRepository_1.UserRepository);
@@ -74,3 +76,7 @@ container.bind(types_1.TYPES.RedisCacheService).to(RedisCacheService_1.RedisCach
 container.bind(types_1.TYPES.TestimonialRepository).to(TestimonialRepository_1.TestimonialRepository);
 container.bind(types_1.TYPES.TestimonialService).to(TestimonialService_1.TestimonialService);
 container.bind(types_1.TYPES.TestimonialController).to(TestimonialController_1.TestimonialController);
+// Testimonial bindings
+container.bind(types_1.TYPES.OrderRepository).to(OrderRepository_1.OrderRepository);
+container.bind(types_1.TYPES.OrderService).to(OrderService_1.OrderService);
+container.bind(types_1.TYPES.OrderController).to(OrderController_1.OrderController);

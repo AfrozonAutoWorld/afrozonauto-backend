@@ -1,35 +1,48 @@
 import Joi from 'joi';
 import {
-    OrderStatus,
-    OrderPriority,
-    ShipmentStatus, 
-    ShippingMethod
-  } from '../../generated/prisma/client';
-  
-  export const createOrderSchema = Joi.object({
-    userId: Joi.string().required(),
-    vehicleId: Joi.string().required(),
-  
-    status: Joi.string()
-      .valid(...Object.values(OrderStatus))
-      .optional(),
-  
-    shippingMethod: Joi.string()
-      .valid(...Object.values(ShippingMethod))
-      .optional(),
-  
-    destinationCountry: Joi.string().optional(),
-    destinationState: Joi.string().optional(),
-    destinationCity: Joi.string().optional(),
-    destinationAddress: Joi.string().optional(),
-  
-    priority: Joi.string()
-      .valid(...Object.values(OrderPriority))
-      .optional(),
-  
-    customerNotes: Joi.string().optional(),
-    specialRequests: Joi.string().optional(),
-  });
+  OrderStatus,
+  OrderPriority,
+  ShipmentStatus,
+  ShippingMethod
+} from '../../generated/prisma/client';
+
+export const createOrderSchema = Joi.object({
+  userId: Joi.string().required(),
+  vehicleId: Joi.string().required(),
+  status: Joi.string()
+    .valid(...Object.values(OrderStatus))
+    .optional(),
+  shippingMethod: Joi.string()
+    .valid(...Object.values(ShippingMethod))
+    .optional(),
+  destinationCountry: Joi.string().optional(),
+  destinationState: Joi.string().optional(),
+  destinationCity: Joi.string().optional(),
+  destinationAddress: Joi.string().optional(),
+
+  priority: Joi.string()
+    .valid(...Object.values(OrderPriority))
+    .optional(),
+
+  customerNotes: Joi.string().optional(),
+  specialRequests: Joi.string().optional(),
+});
+
+export const AdminNoteSchema = Joi.object({
+  note: Joi.string().required(),
+  isInternal: Joi.boolean().default(true),
+  category: Joi.string()
+});
+
+export const updateOrderSchema = Joi.object({
+  destinationCountry: Joi.string().optional(),
+  destinationState: Joi.string().optional(),
+  destinationCity: Joi.string().optional(),
+  destinationAddress: Joi.string().optional(),
+  customerNotes: Joi.string().optional(),
+  specialRequests: Joi.string().optional(),
+  deliveryInstructions: Joi.string().optional(),
+});
 
 
 export const createShipmentSchema = Joi.object({
@@ -45,4 +58,7 @@ export const createShipmentSchema = Joi.object({
   status: Joi.string()
     .valid(...Object.values(ShipmentStatus))
     .optional(),
+});
+export const cancelOrder = Joi.object({
+  reason: Joi.string().required()
 });
