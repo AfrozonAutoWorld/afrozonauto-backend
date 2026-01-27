@@ -22,24 +22,33 @@ export class VehicleController {
    * API results are cached in Redis (12hr TTL) to handle price changes
    */
   getVehicles = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const filters: VehicleFilters = {
-      make: req.query.make as string,
-      model: req.query.model as string,
-      yearMin: req.query.yearMin ? parseInt(req.query.yearMin as string) : undefined,
-      yearMax: req.query.yearMax ? parseInt(req.query.yearMax as string) : undefined,
-      priceMin: req.query.priceMin ? parseFloat(req.query.priceMin as string) : undefined,
-      priceMax: req.query.priceMax ? parseFloat(req.query.priceMax as string) : undefined,
-      mileageMax: req.query.mileageMax ? parseInt(req.query.mileageMax as string) : undefined,
-      vehicleType: req.query.vehicleType as any,
-      status: req.query.status as any,
-      dealerState: req.query.state as string,
-      featured: req.query.featured === 'true',
-      search: req.query.search as string,
+    const q = req.query;
+    const str = (v: unknown) => {
+      const s = Array.isArray(v) ? v[0] : v;
+      return typeof s === 'string' && s.trim() !== '' ? s.trim() : undefined;
     };
+    const filters: VehicleFilters = {};
+    if (str(q.make)) filters.make = str(q.make);
+    if (str(q.model)) filters.model = str(q.model);
+    const yearMin = q.yearMin ? parseInt(q.yearMin as string, 10) : undefined;
+    const yearMax = q.yearMax ? parseInt(q.yearMax as string, 10) : undefined;
+    if (Number.isFinite(yearMin)) filters.yearMin = yearMin;
+    if (Number.isFinite(yearMax)) filters.yearMax = yearMax;
+    const priceMin = q.priceMin ? parseFloat(q.priceMin as string) : undefined;
+    const priceMax = q.priceMax ? parseFloat(q.priceMax as string) : undefined;
+    if (Number.isFinite(priceMin)) filters.priceMin = priceMin;
+    if (Number.isFinite(priceMax)) filters.priceMax = priceMax;
+    const mileageMax = q.mileageMax ? parseInt(q.mileageMax as string, 10) : undefined;
+    if (Number.isFinite(mileageMax)) filters.mileageMax = mileageMax;
+    if (str(q.vehicleType)) filters.vehicleType = str(q.vehicleType) as VehicleFilters['vehicleType'];
+    if (str(q.status)) filters.status = str(q.status) as VehicleFilters['status'];
+    if (str(q.state)) filters.dealerState = str(q.state);
+    if (q.featured !== undefined && q.featured !== '') filters.featured = q.featured === 'true';
+    if (str(q.search)) filters.search = str(q.search);
 
     const pagination = {
-      page: req.query.page ? parseInt(req.query.page as string) : 1,
-      limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
+      page: Math.max(1, q.page ? parseInt(q.page as string, 10) : 1),
+      limit: Math.min(100, Math.max(1, q.limit ? parseInt(q.limit as string, 10) : 50)),
     };
 
     const includeApi = req.query.includeApi !== 'false';

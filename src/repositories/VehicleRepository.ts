@@ -57,6 +57,18 @@ export class VehicleRepository {
   }
 
   /**
+   * Find which VINs already exist in DB (batch, single query)
+   */
+  async findExistingVINs(vins: string[]): Promise<Set<string>> {
+    if (vins.length === 0) return new Set();
+    const rows = await prisma.vehicle.findMany({
+      where: { vin: { in: vins } },
+      select: { vin: true },
+    });
+    return new Set(rows.map((r) => r.vin));
+  }
+
+  /**
    * Find vehicle by slug
    */
   async findBySlug(slug: string): Promise<Vehicle | null> {

@@ -114,7 +114,7 @@ export class VehicleTransformer {
   /**
    * Map body style to VehicleType enum
    */
-  private static mapVehicleType(bodyStyle: string): VehicleType {
+  static mapVehicleType(bodyStyle: string): VehicleType {
     const style = bodyStyle.toLowerCase();
     if (style.includes('suv')) return VehicleType.SUV;
     if (style.includes('truck')) return VehicleType.TRUCK;
