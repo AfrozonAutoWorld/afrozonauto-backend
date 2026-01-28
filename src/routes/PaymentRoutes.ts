@@ -39,6 +39,11 @@ class PaymentRoutes {
     
     this.router.post('/webhooks/paystack', this.controller.paystackWebhook);
     this.router.post('/webhooks/stripe', this.controller.stripeWebhook);
+    
+    // get payments
+    this.router.get('/all', authenticate, this.controller.getAllPayments);
+    this.router.get('/user-mine', authenticate, this.controller.getAllUserPayments);
+    this.router.get('/payment-id/:id', authenticate, this.controller.getPaymentById);
   }
 
   public getRouter(): Router {

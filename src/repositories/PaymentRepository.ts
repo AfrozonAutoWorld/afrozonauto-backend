@@ -28,6 +28,23 @@ export class PaymentRepository {
       include: { order: true }
     });
   }
+  findById(id: string) {
+    return prisma.payment.findFirst({
+      where: { id },
+      include: { order: true }
+    });
+  }
+  findAll() {
+    return prisma.payment.findMany({
+      include: { order: true }
+    });
+  }
+  findAllUserPayments(userId: string) {
+    return prisma.payment.findMany({
+      where: { userId },
+      include: { order: true }
+    });
+  }
 
   
   updateByReference(transactionRef: string, data: any) {

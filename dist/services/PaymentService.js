@@ -36,6 +36,15 @@ let PaymentService = class PaymentService {
         this.orderRepo = orderRepo;
         this.stripe = stripe;
         this.paystack = paystack;
+        this.getPayments = () => {
+            return this.paymentRepo.findAll();
+        };
+        this.getUserPayments = (userId) => {
+            return this.paymentRepo.findAllUserPayments(userId);
+        };
+        this.getPaymentById = (id) => {
+            return this.paymentRepo.findById(id);
+        };
     }
     initiatePayment(payload) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -121,8 +130,11 @@ let PaymentService = class PaymentService {
             else {
                 yield this.paymentRepo.updatePayment(payment.id, {
                     status: 'FAILED',
-                    failureReason: 'Verification failed',
-                    providerData: verification
+                    metadata: {
+                        failureReason: 'Verification failed',
+                        provider: provider,
+                        providerResponse: verification
+                    }
                 });
                 return {
                     success: false,

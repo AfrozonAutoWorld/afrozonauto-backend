@@ -83,8 +83,25 @@ let PaymentController = class PaymentController {
         }));
         this.stripeWebhook = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             const reference = req.body.data.object.metadata.reference;
-            yield this.paymentService.handlePaymentSuccess(reference, 'stripe');
-            return res.status(200).json(ApiResponse_1.ApiResponse.success({}));
+            const payment = yield this.paymentService.handlePaymentSuccess(reference, 'stripe');
+            return res.status(200).json(ApiResponse_1.ApiResponse.success(payment));
+        }));
+        this.getAllPayments = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            const payments = yield this.paymentService.getPayments();
+            return res.status(200).json(ApiResponse_1.ApiResponse.success(payments));
+        }));
+        this.getAllUserPayments = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            if (!req.user) {
+                return res.status(401).json(ApiError_1.ApiError.unauthorized('User not authenticated'));
+            }
+            const userId = req.user.id;
+            const payments = yield this.paymentService.getUserPayments(userId);
+            return res.status(200).json(ApiResponse_1.ApiResponse.success(payments));
+        }));
+        this.getPaymentById = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            const id = req.params.id;
+            const payment = yield this.paymentService.getPaymentById(id);
+            return res.status(200).json(ApiResponse_1.ApiResponse.success(payment));
         }));
     }
 };

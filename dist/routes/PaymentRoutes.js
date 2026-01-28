@@ -33,9 +33,13 @@ class PaymentRoutes {
     initializeRoutes() {
         // Initiate payment
         this.router.post('/init', authMiddleware_1.authenticate, (0, bodyValidate_1.validateBody)(initPaymentSchema), this.controller.initPayment);
-        this.router.patch('/verify/:reference', authMiddleware_1.authenticate, this.controller.initPayment);
+        this.router.patch('/verify/:reference', authMiddleware_1.authenticate, this.controller.verifyPayment);
         this.router.post('/webhooks/paystack', this.controller.paystackWebhook);
         this.router.post('/webhooks/stripe', this.controller.stripeWebhook);
+        // get payments
+        this.router.get('/all', authMiddleware_1.authenticate, this.controller.getAllPayments);
+        this.router.get('/user-mine', authMiddleware_1.authenticate, this.controller.getAllUserPayments);
+        this.router.get('/payment-id/:id', authMiddleware_1.authenticate, this.controller.getPaymentById);
     }
     getRouter() {
         return this.router;

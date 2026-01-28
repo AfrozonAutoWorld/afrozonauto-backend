@@ -110,10 +110,41 @@ export class PaymentController {
 
     stripeWebhook = asyncHandler(async (req, res) => {
         const reference = req.body.data.object.metadata.reference;
-        await this.paymentService.handlePaymentSuccess(reference, 'stripe');
+        const payment = await this.paymentService.handlePaymentSuccess(reference, 'stripe');
         return res.status(200).json(
             ApiResponse.success(
-                {}
+                payment
+            )
+        );
+    });
+    getAllPayments = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        const payments = await this.paymentService.getPayments()
+        return res.status(200).json(
+            ApiResponse.success(
+                payments
+            )
+        );
+    });
+    getAllUserPayments = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        if (!req.user) {
+            return res.status(401).json(
+              ApiError.unauthorized('User not authenticated')
+            )
+          }
+          const userId = req.user.id;
+        const payments = await this.paymentService.getUserPayments(userId)
+        return res.status(200).json(
+            ApiResponse.success(
+                payments
+            )
+        );
+    });
+    getPaymentById = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        const id = req.params.id
+        const payment = await this.paymentService.getPaymentById(id)
+        return res.status(200).json(
+            ApiResponse.success(
+                payment
             )
         );
     });

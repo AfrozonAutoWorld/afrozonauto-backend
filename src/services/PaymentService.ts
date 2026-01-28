@@ -144,5 +144,15 @@ export class PaymentService {
     }
   }
 
+  getPayments = ()=>{
+    return this.paymentRepo.findAll()
+  }
+  getUserPayments = (userId: string)=>{
+    return this.paymentRepo.findAllUserPayments(userId)
+  }
+  getPaymentById = (id: string)=>{
+    return this.paymentRepo.findById(id)
+  }
+
   
 }
