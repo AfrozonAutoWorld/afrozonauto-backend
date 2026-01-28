@@ -17,7 +17,7 @@ import { ApiError } from "../utils/ApiError";
 
 export interface CreateOrderData {
   userId: string;
-  vehicleId: string;
+  vehicleId?: string;
   shippingMethod?: ShippingMethod;
   destinationCountry?: string;
   destinationState?: string;
@@ -27,6 +27,7 @@ export interface CreateOrderData {
   customerNotes?: string;
   specialRequests?: string;
   tags?: string[];
+  vehicleSnapshot: Record<string, any>;
 }
 
 export interface UpdateOrderData {
@@ -67,7 +68,9 @@ export class OrderService {
     const orderData: Prisma.OrderCreateInput = {
       requestNumber,
       user: { connect: { id: data.userId } },
-      vehicle: { connect: { id: data.vehicleId } },
+    ...(data.vehicleId && { 
+      vehicle: { connect: { id: data.vehicleId } } 
+    }),
       shippingMethod: data.shippingMethod,
       destinationCountry: data.destinationCountry || "Nigeria",
       destinationState: data.destinationState,
@@ -77,7 +80,8 @@ export class OrderService {
       customerNotes: data.customerNotes,
       specialRequests: data.specialRequests,
       tags: data.tags || [],
-      status: OrderStatus.PENDING_QUOTE
+      status: OrderStatus.PENDING_QUOTE,
+      vehicleSnapshot: data.vehicleSnapshot
     };
     
     return this.orderRepository.create(orderData);
@@ -91,7 +95,7 @@ export class OrderService {
   }
 
   // ========== READ ==========
-  
+
   async getOrderById(id: string): Promise<OrderWithDetails> {
     const order = await this.orderRepository.findById(id);
     if (!order) {

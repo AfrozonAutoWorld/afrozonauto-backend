@@ -9,7 +9,7 @@
 * 🟢 You can import this file directly.
 */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VehicleAvailability = exports.VehicleStatus = exports.ApiSyncStatus = exports.VehicleSource = exports.VehicleType = exports.UserRole = exports.TokenType = exports.ShipmentStatus = exports.EscrowStatus = exports.PaymentStatus = exports.PaymentMethod = exports.PaymentType = exports.OrderPriority = exports.ShippingMethod = exports.OrderStatus = exports.ContentType = exports.NotificationType = exports.InspectionCondition = exports.DocumentName = exports.AddressType = void 0;
+exports.VehicleAvailability = exports.VehicleStatus = exports.ApiSyncStatus = exports.VehicleSource = exports.VehicleType = exports.UserRole = exports.TokenType = exports.ShipmentStatus = exports.EscrowStatus = exports.PaymentStatus = exports.PaymentMethod = exports.PaymentType = exports.OrderPriority = exports.ShippingMethod = exports.OrderStatus = exports.OrderVehicleSource = exports.ContentType = exports.NotificationType = exports.InspectionCondition = exports.DocumentName = exports.AddressType = void 0;
 exports.AddressType = {
     NORMAL: 'NORMAL',
     BILLING: 'BILLING',
@@ -50,6 +50,12 @@ exports.ContentType = {
     BLOG_POST: 'BLOG_POST',
     HELP_ARTICLE: 'HELP_ARTICLE',
     HOMEPAGE_SECTION: 'HOMEPAGE_SECTION'
+};
+exports.OrderVehicleSource = {
+    IN_HOUSE: 'IN_HOUSE',
+    AUTODEV: 'AUTODEV',
+    OTHER_API: 'OTHER_API',
+    MANUAL_REQUEST: 'MANUAL_REQUEST'
 };
 exports.OrderStatus = {
     PENDING_QUOTE: 'PENDING_QUOTE',

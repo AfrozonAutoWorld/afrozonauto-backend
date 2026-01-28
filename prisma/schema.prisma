@@ -409,15 +409,34 @@ enum ContentType {
 // ============================================
 // ORDERS & REQUESTS
 // ============================================
+enum OrderVehicleSource {
+  IN_HOUSE
+  AUTODEV
+  OTHER_API
+  MANUAL_REQUEST
+}
+
 model Order {
   id            String @id @default(auto()) @map("_id") @db.ObjectId
   requestNumber String @unique // AFZ-YY-XXXXXX format
 
   // Relations
-  userId    String  @db.ObjectId
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  vehicleId String  @db.ObjectId
-  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Vehicle Reference (optional)
+  vehicleId String?  @db.ObjectId
+  vehicle   Vehicle? @relation(fields: [vehicleId], references: [id])
+
+  // Vehicle Source
+  vehicleSource OrderVehicleSource?
+
+  // External reference (for API vehicles)
+  externalVehicleId String? // autodev listing ID, etc.
+  externalProvider  String? // "autodev"
+
+  // Snapshot at order time (CRITICAL)
+  vehicleSnapshot Json
 
   // Status (flexible workflow)
   status          OrderStatus @default(PENDING_QUOTE)

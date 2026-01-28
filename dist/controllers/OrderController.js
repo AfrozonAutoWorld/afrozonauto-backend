@@ -29,29 +29,49 @@ const client_1 = require("../generated/prisma/client");
 const asyncHandler_1 = require("../utils/asyncHandler");
 const types_1 = require("../config/types");
 const inversify_1 = require("inversify");
+const VehicleService_1 = require("../services/VehicleService");
+const ProfileService_1 = require("../services/ProfileService");
+const AddressService_1 = require("../services/AddressService");
 let OrderController = class OrderController {
-    constructor(service) {
+    constructor(service, vehicleService, profileService, addressService) {
         this.service = service;
+        this.vehicleService = vehicleService;
+        this.profileService = profileService;
+        this.addressService = addressService;
         // ========== CREATE ==========
         this.createOrder = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
-            var _a;
+            var _a, _b, _c, _d, _e;
             const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+            console.log(userId);
             if (!userId) {
-                throw new ApiError_1.ApiError(401, "Authentication required");
+                return res.status(401).json(ApiError_1.ApiError.unauthorized("Authentication required"));
             }
-            const { vehicleId, shippingMethod, destinationCountry, destinationState, destinationCity, destinationAddress, deliveryInstructions, customerNotes, specialRequests, tags } = req.body;
+            const { vehicleId, shippingMethod, deliveryInstructions, customerNotes, specialRequests, tags, identifier, type } = req.body;
+            const profile = yield this.profileService.findUserById(userId.toString());
+            if (!profile) {
+                return res.status(404).json(ApiError_1.ApiError.notFound('Profile not found. Please complete your profile first.'));
+            }
+            const address = yield this.addressService.getDefaultAddress(profile.id, client_1.AddressType.NORMAL);
+            if (!address) {
+                return res.status(400).json(ApiError_1.ApiError.badRequest('Default address required. Please set a default address.'));
+            }
+            const vehicle = yield this.vehicleService.getVehicle(identifier, type);
+            if (!vehicle) {
+                return res.status(404).json(ApiError_1.ApiError.notFound("vehicle not found"));
+            }
             const order = yield this.service.createOrder({
                 userId,
                 vehicleId,
                 shippingMethod,
-                destinationCountry,
-                destinationState,
-                destinationCity,
-                destinationAddress,
+                destinationCountry: (_b = address.country) !== null && _b !== void 0 ? _b : undefined,
+                destinationState: (_c = address.state) !== null && _c !== void 0 ? _c : undefined,
+                destinationCity: (_d = address.city) !== null && _d !== void 0 ? _d : undefined,
+                destinationAddress: (_e = address.street) !== null && _e !== void 0 ? _e : undefined,
                 deliveryInstructions,
                 customerNotes,
                 specialRequests,
-                tags
+                tags,
+                vehicleSnapshot: vehicle
             });
             return res.status(201).json(ApiResponse_1.ApiResponse.success(order, "Order created successfully"));
         }));
@@ -84,7 +104,7 @@ let OrderController = class OrderController {
             var _a;
             const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
             if (!userId) {
-                throw new ApiError_1.ApiError(401, "Authentication required");
+                return res.status(401).json(ApiError_1.ApiError.unauthorized("Authentication required"));
             }
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
@@ -347,5 +367,11 @@ let OrderController = class OrderController {
 exports.OrderController = OrderController;
 exports.OrderController = OrderController = __decorate([
     __param(0, (0, inversify_1.inject)(types_1.TYPES.OrderService)),
-    __metadata("design:paramtypes", [OrderService_1.OrderService])
+    __param(1, (0, inversify_1.inject)(types_1.TYPES.VehicleService)),
+    __param(2, (0, inversify_1.inject)(types_1.TYPES.ProfileService)),
+    __param(3, (0, inversify_1.inject)(types_1.TYPES.AddressService)),
+    __metadata("design:paramtypes", [OrderService_1.OrderService,
+        VehicleService_1.VehicleService,
+        ProfileService_1.ProfileService,
+        AddressService_1.AddressService])
 ], OrderController);

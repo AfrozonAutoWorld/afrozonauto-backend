@@ -85,6 +85,54 @@ let PaymentService = class PaymentService {
             ]);
         });
     }
+    /**
+    * Verify payment (frontend verification)
+    */
+    verifyPayment(reference, provider) {
+        return __awaiter(this, void 0, void 0, function* () {
+            // Get payment record
+            const payment = yield this.paymentRepo.findByReference(reference);
+            if (!payment) {
+                throw new Error('Payment not found');
+            }
+            // If already completed, return current status
+            if (payment.status === 'COMPLETED') {
+                return {
+                    success: true,
+                    payment,
+                    message: 'Payment already completed'
+                };
+            }
+            // Get provider client
+            const providerClient = provider === 'stripe' ? this.stripe : this.paystack;
+            // Verify with provider
+            const verification = yield providerClient.verifyPayment(reference);
+            // Update payment based on verification
+            if (verification.success) {
+                // await this.handleSuccessfulVerification(payment, verification, provider);
+                yield this.handlePaymentSuccess(reference, provider);
+                return {
+                    success: true,
+                    payment: yield this.paymentRepo.findByReference(reference),
+                    verification,
+                    message: 'Payment verified successfully'
+                };
+            }
+            else {
+                yield this.paymentRepo.updatePayment(payment.id, {
+                    status: 'FAILED',
+                    failureReason: 'Verification failed',
+                    providerData: verification
+                });
+                return {
+                    success: false,
+                    payment: yield this.paymentRepo.findByReference(reference),
+                    verification,
+                    message: 'Payment verification failed'
+                };
+            }
+        });
+    }
 };
 exports.PaymentService = PaymentService;
 exports.PaymentService = PaymentService = __decorate([

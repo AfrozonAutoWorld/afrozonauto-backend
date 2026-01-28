@@ -14,6 +14,12 @@ export class PaymentRepository {
       data
     });
   }
+  updatePayment(id: string, data: any) {
+    return prisma.payment.update({
+      where: { id },
+      data
+    });
+  }
   
 
   findByReference(reference: string) {

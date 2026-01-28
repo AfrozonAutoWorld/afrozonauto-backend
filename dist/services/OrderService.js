@@ -36,21 +36,9 @@ let OrderService = class OrderService {
         return __awaiter(this, void 0, void 0, function* () {
             // Generate request number
             const requestNumber = this.generateRequestNumber();
-            const orderData = {
-                requestNumber,
-                user: { connect: { id: data.userId } },
-                vehicle: { connect: { id: data.vehicleId } },
-                shippingMethod: data.shippingMethod,
-                destinationCountry: data.destinationCountry || "Nigeria",
-                destinationState: data.destinationState,
-                destinationCity: data.destinationCity,
-                destinationAddress: data.destinationAddress,
-                deliveryInstructions: data.deliveryInstructions,
-                customerNotes: data.customerNotes,
-                specialRequests: data.specialRequests,
-                tags: data.tags || [],
-                status: client_1.OrderStatus.PENDING_QUOTE
-            };
+            const orderData = Object.assign(Object.assign({ requestNumber, user: { connect: { id: data.userId } } }, (data.vehicleId && {
+                vehicle: { connect: { id: data.vehicleId } }
+            })), { shippingMethod: data.shippingMethod, destinationCountry: data.destinationCountry || "Nigeria", destinationState: data.destinationState, destinationCity: data.destinationCity, destinationAddress: data.destinationAddress, deliveryInstructions: data.deliveryInstructions, customerNotes: data.customerNotes, specialRequests: data.specialRequests, tags: data.tags || [], status: client_1.OrderStatus.PENDING_QUOTE, vehicleSnapshot: data.vehicleSnapshot });
             return this.orderRepository.create(orderData);
         });
     }

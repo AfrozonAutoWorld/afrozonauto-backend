@@ -22,6 +22,12 @@ let PaymentRepository = class PaymentRepository {
             data
         });
     }
+    updatePayment(id, data) {
+        return db_1.default.payment.update({
+            where: { id },
+            data
+        });
+    }
     findByReference(reference) {
         return db_1.default.payment.findFirst({
             where: { transactionRef: reference },

@@ -4,7 +4,7 @@ import { TYPES } from '../config/types';
 import { validateBody } from "../middleware/bodyValidate"
 import { AdminNoteSchema, cancelOrder, createOrderSchema, updateOrderSchema } from '../validation/schema/order.validation';
 import { OrderController } from '../controllers/OrderController';
-import { authorize } from '../middleware/authMiddleware';
+import { authenticate, authorize } from '../middleware/authMiddleware';
 import { UserRole } from '../generated/prisma/enums';
 
 class OrderRoutes {
@@ -21,15 +21,20 @@ class OrderRoutes {
 
         // Create order
         this.router.post('/',
+            authenticate,
             validateBody(createOrderSchema),
             this.controller.createOrder
         );
 
         // Get user's orders
-        this.router.get('/my-orders', this.controller.getUserOrders);
+        this.router.get('/my-orders',
+             authenticate, 
+            this.controller.getUserOrders);
 
         // Get specific order by ID
-        this.router.get('/:id', this.controller.getOrderById);
+        this.router.get('/:id', 
+            authenticate,
+            this.controller.getOrderById);
 
         // Get order by request number
         this.router.get('/request/:requestNumber', this.controller.getOrderByRequestNumber);
