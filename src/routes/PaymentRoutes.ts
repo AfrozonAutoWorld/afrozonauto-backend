@@ -35,7 +35,7 @@ class PaymentRoutes {
   private initializeRoutes(): void {
     // Initiate payment
     this.router.post('/init', authenticate, validateBody(initPaymentSchema), this.controller.initPayment);
-    this.router.patch('/verify/:reference', authenticate,  this.controller.initPayment);
+    this.router.patch('/verify/:reference', authenticate,  this.controller.verifyPayment);
     
     this.router.post('/webhooks/paystack', this.controller.paystackWebhook);
     this.router.post('/webhooks/stripe', this.controller.stripeWebhook);

@@ -127,9 +127,13 @@ export class PaymentService {
     } else {
       await this.paymentRepo.updatePayment(payment.id, {
         status: 'FAILED',
-        failureReason: 'Verification failed',
-        providerData: verification
+        metadata: {
+          failureReason: 'Verification failed',
+          provider: provider,
+          providerResponse: verification
+        }
       });
+      
 
       return {
         success: false,
