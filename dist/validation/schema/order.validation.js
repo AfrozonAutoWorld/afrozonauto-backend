@@ -14,10 +14,10 @@ exports.createOrderSchema = joi_1.default.object({
     shippingMethod: joi_1.default.string()
         .valid(...Object.values(client_1.ShippingMethod))
         .optional(),
-    // destinationCountry: Joi.string().optional(),
-    // destinationState: Joi.string().optional(),
-    // destinationCity: Joi.string().optional(),
-    // destinationAddress: Joi.string().optional(),
+    destinationCountry: joi_1.default.string().optional(),
+    destinationState: joi_1.default.string().optional(),
+    destinationCity: joi_1.default.string().optional(),
+    destinationAddress: joi_1.default.string().optional(),
     priority: joi_1.default.string()
         .valid(...Object.values(client_1.OrderPriority))
         .default(client_1.OrderPriority.LOW)

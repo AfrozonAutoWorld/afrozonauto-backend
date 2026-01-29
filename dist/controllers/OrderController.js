@@ -40,13 +40,13 @@ let OrderController = class OrderController {
         this.addressService = addressService;
         // ========== CREATE ==========
         this.createOrder = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
-            var _a, _b, _c, _d, _e;
+            var _a;
             const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
             console.log(userId);
             if (!userId) {
                 return res.status(401).json(ApiError_1.ApiError.unauthorized("Authentication required"));
             }
-            const { vehicleId, shippingMethod, deliveryInstructions, customerNotes, specialRequests, tags, identifier, type } = req.body;
+            const { vehicleId, shippingMethod, deliveryInstructions, customerNotes, specialRequests, tags, identifier, destinationCountry, destinationState, destinationCity, destinationAddress, type } = req.body;
             const profile = yield this.profileService.findUserById(userId.toString());
             if (!profile) {
                 return res.status(404).json(ApiError_1.ApiError.notFound('Profile not found. Please complete your profile first.'));
@@ -63,10 +63,14 @@ let OrderController = class OrderController {
                 userId,
                 vehicleId,
                 shippingMethod,
-                destinationCountry: (_b = address.country) !== null && _b !== void 0 ? _b : undefined,
-                destinationState: (_c = address.state) !== null && _c !== void 0 ? _c : undefined,
-                destinationCity: (_d = address.city) !== null && _d !== void 0 ? _d : undefined,
-                destinationAddress: (_e = address.street) !== null && _e !== void 0 ? _e : undefined,
+                // destinationCountry: address.country ?? undefined,
+                // destinationState: address.state ?? undefined,
+                // destinationCity: address.city ?? undefined,
+                // destinationAddress: address.street ?? undefined,
+                destinationCountry,
+                destinationState,
+                destinationCity,
+                destinationAddress,
                 deliveryInstructions,
                 customerNotes,
                 specialRequests,
