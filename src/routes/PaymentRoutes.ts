@@ -12,11 +12,6 @@ const initPaymentSchema = Joi.object({
     'string.empty': 'Order ID is required',
     'any.required': 'Order ID is required'
   }),
-  amountUsd: Joi.number().positive().required().messages({
-    'number.base': 'Amount must be a number',
-    'number.positive': 'Amount must be positive',
-    'any.required': 'Amount in USD is required'
-  }),
   provider: Joi.string().valid('stripe', 'paystack', 'flutterwave').required().messages({
     'any.only': 'Provider must be one of: stripe, paystack, flutterwave',
     'any.required': 'Payment provider is required'
@@ -40,9 +35,15 @@ class PaymentRoutes {
   private initializeRoutes(): void {
     // Initiate payment
     this.router.post('/init', authenticate, validateBody(initPaymentSchema), this.controller.initPayment);
+    this.router.patch('/verify/:reference', authenticate,  this.controller.verifyPayment);
     
     this.router.post('/webhooks/paystack', this.controller.paystackWebhook);
     this.router.post('/webhooks/stripe', this.controller.stripeWebhook);
+    
+    // get payments
+    this.router.get('/all', authenticate, this.controller.getAllPayments);
+    this.router.get('/user-mine', authenticate, this.controller.getAllUserPayments);
+    this.router.get('/payment-id/:id', authenticate, this.controller.getPaymentById);
   }
 
   public getRouter(): Router {

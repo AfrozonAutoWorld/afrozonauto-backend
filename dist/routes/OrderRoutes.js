@@ -16,11 +16,11 @@ class OrderRoutes {
     initializeRoutes() {
         // ========== PUBLIC USER ROUTES ==========
         // Create order
-        this.router.post('/', (0, bodyValidate_1.validateBody)(order_validation_1.createOrderSchema), this.controller.createOrder);
+        this.router.post('/', authMiddleware_1.authenticate, (0, bodyValidate_1.validateBody)(order_validation_1.createOrderSchema), this.controller.createOrder);
         // Get user's orders
-        this.router.get('/my-orders', this.controller.getUserOrders);
+        this.router.get('/my-orders', authMiddleware_1.authenticate, this.controller.getUserOrders);
         // Get specific order by ID
-        this.router.get('/:id', this.controller.getOrderById);
+        this.router.get('/:id', authMiddleware_1.authenticate, this.controller.getOrderById);
         // Get order by request number
         this.router.get('/request/:requestNumber', this.controller.getOrderByRequestNumber);
         // Cancel order

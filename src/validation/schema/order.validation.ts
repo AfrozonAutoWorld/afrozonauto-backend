@@ -7,23 +7,24 @@ import {
 } from '../../generated/prisma/client';
 
 export const createOrderSchema = Joi.object({
-  userId: Joi.string().required(),
-  vehicleId: Joi.string().required(),
+  vehicleId: Joi.string().optional(),
   status: Joi.string()
     .valid(...Object.values(OrderStatus))
     .optional(),
   shippingMethod: Joi.string()
     .valid(...Object.values(ShippingMethod))
     .optional(),
-  destinationCountry: Joi.string().optional(),
-  destinationState: Joi.string().optional(),
-  destinationCity: Joi.string().optional(),
-  destinationAddress: Joi.string().optional(),
+  // destinationCountry: Joi.string().optional(),
+  // destinationState: Joi.string().optional(),
+  // destinationCity: Joi.string().optional(),
+  // destinationAddress: Joi.string().optional(),
 
   priority: Joi.string()
     .valid(...Object.values(OrderPriority))
+    .default(OrderPriority.LOW)
     .optional(),
-
+  identifier: Joi.string().optional(),
+  type: Joi.string().optional(),
   customerNotes: Joi.string().optional(),
   specialRequests: Joi.string().optional(),
 });

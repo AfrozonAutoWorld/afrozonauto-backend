@@ -1,4 +1,16 @@
 "use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -10,33 +22,56 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OrderController = void 0;
+const OrderService_1 = require("../services/OrderService");
 const ApiResponse_1 = require("../utils/ApiResponse");
 const ApiError_1 = require("../utils/ApiError");
 const client_1 = require("../generated/prisma/client");
 const asyncHandler_1 = require("../utils/asyncHandler");
-class OrderController {
-    constructor(service) {
+const types_1 = require("../config/types");
+const inversify_1 = require("inversify");
+const VehicleService_1 = require("../services/VehicleService");
+const ProfileService_1 = require("../services/ProfileService");
+const AddressService_1 = require("../services/AddressService");
+let OrderController = class OrderController {
+    constructor(service, vehicleService, profileService, addressService) {
         this.service = service;
+        this.vehicleService = vehicleService;
+        this.profileService = profileService;
+        this.addressService = addressService;
         // ========== CREATE ==========
         this.createOrder = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
-            var _a;
+            var _a, _b, _c, _d, _e;
             const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+            console.log(userId);
             if (!userId) {
-                throw new ApiError_1.ApiError(401, "Authentication required");
+                return res.status(401).json(ApiError_1.ApiError.unauthorized("Authentication required"));
             }
-            const { vehicleId, shippingMethod, destinationCountry, destinationState, destinationCity, destinationAddress, deliveryInstructions, customerNotes, specialRequests, tags } = req.body;
+            const { vehicleId, shippingMethod, deliveryInstructions, customerNotes, specialRequests, tags, identifier, type } = req.body;
+            const profile = yield this.profileService.findUserById(userId.toString());
+            if (!profile) {
+                return res.status(404).json(ApiError_1.ApiError.notFound('Profile not found. Please complete your profile first.'));
+            }
+            const address = yield this.addressService.getDefaultAddress(profile.id, client_1.AddressType.NORMAL);
+            if (!address) {
+                return res.status(400).json(ApiError_1.ApiError.badRequest('Default address required. Please set a default address.'));
+            }
+            const vehicle = yield this.vehicleService.getVehicle(identifier, type);
+            if (!vehicle) {
+                return res.status(404).json(ApiError_1.ApiError.notFound("vehicle not found"));
+            }
             const order = yield this.service.createOrder({
                 userId,
                 vehicleId,
                 shippingMethod,
-                destinationCountry,
-                destinationState,
-                destinationCity,
-                destinationAddress,
+                destinationCountry: (_b = address.country) !== null && _b !== void 0 ? _b : undefined,
+                destinationState: (_c = address.state) !== null && _c !== void 0 ? _c : undefined,
+                destinationCity: (_d = address.city) !== null && _d !== void 0 ? _d : undefined,
+                destinationAddress: (_e = address.street) !== null && _e !== void 0 ? _e : undefined,
                 deliveryInstructions,
                 customerNotes,
                 specialRequests,
-                tags
+                tags,
+                vehicleSnapshot: vehicle
             });
             return res.status(201).json(ApiResponse_1.ApiResponse.success(order, "Order created successfully"));
         }));
@@ -69,7 +104,7 @@ class OrderController {
             var _a;
             const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
             if (!userId) {
-                throw new ApiError_1.ApiError(401, "Authentication required");
+                return res.status(401).json(ApiError_1.ApiError.unauthorized("Authentication required"));
             }
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
@@ -328,5 +363,15 @@ class OrderController {
             return res.status(200).json(ApiResponse_1.ApiResponse.success(order, "Order cancelled (soft delete) successfully"));
         }));
     }
-}
+};
 exports.OrderController = OrderController;
+exports.OrderController = OrderController = __decorate([
+    __param(0, (0, inversify_1.inject)(types_1.TYPES.OrderService)),
+    __param(1, (0, inversify_1.inject)(types_1.TYPES.VehicleService)),
+    __param(2, (0, inversify_1.inject)(types_1.TYPES.ProfileService)),
+    __param(3, (0, inversify_1.inject)(types_1.TYPES.AddressService)),
+    __metadata("design:paramtypes", [OrderService_1.OrderService,
+        VehicleService_1.VehicleService,
+        ProfileService_1.ProfileService,
+        AddressService_1.AddressService])
+], OrderController);

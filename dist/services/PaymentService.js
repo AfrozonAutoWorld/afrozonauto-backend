@@ -36,6 +36,15 @@ let PaymentService = class PaymentService {
         this.orderRepo = orderRepo;
         this.stripe = stripe;
         this.paystack = paystack;
+        this.getPayments = () => {
+            return this.paymentRepo.findAll();
+        };
+        this.getUserPayments = (userId) => {
+            return this.paymentRepo.findAllUserPayments(userId);
+        };
+        this.getPaymentById = (id) => {
+            return this.paymentRepo.findById(id);
+        };
     }
     initiatePayment(payload) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -83,6 +92,57 @@ let PaymentService = class PaymentService {
                     ? 'DEPOSIT_PAID'
                     : 'PAID')
             ]);
+        });
+    }
+    /**
+    * Verify payment (frontend verification)
+    */
+    verifyPayment(reference, provider) {
+        return __awaiter(this, void 0, void 0, function* () {
+            // Get payment record
+            const payment = yield this.paymentRepo.findByReference(reference);
+            if (!payment) {
+                throw new Error('Payment not found');
+            }
+            // If already completed, return current status
+            if (payment.status === 'COMPLETED') {
+                return {
+                    success: true,
+                    payment,
+                    message: 'Payment already completed'
+                };
+            }
+            // Get provider client
+            const providerClient = provider === 'stripe' ? this.stripe : this.paystack;
+            // Verify with provider
+            const verification = yield providerClient.verifyPayment(reference);
+            // Update payment based on verification
+            if (verification.success) {
+                // await this.handleSuccessfulVerification(payment, verification, provider);
+                yield this.handlePaymentSuccess(reference, provider);
+                return {
+                    success: true,
+                    payment: yield this.paymentRepo.findByReference(reference),
+                    verification,
+                    message: 'Payment verified successfully'
+                };
+            }
+            else {
+                yield this.paymentRepo.updatePayment(payment.id, {
+                    status: 'FAILED',
+                    metadata: {
+                        failureReason: 'Verification failed',
+                        provider: provider,
+                        providerResponse: verification
+                    }
+                });
+                return {
+                    success: false,
+                    payment: yield this.paymentRepo.findByReference(reference),
+                    verification,
+                    message: 'Payment verification failed'
+                };
+            }
         });
     }
 };

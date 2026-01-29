@@ -22,9 +22,32 @@ let PaymentRepository = class PaymentRepository {
             data
         });
     }
+    updatePayment(id, data) {
+        return db_1.default.payment.update({
+            where: { id },
+            data
+        });
+    }
     findByReference(reference) {
         return db_1.default.payment.findFirst({
             where: { transactionRef: reference },
+            include: { order: true }
+        });
+    }
+    findById(id) {
+        return db_1.default.payment.findFirst({
+            where: { id },
+            include: { order: true }
+        });
+    }
+    findAll() {
+        return db_1.default.payment.findMany({
+            include: { order: true }
+        });
+    }
+    findAllUserPayments(userId) {
+        return db_1.default.payment.findMany({
+            where: { userId },
             include: { order: true }
         });
     }

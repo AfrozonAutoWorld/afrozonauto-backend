@@ -7,21 +7,23 @@ exports.cancelOrder = exports.createShipmentSchema = exports.updateOrderSchema =
 const joi_1 = __importDefault(require("joi"));
 const client_1 = require("../../generated/prisma/client");
 exports.createOrderSchema = joi_1.default.object({
-    userId: joi_1.default.string().required(),
-    vehicleId: joi_1.default.string().required(),
+    vehicleId: joi_1.default.string().optional(),
     status: joi_1.default.string()
         .valid(...Object.values(client_1.OrderStatus))
         .optional(),
     shippingMethod: joi_1.default.string()
         .valid(...Object.values(client_1.ShippingMethod))
         .optional(),
-    destinationCountry: joi_1.default.string().optional(),
-    destinationState: joi_1.default.string().optional(),
-    destinationCity: joi_1.default.string().optional(),
-    destinationAddress: joi_1.default.string().optional(),
+    // destinationCountry: Joi.string().optional(),
+    // destinationState: Joi.string().optional(),
+    // destinationCity: Joi.string().optional(),
+    // destinationAddress: Joi.string().optional(),
     priority: joi_1.default.string()
         .valid(...Object.values(client_1.OrderPriority))
+        .default(client_1.OrderPriority.LOW)
         .optional(),
+    identifier: joi_1.default.string().optional(),
+    type: joi_1.default.string().optional(),
     customerNotes: joi_1.default.string().optional(),
     specialRequests: joi_1.default.string().optional(),
 });

@@ -2,46 +2,75 @@ import { Request, Response } from 'express';
 import { OrderService } from '../services/OrderService';
 import { ApiResponse } from '../utils/ApiResponse';
 import { ApiError } from '../utils/ApiError';
-import { OrderStatus, ShippingMethod, OrderPriority } from '../generated/prisma/client';
+import { OrderStatus, ShippingMethod, OrderPriority, AddressType } from '../generated/prisma/client';
 import { asyncHandler } from '../utils/asyncHandler';
-
+import { TYPES } from '../config/types';
+import { inject, injectable } from 'inversify';
+import { VehicleService } from '../services/VehicleService';
+import { ProfileService } from '../services/ProfileService';
+import { AddressService } from '../services/AddressService';
+import { AuthenticatedRequest } from '../types/customRequest';
 
 export class OrderController {
-  constructor(private service: OrderService) {}
-
+  constructor(
+    @inject(TYPES.OrderService) private service: OrderService,
+    @inject(TYPES.VehicleService) private vehicleService: VehicleService,
+    @inject(TYPES.ProfileService) private profileService: ProfileService,
+    @inject(TYPES.AddressService) private addressService: AddressService,
+  ) {}
   // ========== CREATE ==========
   
-  createOrder = asyncHandler(async (req: Request, res: Response) => {
+  createOrder = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user?.id;
+    console.log(userId)
     if (!userId) {
-      throw new ApiError(401, "Authentication required");
+      return res.status(401).json( 
+        ApiError.unauthorized("Authentication required")
+      )
     }
-    
+      
     const {
       vehicleId,
       shippingMethod,
-      destinationCountry,
-      destinationState,
-      destinationCity,
-      destinationAddress,
       deliveryInstructions,
       customerNotes,
       specialRequests,
-      tags
+      tags,
+      identifier,
+      type
     } = req.body;
+
+
+    const profile = await this.profileService.findUserById(userId.toString());
+    if (!profile) {
+      return res.status(404).json(ApiError.notFound('Profile not found. Please complete your profile first.'));
+    }
+
+    const address = await this.addressService.getDefaultAddress(profile.id, AddressType.NORMAL);
+    if (!address) {
+      return res.status(400).json(ApiError.badRequest('Default address required. Please set a default address.'));
+    }
+
+
+    const vehicle = await this.vehicleService.getVehicle(identifier, type);
+    if(!vehicle){
+      return res.status(404).json(ApiError.notFound("vehicle not found"));
+    }
+
     
     const order = await this.service.createOrder({
       userId,
       vehicleId,
-      shippingMethod,
-      destinationCountry,
-      destinationState,
-      destinationCity,
-      destinationAddress,
+      shippingMethod, 
+      destinationCountry: address.country ?? undefined,
+      destinationState: address.state ?? undefined,
+      destinationCity: address.city ?? undefined,
+      destinationAddress: address.street ?? undefined,
       deliveryInstructions,
       customerNotes,
       specialRequests,
-      tags
+      tags,
+      vehicleSnapshot: vehicle
     });
     
     return res.status(201).json(
@@ -51,7 +80,7 @@ export class OrderController {
 
   // ========== READ ==========
   
-  getOrderById = asyncHandler(async (req: Request, res: Response) => {
+  getOrderById = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     const order = await this.service.getOrderById(id);
     
@@ -83,10 +112,12 @@ export class OrderController {
     );
   });
 
-  getUserOrders = asyncHandler(async (req: Request, res: Response) => {
+  getUserOrders = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user?.id;
     if (!userId) {
-      throw new ApiError(401, "Authentication required");
+      return res.status(401).json( 
+        ApiError.unauthorized("Authentication required")
+      )
     }
     
     const page = parseInt(req.query.page as string) || 1;

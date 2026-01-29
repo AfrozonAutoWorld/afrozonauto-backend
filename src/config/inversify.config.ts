@@ -64,10 +64,10 @@ container.bind<TokenService>(TYPES.TokenService).to(TokenService);
 container.bind<PaymentController>(TYPES.PaymentController).to(PaymentController);
 container.bind<PaymentService>(TYPES.PaymentService).to(PaymentService);
 container.bind<PaymentRepository>(TYPES.PaymentRepository).to(PaymentRepository);
-container.bind<OrderRepository>(TYPES.OrderRepository).to(OrderRepository);
 container.bind<StripeProvider>(TYPES.StripeProvider).to(StripeProvider);
-container.bind<PaystackProvider>(TYPES.PaystackProvider).to(PaystackProvider);
-
+container.bind<PaystackProvider>(TYPES.PaystackProvider)
+  .to(PaystackProvider)
+  .inSingletonScope();
 // Vehicle bindings
 container.bind<VehicleRepository>(TYPES.VehicleRepository).to(VehicleRepository);
 container.bind<VehicleService>(TYPES.VehicleService).to(VehicleService);

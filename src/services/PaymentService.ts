@@ -4,6 +4,7 @@ import { OrderRepository } from '../repositories/OrderRepository';
 import { IPaymentProvider } from '../validation/interfaces/IPaymentProvider';
 import { TYPES } from '../config/types';
 import prisma from '../db';
+import { ref } from 'node:process';
 
 @injectable()
 export class PaymentService {
@@ -20,7 +21,7 @@ export class PaymentService {
 
     @inject(TYPES.PaystackProvider)
     private paystack: IPaymentProvider
-  ) {}
+  ) { }
 
   async initiatePayment(payload: {
     orderId: string;
@@ -32,7 +33,6 @@ export class PaymentService {
   }) {
 
     const reference = `AFZ-${Date.now()}`;
-
     await this.paymentRepo.createPayment({
       orderId: payload.orderId,
       userId: payload.userId,
@@ -86,4 +86,73 @@ export class PaymentService {
       )
     ]);
   }
+
+   /**
+   * Verify payment (frontend verification)
+   */
+   async verifyPayment(reference: string, provider: 'stripe' | 'paystack') {
+    // Get payment record
+    const payment = await this.paymentRepo.findByReference(reference);
+    
+    if (!payment) {
+      throw new Error('Payment not found');
+    }
+
+    // If already completed, return current status
+    if (payment.status === 'COMPLETED') {
+      return {
+        success: true,
+        payment,
+        message: 'Payment already completed'
+      };
+    }
+
+    // Get provider client
+    const providerClient = provider === 'stripe' ? this.stripe : this.paystack;
+
+    // Verify with provider
+    const verification = await providerClient.verifyPayment(reference);
+
+    // Update payment based on verification
+    if (verification.success) {
+      // await this.handleSuccessfulVerification(payment, verification, provider);
+      await this.handlePaymentSuccess(reference, provider);
+      
+      return {
+        success: true,
+        payment: await this.paymentRepo.findByReference(reference),
+        verification,
+        message: 'Payment verified successfully'
+      };
+    } else {
+      await this.paymentRepo.updatePayment(payment.id, {
+        status: 'FAILED',
+        metadata: {
+          failureReason: 'Verification failed',
+          provider: provider,
+          providerResponse: verification
+        }
+      });
+      
+
+      return {
+        success: false,
+        payment: await this.paymentRepo.findByReference(reference),
+        verification,
+        message: 'Payment verification failed'
+      };
+    }
+  }
+
+  getPayments = ()=>{
+    return this.paymentRepo.findAll()
+  }
+  getUserPayments = (userId: string)=>{
+    return this.paymentRepo.findAllUserPayments(userId)
+  }
+  getPaymentById = (id: string)=>{
+    return this.paymentRepo.findById(id)
+  }
+
+  
 }

@@ -6,15 +6,25 @@ const types_1 = require("../config/types");
 const authMiddleware_1 = require("../middleware/authMiddleware");
 const bodyValidate_1 = require("../middleware/bodyValidate");
 const vehicle_validation_1 = require("../validation/schema/vehicle.validation");
-const router = (0, express_1.Router)();
-const vehicleController = inversify_config_1.container.get(types_1.TYPES.VehicleController);
-// Public routes
-router.get('/', vehicleController.getVehicles);
-router.get('/:identifier', vehicleController.getVehicle);
-// Protected routes (require authentication)
-router.post('/', authMiddleware_1.authenticate, (0, bodyValidate_1.validateBody)(vehicle_validation_1.createVehicleSchema), vehicleController.createVehicle);
-router.post('/sync/:vin', authMiddleware_1.authenticate, vehicleController.syncVehicle);
-router.post('/save-from-api', authMiddleware_1.authenticate, vehicleController.saveVehicleFromApi);
-router.put('/:id', authMiddleware_1.authenticate, vehicleController.updateVehicle);
-router.delete('/:id', authMiddleware_1.authenticate, vehicleController.deleteVehicle);
-exports.default = router;
+class VehicleRoutes {
+    constructor() {
+        this.router = (0, express_1.Router)();
+        this.controller = inversify_config_1.container.get(types_1.TYPES.VehicleController);
+        this.initializeRoutes();
+    }
+    initializeRoutes() {
+        // Public routes
+        this.router.get('/', this.controller.getVehicles);
+        this.router.get('/:identifier', this.controller.getVehicle);
+        // Protected routes (require authentication)
+        this.router.post('/', authMiddleware_1.authenticate, (0, bodyValidate_1.validateBody)(vehicle_validation_1.createVehicleSchema), this.controller.createVehicle);
+        this.router.post('/sync/:vin', authMiddleware_1.authenticate, this.controller.syncVehicle);
+        this.router.post('/save-from-api', authMiddleware_1.authenticate, this.controller.saveVehicleFromApi);
+        this.router.put('/:id', authMiddleware_1.authenticate, this.controller.updateVehicle);
+        this.router.delete('/:id', authMiddleware_1.authenticate, this.controller.deleteVehicle);
+    }
+    getRouter() {
+        return this.router;
+    }
+}
+exports.default = new VehicleRoutes().getRouter();

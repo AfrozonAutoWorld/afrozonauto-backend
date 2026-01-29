@@ -55,6 +55,20 @@ let VehicleRepository = class VehicleRepository {
         });
     }
     /**
+     * Find which VINs already exist in DB (batch, single query)
+     */
+    findExistingVINs(vins) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (vins.length === 0)
+                return new Set();
+            const rows = yield db_1.default.vehicle.findMany({
+                where: { vin: { in: vins } },
+                select: { vin: true },
+            });
+            return new Set(rows.map((r) => r.vin));
+        });
+    }
+    /**
      * Find vehicle by slug
      */
     findBySlug(slug) {

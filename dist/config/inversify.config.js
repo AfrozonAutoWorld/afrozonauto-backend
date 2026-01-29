@@ -63,9 +63,10 @@ container.bind(types_1.TYPES.TokenService).to(TokenService_1.default);
 container.bind(types_1.TYPES.PaymentController).to(PaymentController_1.PaymentController);
 container.bind(types_1.TYPES.PaymentService).to(PaymentService_1.PaymentService);
 container.bind(types_1.TYPES.PaymentRepository).to(PaymentRepository_1.PaymentRepository);
-container.bind(types_1.TYPES.OrderRepository).to(OrderRepository_1.OrderRepository);
 container.bind(types_1.TYPES.StripeProvider).to(StripeProvider_1.StripeProvider);
-container.bind(types_1.TYPES.PaystackProvider).to(PaystackProvider_1.PaystackProvider);
+container.bind(types_1.TYPES.PaystackProvider)
+    .to(PaystackProvider_1.PaystackProvider)
+    .inSingletonScope();
 // Vehicle bindings
 container.bind(types_1.TYPES.VehicleRepository).to(VehicleRepository_1.VehicleRepository);
 container.bind(types_1.TYPES.VehicleService).to(VehicleService_1.VehicleService);

@@ -14,11 +14,34 @@ export class PaymentRepository {
       data
     });
   }
+  updatePayment(id: string, data: any) {
+    return prisma.payment.update({
+      where: { id },
+      data
+    });
+  }
   
 
   findByReference(reference: string) {
     return prisma.payment.findFirst({
       where: { transactionRef: reference },
+      include: { order: true }
+    });
+  }
+  findById(id: string) {
+    return prisma.payment.findFirst({
+      where: { id },
+      include: { order: true }
+    });
+  }
+  findAll() {
+    return prisma.payment.findMany({
+      include: { order: true }
+    });
+  }
+  findAllUserPayments(userId: string) {
+    return prisma.payment.findMany({
+      where: { userId },
       include: { order: true }
     });
   }
