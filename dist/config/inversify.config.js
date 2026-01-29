@@ -40,6 +40,7 @@ const TestimonialService_1 = require("../services/TestimonialService");
 const TestimonialController_1 = require("../controllers/TestimonialController");
 const OrderService_1 = require("../services/OrderService");
 const OrderController_1 = require("../controllers/OrderController");
+const ExchangeRateService_1 = require("../services/ExchangeRateService");
 const container = new inversify_1.Container();
 exports.container = container;
 container.bind(types_1.TYPES.UserRepository).to(UserRepository_1.UserRepository);
@@ -62,6 +63,7 @@ container.bind(types_1.TYPES.TokenService).to(TokenService_1.default);
 // payments
 container.bind(types_1.TYPES.PaymentController).to(PaymentController_1.PaymentController);
 container.bind(types_1.TYPES.PaymentService).to(PaymentService_1.PaymentService);
+container.bind(types_1.TYPES.ExchangeRateService).to(ExchangeRateService_1.ExchangeRateService);
 container.bind(types_1.TYPES.PaymentRepository).to(PaymentRepository_1.PaymentRepository);
 container.bind(types_1.TYPES.StripeProvider).to(StripeProvider_1.StripeProvider);
 container.bind(types_1.TYPES.PaystackProvider)

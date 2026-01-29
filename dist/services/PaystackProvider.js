@@ -8,6 +8,9 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -23,12 +26,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PaystackProvider = void 0;
 const axios_1 = __importDefault(require("axios"));
+const ExchangeRateService_1 = require("./ExchangeRateService");
 const inversify_1 = require("inversify");
+const types_1 = require("../config/types");
 let PaystackProvider = class PaystackProvider {
-    constructor() {
+    constructor(exchangeRateService) {
+        this.exchangeRateService = exchangeRateService;
         // Get secret key from environment variable
         this.secretKey = process.env.PAYSTACK_SECRET_KEY || '';
-        this.exchangeRate = 1500;
         if (!this.secretKey) {
             console.error('PAYSTACK_SECRET_KEY is not set in environment variables');
         }
@@ -45,14 +50,14 @@ let PaystackProvider = class PaystackProvider {
         return __awaiter(this, void 0, void 0, function* () {
             var _a, _b, _c, _d, _e, _f, _g;
             try {
-                console.log('Paystack initializePayment received:', data);
+                console.log('Paystack initializePayment received: ', data);
                 // FORCE NGN for Paystack - they don't support USD
                 // If amount is in USD, convert to NGN
                 let amountInNgn;
-                if (data.currency === 'USD' || data.currency === undefined) {
-                    // Convert USD to NGN
-                    amountInNgn = data.amount * this.exchangeRate;
-                    console.log(`Converting ${data.amount} USD to ${amountInNgn} NGN (rate: ${this.exchangeRate})`);
+                let exchangeRate = yield this.exchangeRateService.getUsdToNgnRate();
+                if (data.currency === 'USD' || !data.currency) {
+                    amountInNgn = data.amount * exchangeRate;
+                    console.log(`Converting ${data.amount} USD to ${amountInNgn} NGN (rate: ${exchangeRate})`);
                 }
                 else if (data.currency === 'NGN') {
                     // Already in NGN
@@ -72,14 +77,14 @@ let PaystackProvider = class PaystackProvider {
                     amount: amountInKobo,
                     currency: 'NGN', // ALWAYS USE NGN
                     reference: data.reference,
-                    metadata: Object.assign(Object.assign({}, data.metadata), { originalCurrency: data.currency || 'USD', originalAmount: data.amount, exchangeRate: this.exchangeRate, convertedAmountNgn: amountInNgn })
+                    metadata: Object.assign(Object.assign({}, data.metadata), { originalCurrency: data.currency || 'USD', originalAmount: data.amount, exchangeRate: exchangeRate, convertedAmountNgn: amountInNgn })
                 });
                 const response = yield this.axiosInstance.post('/transaction/initialize', {
                     email: data.email,
                     amount: amountInKobo,
                     reference: data.reference,
                     currency: 'NGN', // CRITICAL: Always use NGN for Paystack
-                    metadata: Object.assign(Object.assign({}, data.metadata), { originalCurrency: data.currency || 'USD', originalAmount: data.amount, exchangeRate: this.exchangeRate, convertedAmountNgn: amountInNgn }),
+                    metadata: Object.assign(Object.assign({}, data.metadata), { originalCurrency: data.currency || 'USD', originalAmount: data.amount, exchangeRate: exchangeRate, convertedAmountNgn: amountInNgn }),
                     callback_url: data.callbackUrl || `${process.env.FRONTEND_URL}/payment/verify`
                 });
                 console.log('Paystack response:', response.data);
@@ -130,5 +135,6 @@ let PaystackProvider = class PaystackProvider {
 exports.PaystackProvider = PaystackProvider;
 exports.PaystackProvider = PaystackProvider = __decorate([
     (0, inversify_1.injectable)(),
-    __metadata("design:paramtypes", [])
+    __param(0, (0, inversify_1.inject)(types_1.TYPES.ExchangeRateService)),
+    __metadata("design:paramtypes", [ExchangeRateService_1.ExchangeRateService])
 ], PaystackProvider);

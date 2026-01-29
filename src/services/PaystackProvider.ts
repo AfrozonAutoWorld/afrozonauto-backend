@@ -1,17 +1,20 @@
 import axios, { AxiosInstance } from 'axios';
-import { injectable } from 'inversify';
 import { IPaymentProvider } from '../validation/interfaces/IPaymentProvider';
-
+import { ExchangeRateService } from './ExchangeRateService';
+import { inject, injectable } from 'inversify';
+import { TYPES } from '../config/types';
 
 @injectable()
 export class PaystackProvider implements IPaymentProvider {
   private axiosInstance: AxiosInstance;
   private secretKey: string;
-  private exchangeRate: number;
-  constructor() {
+
+  constructor(
+    @inject(TYPES.ExchangeRateService)
+    private exchangeRateService: ExchangeRateService,
+  ) {
     // Get secret key from environment variable
     this.secretKey = process.env.PAYSTACK_SECRET_KEY || '';
-    this.exchangeRate = 1500;
 
     if (!this.secretKey) {
       console.error('PAYSTACK_SECRET_KEY is not set in environment variables');
@@ -30,31 +33,32 @@ export class PaystackProvider implements IPaymentProvider {
 
   async initializePayment(data: any) {
     try {
-      console.log('Paystack initializePayment received:', data);
-      
+      console.log('Paystack initializePayment received: ', data);
       // FORCE NGN for Paystack - they don't support USD
       // If amount is in USD, convert to NGN
       let amountInNgn: number;
-      
-      if (data.currency === 'USD' || data.currency === undefined) {
-        // Convert USD to NGN
-        amountInNgn = data.amount * this.exchangeRate;
-        console.log(`Converting ${data.amount} USD to ${amountInNgn} NGN (rate: ${this.exchangeRate})`);
+
+      let exchangeRate = await this.exchangeRateService.getUsdToNgnRate();
+
+      if (data.currency === 'USD' || !data.currency) {
+        amountInNgn = data.amount * exchangeRate;
+
+        console.log(`Converting ${data.amount} USD to ${amountInNgn} NGN (rate: ${exchangeRate})`);
       } else if (data.currency === 'NGN') {
         // Already in NGN
         amountInNgn = data.amount;
       } else {
         throw new Error(`Unsupported currency for Paystack: ${data.currency}. Only NGN is supported.`);
       }
-      
+
       // Paystack expects amount in kobo (1 NGN = 100 kobo)
       const amountInKobo = Math.round(amountInNgn * 100);
-      
+
       // Validate minimum amount (at least 100 kobo = 1 NGN)
       if (amountInKobo < 100) {
         throw new Error('Amount must be at least 1 NGN (100 kobo)');
       }
-      
+
       console.log('Sending to Paystack:', {
         email: data.email,
         amount: amountInKobo,
@@ -64,7 +68,7 @@ export class PaystackProvider implements IPaymentProvider {
           ...data.metadata,
           originalCurrency: data.currency || 'USD',
           originalAmount: data.amount,
-          exchangeRate: this.exchangeRate,
+          exchangeRate: exchangeRate,
           convertedAmountNgn: amountInNgn
         }
       });
@@ -78,7 +82,7 @@ export class PaystackProvider implements IPaymentProvider {
           ...data.metadata,
           originalCurrency: data.currency || 'USD',
           originalAmount: data.amount,
-          exchangeRate: this.exchangeRate,
+          exchangeRate: exchangeRate,
           convertedAmountNgn: amountInNgn
         },
         callback_url: data.callbackUrl || `${process.env.FRONTEND_URL}/payment/verify`
@@ -107,9 +111,7 @@ export class PaystackProvider implements IPaymentProvider {
   }
   async verifyPayment(reference: string) {
     const response = await this.axiosInstance.get(`/transaction/verify/${reference}`);
-
     const data = response.data.data;
-
 
     return {
       success: data.status === 'success',
@@ -128,6 +130,4 @@ export class PaystackProvider implements IPaymentProvider {
       raw: response.data.data
     };
   }
-
-
 }

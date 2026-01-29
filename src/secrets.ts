@@ -54,3 +54,5 @@ export const REDIS_CACHE_TTL_HOURS = process.env.REDIS_CACHE_TTL_HOURS || '12'; 
 export const UPSTASH_REDIS_REST_URL = process.env.UPSTASH_REDIS_REST_URL
 export const UPSTASH_REDIS_REST_TOKEN= process.env.UPSTASH_REDIS_REST_TOKEN
 export const CORS_ORIGINS = process.env.CORS_ORIGINS!;
+export const EXCHANGE_RATE_API_URL = process.env.EXCHANGE_RATE_API_URL!;
+export const EXCHANGE_RATE_CACHE_TTL = process.env.EXCHANGE_RATE_CACHE_TTL!;

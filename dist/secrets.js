@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.REDIS_CACHE_TTL_HOURS = exports.REDIS_URL = exports.TOKEN_EXPIRY_MINUTES = exports.AUTO_DEV_BASE_URL = exports.AUTO_DEV_API_KEY = exports.APPLE_REDIRECT_URI = exports.APPLE_KEY_IDENTIFIER = exports.APPLE_PRIVATE_KEY = exports.APPLE_TEAM_ID = exports.APPLE_CLIENT_ID = exports.FRONTEND_URL = exports.GOOGLE_CALLBACK_URL = exports.ENCRYPTION_SECRET = exports.ENCRYPTION_ALGO = exports.STRIPE_PUBLISHABLE_KEY = exports.STRIPE_WEBHOOK_SECRET = exports.STRIPE_API_KEY = exports.EXPIRES_IN_LONG = exports.EXPIRES_IN_SHORT = exports.FRONT_END_URL = exports.SEND_MAIL_SMS_PHONE = exports.SEND_MAIL_API_KEY = exports.STRIPE_LINK = exports.APP_URL = exports.FLUTTERWAVE_SECRET_HASH = exports.FLUTTERWAVE_SECRET_KEY = exports.PAYSTACK_WEBHOOK_SECRET_KEY = exports.PAYSTACK_SECRET_KEY = exports.DATABASE_URL = exports.PUBLIC_URL = exports.GOOGLE_LOGIN_FAILURE_REDIRECT = exports.GOOGLE_REDIRECT_URI = exports.GOOGLE_CLIENT_SECRET = exports.GOOGLE_CLIENT_ID = exports.GOOGLE_PROFILE = exports.CLOUDINARY_FOLDER = exports.CLOUDINARY_SECRET = exports.CLOUDINARY_API_KEY = exports.CLOUDINARY_NAME = exports.APP_SECRET = exports.ADMIN_DASH = exports.FROM_EMAIL = exports.MAIL_PORT = exports.MAIL_PASSWORD = exports.MAIL_USERNAME = exports.MAIL_HOST = exports.NODE_ENV = exports.JWT_SECRET = exports.DB_NAME = exports.PORT = void 0;
-exports.CORS_ORIGINS = exports.UPSTASH_REDIS_REST_TOKEN = exports.UPSTASH_REDIS_REST_URL = void 0;
+exports.EXCHANGE_RATE_CACHE_TTL = exports.EXCHANGE_RATE_API_URL = exports.CORS_ORIGINS = exports.UPSTASH_REDIS_REST_TOKEN = exports.UPSTASH_REDIS_REST_URL = void 0;
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config({ path: ".env" });
 exports.PORT = process.env.PORT;
@@ -60,3 +60,5 @@ exports.REDIS_CACHE_TTL_HOURS = process.env.REDIS_CACHE_TTL_HOURS || '12'; // De
 exports.UPSTASH_REDIS_REST_URL = process.env.UPSTASH_REDIS_REST_URL;
 exports.UPSTASH_REDIS_REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 exports.CORS_ORIGINS = process.env.CORS_ORIGINS;
+exports.EXCHANGE_RATE_API_URL = process.env.EXCHANGE_RATE_API_URL;
+exports.EXCHANGE_RATE_CACHE_TTL = process.env.EXCHANGE_RATE_CACHE_TTL;

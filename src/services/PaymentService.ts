@@ -4,7 +4,6 @@ import { OrderRepository } from '../repositories/OrderRepository';
 import { IPaymentProvider } from '../validation/interfaces/IPaymentProvider';
 import { TYPES } from '../config/types';
 import prisma from '../db';
-import { ref } from 'node:process';
 
 @injectable()
 export class PaymentService {

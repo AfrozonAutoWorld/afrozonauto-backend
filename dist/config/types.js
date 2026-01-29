@@ -30,6 +30,7 @@ exports.TYPES = {
     PaymentRepository: Symbol.for('PaymentRepository'),
     PaymentService: Symbol.for('PaymentService'),
     PaymentController: Symbol.for('PaymentController'),
+    ExchangeRateService: Symbol.for('ExchangeRateService'),
     StripeProvider: Symbol.for('StripeProvider'),
     PaystackProvider: Symbol.for('PaystackProvider'),
     TestimonialService: Symbol.for('TestimonialService'),
