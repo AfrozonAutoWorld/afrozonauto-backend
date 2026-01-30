@@ -14,6 +14,10 @@ class AuthRoutes {
     initializeRoutes() {
         this.router.post('/register-start', this.controller.checkUser.bind(this.controller) // Add .bind()
         );
+        this.router.get('/me', 
+        // authenticate,
+        this.controller.cookieControls.bind(this.controller) // Add .bind()
+        );
         this.router.post('/register', (0, bodyValidate_1.validateBody)(user_vallidation_1.createUserSchema), this.controller.register.bind(this.controller) // Add .bind()
         );
         this.router.post('/send-token-recovery-email', this.controller.sendRecoveryEmailToken.bind(this.controller) // Add .bind()

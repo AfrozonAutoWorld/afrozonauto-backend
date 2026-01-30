@@ -56,3 +56,20 @@ export const UPSTASH_REDIS_REST_TOKEN= process.env.UPSTASH_REDIS_REST_TOKEN
 export const CORS_ORIGINS = process.env.CORS_ORIGINS!;
 export const EXCHANGE_RATE_API_URL = process.env.EXCHANGE_RATE_API_URL!;
 export const EXCHANGE_RATE_CACHE_TTL = process.env.EXCHANGE_RATE_CACHE_TTL!;
+
+
+// # Cookie security
+export const COOKIE_SECURE = process.env.COOKIE_SECURE!;
+export const COOKIE_SAMESITE = process.env.COOKIE_SAMESITE!;
+export const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN!;
+// # Access token cookie
+export const ACCESS_TOKEN_COOKIE_NAME = process.env.ACCESS_TOKEN_COOKIE_NAME!;
+export const ACCESS_TOKEN_MAX_AGE = process.env.ACCESS_TOKEN_MAX_AGE!;
+
+// Refresh token cookie
+export const REFRESH_TOKEN_COOKIE_NAME = process.env.REFRESH_TOKEN_COOKIE_NAME!;
+export const REFRESH_TOKEN_MAX_AGE = process.env.REFRESH_TOKEN_MAX_AGE!;
+export const REFRESH_TOKEN_PATH = process.env.REFRESH_TOKEN_PATH!;
+
+
+

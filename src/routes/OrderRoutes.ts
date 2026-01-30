@@ -25,7 +25,6 @@ class OrderRoutes {
             validateBody(createOrderSchema),
             this.controller.createOrder
         );
-
         // Get user's orders
         this.router.get('/my-orders',
              authenticate, 

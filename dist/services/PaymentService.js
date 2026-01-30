@@ -56,15 +56,16 @@ let PaymentService = class PaymentService {
                 paymentType: payload.paymentType,
                 paymentProvider: payload.provider,
                 status: 'PENDING',
-                transactionRef: reference
+                transactionRef: reference,
+                localCurrency: payload.currency
             });
             const provider = payload.provider === 'stripe' ? this.stripe : this.paystack;
             return provider.initializePayment({
                 amount: payload.amountUsd,
-                currency: 'USD',
+                currency: payload.currency,
                 email: payload.email,
                 reference,
-                metadata: { orderId: payload.orderId }
+                metadata: { orderId: payload.orderId, callbackUrl: payload.callbackUrl }
             });
         });
     }

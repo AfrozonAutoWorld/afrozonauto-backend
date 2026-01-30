@@ -115,6 +115,13 @@ let AuthController = class AuthController {
             yield this.tokenService.deleteToken({ email: value.email });
             return res.status(201).json(ApiResponse_1.ApiResponse.created({ success: true }, 'Registration successful'));
         }));
+        this.cookieControls = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            console.log(req.user);
+            return res.json({
+                success: true,
+                user: req.user,
+            });
+        }));
         this.registerFinalization = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             const _a = req.body, { email } = _a, others = __rest(_a, ["email"]);
             if (!email) {
@@ -150,6 +157,39 @@ let AuthController = class AuthController {
                 refreshToken
             }, 'Login successful'));
         }));
+        // login = asyncHandler(async (req: Request, res: Response) => {
+        //   const { email, password } = req.body;
+        //   if (!email || !password) {
+        //     return res.status(400).json(ApiError.badRequest('Email and password are required'));
+        //   }
+        //   const userLogged = await this.authService.login(email, password);
+        //   const { passwordHash, ...user } = userLogged;
+        //   const jtoken = container.get<Jtoken>(TYPES.Jtoken);
+        //   const { accessToken, refreshToken } = await jtoken.createToken({
+        //     id: user.id.toString(),
+        //     email: user.email,
+        //     role: user.role,
+        //   });
+        //   // Access token cookie
+        //   res.cookie(ACCESS_TOKEN_COOKIE_NAME!, accessToken, {
+        //     httpOnly: true,
+        //     ...cookieConfig,
+        //     maxAge: Number(ACCESS_TOKEN_MAX_AGE),
+        //     path: '/',
+        //   });
+        //   // Refresh token cookie
+        //   res.cookie(REFRESH_TOKEN_COOKIE_NAME!, refreshToken, {
+        //     httpOnly: true,
+        //     ...cookieConfig,
+        //     maxAge: Number(REFRESH_TOKEN_MAX_AGE),
+        //     path: REFRESH_TOKEN_PATH,
+        //   });
+        //   return res.status(200).json({
+        //     success: true,
+        //     message: 'Login successful',
+        //     user: { ...user, online: true, accessToken, refreshToken },
+        //   });
+        // });
         this.sendReset = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             const { email } = req.body;
             if (!email) {
@@ -199,6 +239,37 @@ let AuthController = class AuthController {
                 user: refreshResult.user
             }, "Token refreshed successfully"));
         }));
+        // refreshToken = asyncHandler(async (req: Request, res: Response) => {
+        //   const refreshToken = req.cookies?.[process.env.REFRESH_TOKEN_COOKIE_NAME!];
+        //   if (!refreshToken) {
+        //     return res.status(402).json(ApiError.unauthorized('Refresh token missing'))
+        //   }
+        //   const jtoken = container.get<Jtoken>(TYPES.Jtoken);
+        //   const refreshResult = await jtoken.refreshAccessToken(refreshToken);
+        //   if (!refreshResult) {
+        //     return res.status(402).json(ApiError.unauthorized('Invalid or expired refresh token'))
+        //   }
+        //   // Rotate ACCESS token
+        //   res.cookie(ACCESS_TOKEN_COOKIE_NAME!, refreshResult.accessToken, {
+        //     httpOnly: true,
+        //     ...cookieConfig,
+        //     maxAge: Number(ACCESS_TOKEN_MAX_AGE),
+        //     path: '/',
+        //   });
+        //   // Rotate REFRESH token
+        //   res.cookie(REFRESH_TOKEN_COOKIE_NAME!, refreshResult.refreshToken, {
+        //     httpOnly: true,
+        //     ...cookieConfig,
+        //     maxAge: Number(REFRESH_TOKEN_MAX_AGE),
+        //     path: REFRESH_TOKEN_PATH,
+        //   });
+        //   return res.status(200).json(
+        //     ApiResponse.success(
+        //       { user: refreshResult.user },
+        //       'Session refreshed'
+        //     )
+        //   );
+        // });
         /**
          * Google login using ID token
         */

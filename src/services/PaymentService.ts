@@ -4,6 +4,7 @@ import { OrderRepository } from '../repositories/OrderRepository';
 import { IPaymentProvider } from '../validation/interfaces/IPaymentProvider';
 import { TYPES } from '../config/types';
 import prisma from '../db';
+import { date } from 'joi/lib';
 
 @injectable()
 export class PaymentService {
@@ -29,6 +30,8 @@ export class PaymentService {
     amountUsd: number;
     provider: 'stripe' | 'paystack';
     paymentType: any;
+    currency: string;
+    callbackUrl: string;
   }) {
 
     const reference = `AFZ-${Date.now()}`;
@@ -39,7 +42,8 @@ export class PaymentService {
       paymentType: payload.paymentType,
       paymentProvider: payload.provider,
       status: 'PENDING',
-      transactionRef: reference
+      transactionRef: reference,
+      localCurrency: payload.currency
     });
 
     const provider =
@@ -47,10 +51,10 @@ export class PaymentService {
 
     return provider.initializePayment({
       amount: payload.amountUsd,
-      currency: 'USD',
+      currency: payload.currency,
       email: payload.email,
       reference,
-      metadata: { orderId: payload.orderId }
+      metadata: { orderId: payload.orderId, callbackUrl: payload.callbackUrl }
     });
   }
 

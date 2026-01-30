@@ -21,10 +21,14 @@ const jtoken = inversify_config_1.container.get(types_1.TYPES.Jtoken);
 const userRepository = new UserRepository_1.UserRepository();
 exports.authenticate = (0, asyncHandler_1.asyncHandler)((req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     const header = req.header('Authorization');
+    // const token = req.cookies?.access_token;
     if (!header || !header.startsWith('Bearer ')) {
         throw ApiError_1.ApiError.unauthorized('Authentication required');
     }
     const token = header.replace('Bearer ', '').trim();
+    if (!token) {
+        throw ApiError_1.ApiError.unauthorized('Authentication required');
+    }
     const payload = yield jtoken.verifyToken(token);
     if (!payload || !payload.id) {
         throw ApiError_1.ApiError.unauthorized('Invalid or expired token');
