@@ -85,10 +85,9 @@ export class PaystackProvider implements IPaymentProvider {
           exchangeRate: exchangeRate,
           convertedAmountNgn: amountInNgn
         },
-        callback_url: data.callbackUrl || `${process.env.FRONTEND_URL}/payment/verify`
+        callback_url: data.metadata.callbackUrl || `${process.env.FRONTEND_URL}/payment/verify`
       });
 
-      console.log('Paystack response:', response.data);
 
       return {
         authorizationUrl: response.data.data.authorization_url,
