@@ -29,10 +29,10 @@ export class PaymentService {
     email: string;
     amountUsd: number;
     provider: 'stripe' | 'paystack';
-    paymentType: any;
     currency: string;
     callbackUrl: string;
     shippingMethod: string;
+    paymentType: 'DEPOSIT' | 'HALF_DEPOSIT' | 'FULL_PAYMENT';
   }) {
 
     const reference = `AFZ-${Date.now()}`;
@@ -55,7 +55,7 @@ export class PaymentService {
       currency: payload.currency,
       email: payload.email,
       reference,
-      metadata: { orderId: payload.orderId, callbackUrl: payload.callbackUrl, shippingMethod: payload.shippingMethod }
+      metadata: { orderId: payload.orderId, callbackUrl: payload.callbackUrl, shippingMethod: payload.shippingMethod, paymentType:payload.paymentType }
     });
   }
 

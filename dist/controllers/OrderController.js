@@ -86,13 +86,9 @@ let OrderController = class OrderController {
             return res.status(201).json(ApiResponse_1.ApiResponse.success(order, "Order created successfully"));
         }));
         this.orderSummary = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
-            var _a, _b, _c;
-            const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
-            if (!userId) {
-                return res.status(401).json(ApiError_1.ApiError.unauthorized("Authentication required"));
-            }
+            var _a, _b;
             const { identifier } = req.params;
-            let raw = (_b = req.query) === null || _b === void 0 ? void 0 : _b.type;
+            let raw = (_a = req.query) === null || _a === void 0 ? void 0 : _a.type;
             const shippingMethod = req.query.shippingMethod;
             if (!shippingMethod) {
                 return res.status(400).json(ApiError_1.ApiError.badRequest("shippingMethod is required"));
@@ -105,19 +101,11 @@ let OrderController = class OrderController {
             if (!identifier) {
                 return res.json(ApiError_1.ApiError.badRequest('Vehicle identifier is required'));
             }
-            const profile = yield this.profileService.findUserById(userId.toString());
-            if (!profile) {
-                return res.status(404).json(ApiError_1.ApiError.notFound('Profile not found. Please complete your profile first.'));
-            }
-            const address = yield this.addressService.getDefaultAddress(profile.id, client_1.AddressType.NORMAL);
-            if (!address) {
-                return res.status(400).json(ApiError_1.ApiError.badRequest('Default address required. Please set a default address.'));
-            }
             const vehicle = yield this.vehicleService.getVehicle(identifier, type);
             if (!vehicle) {
                 return res.status(404).json(ApiError_1.ApiError.notFound("vehicle not found"));
             }
-            const vehiclePrice = (_c = vehicle.originalPriceUsd) !== null && _c !== void 0 ? _c : vehicle.priceUsd;
+            const vehiclePrice = (_b = vehicle.originalPriceUsd) !== null && _b !== void 0 ? _b : vehicle.priceUsd;
             const pricingInformation = yield this.pricingRepo.getOrCreateSettings();
             const paymentBreakdown = yield this.pricingService.calculateTotalUsd(vehiclePrice, shippingMethod);
             return res.status(200).json(ApiResponse_1.ApiResponse.success({

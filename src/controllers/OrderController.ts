@@ -90,12 +90,7 @@ export class OrderController {
     );
   });
   orderSummary = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const userId = req.user?.id;
-    if (!userId) {
-      return res.status(401).json(
-        ApiError.unauthorized("Authentication required")
-      )
-    }
+
     const { identifier } = req.params;
     let raw = req.query?.type;
     const shippingMethod = req.query.shippingMethod as ShippingMethod;
@@ -105,8 +100,6 @@ export class OrderController {
         ApiError.badRequest("shippingMethod is required")
       );
     }
-
-
     const typeParam = (Array.isArray(raw) ? raw[0] : raw) || '';
     let type: 'id' | 'vin' = typeParam?.toString().trim().toLowerCase() === 'vin' ? 'vin' : 'vin';
     if (identifier.startsWith('temp-')) {
@@ -116,16 +109,6 @@ export class OrderController {
       return res.json(
         ApiError.badRequest('Vehicle identifier is required')
       )
-    }
-
-    const profile = await this.profileService.findUserById(userId.toString());
-    if (!profile) {
-      return res.status(404).json(ApiError.notFound('Profile not found. Please complete your profile first.'));
-    }
-
-    const address = await this.addressService.getDefaultAddress(profile.id, AddressType.NORMAL);
-    if (!address) {
-      return res.status(400).json(ApiError.badRequest('Default address required. Please set a default address.'));
     }
 
     const vehicle = await this.vehicleService.getVehicle(identifier, type);

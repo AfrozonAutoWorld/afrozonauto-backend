@@ -566,6 +566,10 @@ enum OrderStatus {
   CANCELLED
   REFUNDED
   PARTIALLY_REFUNDED
+  
+  HALF_DEPOSIT_PAID      // When 50% is paid
+  BALANCE_PAID           // When remaining balance is paid
+  AWAITING_BALANCE       // Waiting for remaining balance payment
 }
 
 enum ShippingMethod {
