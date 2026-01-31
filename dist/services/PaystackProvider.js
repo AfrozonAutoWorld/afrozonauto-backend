@@ -29,9 +29,11 @@ const axios_1 = __importDefault(require("axios"));
 const ExchangeRateService_1 = require("./ExchangeRateService");
 const inversify_1 = require("inversify");
 const types_1 = require("../config/types");
+const PricingConfigService_1 = require("./PricingConfigService");
 let PaystackProvider = class PaystackProvider {
-    constructor(exchangeRateService) {
+    constructor(exchangeRateService, pricingConfigService) {
         this.exchangeRateService = exchangeRateService;
+        this.pricingConfigService = pricingConfigService;
         // Get secret key from environment variable
         this.secretKey = process.env.PAYSTACK_SECRET_KEY || '';
         if (!this.secretKey) {
@@ -48,64 +50,45 @@ let PaystackProvider = class PaystackProvider {
     }
     initializePayment(data) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a, _b, _c, _d, _e, _f, _g;
+            var _a, _b, _c, _d;
             try {
-                console.log('Paystack initializePayment received: ', data);
-                // FORCE NGN for Paystack - they don't support USD
-                // If amount is in USD, convert to NGN
-                let amountInNgn;
-                let exchangeRate = yield this.exchangeRateService.getUsdToNgnRate();
-                if (data.currency === 'USD' || !data.currency) {
-                    amountInNgn = data.amount * exchangeRate;
-                    console.log(`Converting ${data.amount} USD to ${amountInNgn} NGN (rate: ${exchangeRate})`);
-                }
-                else if (data.currency === 'NGN') {
-                    // Already in NGN
-                    amountInNgn = data.amount;
-                }
-                else {
-                    throw new Error(`Unsupported currency for Paystack: ${data.currency}. Only NGN is supported.`);
-                }
-                // Paystack expects amount in kobo (1 NGN = 100 kobo)
+                console.log('Paystack initializePayment received:', data);
+                // Get exchange rate
+                const exchangeRate = yield this.exchangeRateService.getUsdToNgnRate();
+                // Calculate TOTAL USD (vehicle + all fees)
+                const pricing = yield this.pricingConfigService.calculateTotalUsd(data.amount);
+                const totalUsd = pricing.totalUsd;
+                // Convert TOTAL USD → NGN (ONCE)
+                const amountInNgn = totalUsd * exchangeRate;
+                // Convert to kobo
                 const amountInKobo = Math.round(amountInNgn * 100);
-                // Validate minimum amount (at least 100 kobo = 1 NGN)
                 if (amountInKobo < 100) {
-                    throw new Error('Amount must be at least 1 NGN (100 kobo)');
+                    throw new Error('Amount must be at least 1 NGN');
                 }
-                console.log('Sending to Paystack:', {
-                    email: data.email,
-                    amount: amountInKobo,
-                    currency: 'NGN', // ALWAYS USE NGN
-                    reference: data.reference,
-                    metadata: Object.assign(Object.assign({}, data.metadata), { originalCurrency: data.currency || 'USD', originalAmount: data.amount, exchangeRate: exchangeRate, convertedAmountNgn: amountInNgn })
-                });
                 const response = yield this.axiosInstance.post('/transaction/initialize', {
                     email: data.email,
                     amount: amountInKobo,
+                    currency: 'NGN',
                     reference: data.reference,
-                    currency: 'NGN', // CRITICAL: Always use NGN for Paystack
-                    metadata: Object.assign(Object.assign({}, data.metadata), { originalCurrency: data.currency || 'USD', originalAmount: data.amount, exchangeRate: exchangeRate, convertedAmountNgn: amountInNgn }),
-                    callback_url: data.callbackUrl || `${process.env.FRONTEND_URL}/payment/verify`
+                    metadata: Object.assign(Object.assign({}, data.metadata), { pricing: pricing.breakdown, totalUsd,
+                        exchangeRate, totalNgn: amountInNgn }),
+                    callback_url: ((_a = data.metadata) === null || _a === void 0 ? void 0 : _a.callbackUrl) ||
+                        `${process.env.FRONTEND_URL}/payment/verify`
                 });
-                console.log('Paystack response:', response.data);
                 return {
                     authorizationUrl: response.data.data.authorization_url,
+                    accessCode: response.data.data.access_code,
                     reference: data.reference,
-                    accessCode: response.data.data.access_code
+                    amountNgn: amountInNgn,
+                    pricing
                 };
             }
             catch (error) {
                 console.error('Paystack initialization error:', {
                     message: error.message,
-                    response: (_a = error.response) === null || _a === void 0 ? void 0 : _a.data,
-                    status: (_b = error.response) === null || _b === void 0 ? void 0 : _b.status,
-                    config: {
-                        url: (_c = error.config) === null || _c === void 0 ? void 0 : _c.url,
-                        data: (_d = error.config) === null || _d === void 0 ? void 0 : _d.data,
-                        headers: (_e = error.config) === null || _e === void 0 ? void 0 : _e.headers
-                    }
+                    response: (_b = error.response) === null || _b === void 0 ? void 0 : _b.data
                 });
-                throw new Error(`Paystack payment initialization failed: ${((_g = (_f = error.response) === null || _f === void 0 ? void 0 : _f.data) === null || _g === void 0 ? void 0 : _g.message) || error.message}`);
+                throw new Error(`Paystack payment initialization failed: ${((_d = (_c = error.response) === null || _c === void 0 ? void 0 : _c.data) === null || _d === void 0 ? void 0 : _d.message) || error.message}`);
             }
         });
     }
@@ -136,5 +119,7 @@ exports.PaystackProvider = PaystackProvider;
 exports.PaystackProvider = PaystackProvider = __decorate([
     (0, inversify_1.injectable)(),
     __param(0, (0, inversify_1.inject)(types_1.TYPES.ExchangeRateService)),
-    __metadata("design:paramtypes", [ExchangeRateService_1.ExchangeRateService])
+    __param(1, (0, inversify_1.inject)(types_1.TYPES.PricingConfigService)),
+    __metadata("design:paramtypes", [ExchangeRateService_1.ExchangeRateService,
+        PricingConfigService_1.PricingConfigService])
 ], PaystackProvider);

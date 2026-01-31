@@ -3,6 +3,7 @@ import { IPaymentProvider } from '../validation/interfaces/IPaymentProvider';
 import { ExchangeRateService } from './ExchangeRateService';
 import { inject, injectable } from 'inversify';
 import { TYPES } from '../config/types';
+import { PricingConfigService } from './PricingConfigService';
 
 @injectable()
 export class PaystackProvider implements IPaymentProvider {
@@ -12,6 +13,8 @@ export class PaystackProvider implements IPaymentProvider {
   constructor(
     @inject(TYPES.ExchangeRateService)
     private exchangeRateService: ExchangeRateService,
+    @inject(TYPES.PricingConfigService)
+    private pricingConfigService: PricingConfigService,
   ) {
     // Get secret key from environment variable
     this.secretKey = process.env.PAYSTACK_SECRET_KEY || '';
@@ -33,81 +36,69 @@ export class PaystackProvider implements IPaymentProvider {
 
   async initializePayment(data: any) {
     try {
-      console.log('Paystack initializePayment received: ', data);
-      // FORCE NGN for Paystack - they don't support USD
-      // If amount is in USD, convert to NGN
-      let amountInNgn: number;
-
-      let exchangeRate = await this.exchangeRateService.getUsdToNgnRate();
-
-      if (data.currency === 'USD' || !data.currency) {
-        amountInNgn = data.amount * exchangeRate;
-
-        console.log(`Converting ${data.amount} USD to ${amountInNgn} NGN (rate: ${exchangeRate})`);
-      } else if (data.currency === 'NGN') {
-        // Already in NGN
-        amountInNgn = data.amount;
-      } else {
-        throw new Error(`Unsupported currency for Paystack: ${data.currency}. Only NGN is supported.`);
-      }
-
-      // Paystack expects amount in kobo (1 NGN = 100 kobo)
+      console.log('Paystack initializePayment received:', data);
+  
+      // Get exchange rate
+      const exchangeRate = await this.exchangeRateService.getUsdToNgnRate();
+      // Calculate TOTAL USD (vehicle + all fees)
+      const pricing = await this.pricingConfigService.calculateTotalUsd(
+        data.amount
+      );
+  
+      const totalUsd = pricing.totalUsd;
+  
+      // Convert TOTAL USD → NGN (ONCE)
+      const amountInNgn = totalUsd * exchangeRate;
+  
+      // Convert to kobo
       const amountInKobo = Math.round(amountInNgn * 100);
-
-      // Validate minimum amount (at least 100 kobo = 1 NGN)
+  
       if (amountInKobo < 100) {
-        throw new Error('Amount must be at least 1 NGN (100 kobo)');
+        throw new Error('Amount must be at least 1 NGN');
       }
+  
 
-      console.log('Sending to Paystack:', {
-        email: data.email,
-        amount: amountInKobo,
-        currency: 'NGN', // ALWAYS USE NGN
-        reference: data.reference,
-        metadata: {
-          ...data.metadata,
-          originalCurrency: data.currency || 'USD',
-          originalAmount: data.amount,
-          exchangeRate: exchangeRate,
-          convertedAmountNgn: amountInNgn
+      const response = await this.axiosInstance.post(
+        '/transaction/initialize',
+        {
+          email: data.email,
+          amount: amountInKobo,
+          currency: 'NGN',
+          reference: data.reference,
+          metadata: {
+            ...data.metadata,
+            pricing: pricing.breakdown,
+            totalUsd,
+            exchangeRate,
+            totalNgn: amountInNgn
+          },
+          callback_url:
+            data.metadata?.callbackUrl ||
+            `${process.env.FRONTEND_URL}/payment/verify`
         }
-      });
-
-      const response = await this.axiosInstance.post('/transaction/initialize', {
-        email: data.email,
-        amount: amountInKobo,
-        reference: data.reference,
-        currency: 'NGN', // CRITICAL: Always use NGN for Paystack
-        metadata: {
-          ...data.metadata,
-          originalCurrency: data.currency || 'USD',
-          originalAmount: data.amount,
-          exchangeRate: exchangeRate,
-          convertedAmountNgn: amountInNgn
-        },
-        callback_url: data.metadata.callbackUrl || `${process.env.FRONTEND_URL}/payment/verify`
-      });
-
-
+      );
+  
       return {
         authorizationUrl: response.data.data.authorization_url,
+        accessCode: response.data.data.access_code,
         reference: data.reference,
-        accessCode: response.data.data.access_code
+        amountNgn: amountInNgn,
+        pricing
       };
     } catch (error: any) {
       console.error('Paystack initialization error:', {
         message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        config: {
-          url: error.config?.url,
-          data: error.config?.data,
-          headers: error.config?.headers
-        }
+        response: error.response?.data
       });
-      throw new Error(`Paystack payment initialization failed: ${error.response?.data?.message || error.message}`);
+  
+      throw new Error(
+        `Paystack payment initialization failed: ${
+          error.response?.data?.message || error.message
+        }`
+      );
     }
   }
+  
   async verifyPayment(reference: string) {
     const response = await this.axiosInstance.get(`/transaction/verify/${reference}`);
     const data = response.data.data;
