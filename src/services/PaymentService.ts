@@ -6,7 +6,7 @@ import { TYPES } from '../config/types';
 import prisma from '../db';
 import { date } from 'joi/lib';
 import { PricingConfigService } from './PricingConfigService';
-import { PaymentStatus, PaymentType } from '../generated/prisma/enums';
+import { OrderStatus, PaymentStatus, PaymentType } from '../generated/prisma/enums';
 
 @injectable()
 export class PaymentService {
@@ -88,7 +88,7 @@ export class PaymentService {
   async handlePaymentSuccess(reference: string, provider: 'stripe' | 'paystack') {
 
     const payment = await this.paymentRepo.findByReference(reference);
-    if (!payment || payment.status === 'COMPLETED') return;
+    if (!payment || payment.status === PaymentStatus.COMPLETED) return;
 
     const providerClient =
       provider === 'stripe' ? this.stripe : this.paystack;
@@ -96,22 +96,25 @@ export class PaymentService {
     const verification = await providerClient.verifyPayment(reference);
     if (!verification.success) return;
 
+
+
     await prisma.$transaction([
       this.paymentRepo.updatePaymentByRef(reference, {
-        status: 'COMPLETED',
-        providerTransactionId: verification.providerTransactionId,
-        receiptUrl: verification.receiptUrl,
+        status: PaymentStatus.COMPLETED,
+        providerTransactionId: String(verification.providerTransactionId),
+        receiptUrl: verification.receiptUrl ?? null,
         completedAt: new Date(),
         escrowStatus: 'HELD'
       }),
-
+    
       this.orderRepo.updateOrderStatus(
         payment.orderId,
-        payment.paymentType === 'DEPOSIT'
-          ? 'DEPOSIT_PAID'
-          : 'PAID'
+        payment.paymentType === PaymentType.DEPOSIT
+          ? OrderStatus.DEPOSIT_PAID
+          : OrderStatus.BALANCE_PAID
       )
     ]);
+    
   }
 
   /**
