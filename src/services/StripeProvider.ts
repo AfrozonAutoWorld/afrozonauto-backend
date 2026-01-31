@@ -12,6 +12,7 @@ export class StripeProvider implements IPaymentProvider {
     private isConfigured: boolean = false;
 
     constructor(
+        @inject(TYPES.ExchangeRateService)
         private exchangeRateService: ExchangeRateService,
         @inject(TYPES.PricingConfigService)
         private pricingConfigService: PricingConfigService,
