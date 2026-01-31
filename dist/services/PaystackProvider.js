@@ -58,8 +58,13 @@ let PaystackProvider = class PaystackProvider {
                 // Calculate TOTAL USD (vehicle + all fees)
                 const pricing = yield this.pricingConfigService.calculateTotalUsd(data.amount, (_a = data === null || data === void 0 ? void 0 : data.metadata) === null || _a === void 0 ? void 0 : _a.shippingMethod);
                 const totalUsd = pricing.totalUsd;
+                const calculation = yield this.pricingConfigService.calculatePaymentAmount({
+                    totalAmountUsd: totalUsd,
+                    paymentType: data.metadata.paymentType
+                });
+                const amountPayable = calculation.paymentAmount;
                 // Convert TOTAL USD → NGN (ONCE)
-                const amountInNgn = totalUsd * exchangeRate;
+                const amountInNgn = amountPayable * exchangeRate;
                 // Convert to kobo
                 const amountInKobo = Math.round(amountInNgn * 100);
                 if (amountInKobo < 100) {
@@ -80,7 +85,8 @@ let PaystackProvider = class PaystackProvider {
                     accessCode: response.data.data.access_code,
                     reference: data.reference,
                     amountNgn: amountInNgn,
-                    pricing
+                    pricing,
+                    calculation
                 };
             }
             catch (error) {

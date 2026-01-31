@@ -9,6 +9,7 @@ const types_1 = require("../config/types");
 const authMiddleware_1 = require("../middleware/authMiddleware");
 const bodyValidate_1 = require("../middleware/bodyValidate");
 const joi_1 = __importDefault(require("joi"));
+const enums_1 = require("../generated/prisma/enums");
 // Validation schema for payment initiation
 const initPaymentSchema = joi_1.default.object({
     orderId: joi_1.default.string().required().messages({
@@ -19,10 +20,9 @@ const initPaymentSchema = joi_1.default.object({
         'any.only': 'Provider must be one of: stripe, paystack, flutterwave',
         'any.required': 'Payment provider is required'
     }),
-    paymentType: joi_1.default.string().valid('DEPOSIT', 'FULL_PAYMENT', 'BALANCE', 'REFUND', 'PARTIAL_REFUND').required().messages({
-        'any.only': 'Payment type must be one of: DEPOSIT, FULL_PAYMENT, BALANCE, REFUND, PARTIAL_REFUND',
-        'any.required': 'Payment type is required'
-    })
+    paymentType: joi_1.default.string()
+        .valid(...Object.values(enums_1.PaymentType))
+        .optional(),
 });
 class PaymentRoutes {
     constructor() {

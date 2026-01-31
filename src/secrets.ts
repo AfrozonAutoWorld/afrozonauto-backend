@@ -9,6 +9,7 @@ export const MAIL_HOST = process.env.MAIL_HOST!;
 export const MAIL_USERNAME = process.env.MAIL_USERNAME!;
 export const MAIL_PASSWORD = process.env.MAIL_PASSWORD!;
 export const MAIL_PORT = process.env.MAIL_PORT! || 587;
+export const DEPOSIT_PERCENTAGE = process.env.DEPOSIT_PERCENTAGE! || 0.3;
 export const FROM_EMAIL = process.env.FROM_EMAIL!;
 export const ADMIN_DASH = process.env.ADMIN_DASH!;
 export const APP_SECRET = process.env.APP_SECRET!;

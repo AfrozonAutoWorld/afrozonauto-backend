@@ -2,7 +2,9 @@ import { PricingConfigRepository } from "../repositories/PricingConfigRepository
 import { injectable, inject} from 'inversify';
 import { TYPES } from '../config/types';
 import { Decimal } from "../generated/prisma/internal/prismaNamespace";
-import { ShippingMethod } from "../generated/prisma/enums";
+import { PaymentType, ShippingMethod } from "../generated/prisma/enums";
+import { ApiError } from "../utils/ApiError";
+import { DEPOSIT_PERCENTAGE } from "../secrets";
 
 
 export interface IPricingConfigService {
@@ -48,6 +50,7 @@ export class PricingConfigService implements IPricingConfigService {
     
     return {
       totalUsd,
+      totalUsedDeposit: totalUsd * Number(DEPOSIT_PERCENTAGE),
       shippingMethod,
       breakdown: {
         vehiclePriceUsd,
@@ -60,47 +63,7 @@ export class PricingConfigService implements IPricingConfigService {
     };
   }
 
-  async calculateTotal(input: CalculatePaymentInput) {
-    const fees = await this.settingsRepo.getOrCreateSettings();
 
-    const priceUsd = new Decimal(input.productPriceUsd);
-
-    // Percentage fees
-    const importDuty = priceUsd.mul(fees.importDutyPercent).div(100);
-    const vat = priceUsd.mul(fees.vatPercent).div(100);
-    const ciss = priceUsd.mul(fees.cissPercent).div(100);
-    const sourcingFee = fees.sourcingFee;
-
-    // Fixed USD fees
-    const fixedFeesUsd = new Decimal(fees.prePurchaseInspectionUsd)
-      .plus(fees.usHandlingFeeUsd)
-      .plus(fees.shippingCostUsd)
-      .plus(fees.clearingFeeUsd)
-      .plus(fees.portChargesUsd)
-      .plus(fees.localDeliveryUsd);
-
-    const totalUsd = priceUsd
-      .plus(importDuty)
-      .plus(vat)
-      .plus(ciss)
-      .plus(sourcingFee)
-      .plus(fixedFeesUsd);
-
-    const totalNgn = totalUsd.mul(input.exchangeRate);
-
-    return {
-      breakdown: {
-        productPriceUsd: priceUsd.toNumber(),
-        importDuty: importDuty.toNumber(),
-        vat: vat.toNumber(),
-        ciss: ciss.toNumber(),
-        sourcingFee: sourcingFee,
-        fixedFeesUsd: fixedFeesUsd.toNumber(),
-      },
-      totalUsd: totalUsd.toNumber(),
-      totalNgn: totalNgn.toDecimalPlaces(0).toNumber()
-    };
-  }
 
   getShippingCostUsd(method: ShippingMethod): number {
     switch (method) {
@@ -113,7 +76,47 @@ export class PricingConfigService implements IPricingConfigService {
       case ShippingMethod.EXPRESS:
         return 7500;
       default:
-        throw new Error("Unsupported shipping method");
+        throw ApiError.badRequest("Unsupported shipping method");
     }
+  }
+
+  async calculatePaymentAmount(payload: {
+    totalAmountUsd: number;
+    paymentType: PaymentType;
+  }) {
+
+
+    const totalAmountUsd: number =  payload.totalAmountUsd
+    
+    let depositPercentage = 0;
+    let paymentAmount = 0;
+    let isDeposit = false;
+
+    switch (payload.paymentType) {
+      case PaymentType.DEPOSIT:
+        depositPercentage =  Number(DEPOSIT_PERCENTAGE) * 100 
+        paymentAmount = totalAmountUsd * Number(DEPOSIT_PERCENTAGE);
+        isDeposit = true;
+        break;
+      
+      case PaymentType.FULL_PAYMENT:
+        depositPercentage =  100 
+        paymentAmount = totalAmountUsd;
+        isDeposit = false;
+        break;
+      
+      default:
+        throw ApiError.badRequest('Invalid payment type');
+    }
+
+
+    return {
+      totalAmountUsd,
+      paymentAmount,
+      depositPercentage: isDeposit ? depositPercentage : 100,
+      isDeposit,
+      remainingBalance: isDeposit ? totalAmountUsd - paymentAmount : 0,
+      paymentType: payload.paymentType
+    };
   }
 }

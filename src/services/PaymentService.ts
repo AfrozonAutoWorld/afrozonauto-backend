@@ -5,6 +5,8 @@ import { IPaymentProvider } from '../validation/interfaces/IPaymentProvider';
 import { TYPES } from '../config/types';
 import prisma from '../db';
 import { date } from 'joi/lib';
+import { PricingConfigService } from './PricingConfigService';
+import { PaymentStatus, PaymentType } from '../generated/prisma/enums';
 
 @injectable()
 export class PaymentService {
@@ -15,6 +17,9 @@ export class PaymentService {
 
     @inject(TYPES.OrderRepository)
     private orderRepo: OrderRepository,
+
+    @inject(TYPES.PricingConfigService)
+    private pricingService: PricingConfigService,
 
     @inject(TYPES.StripeProvider)
     private stripe: IPaymentProvider,
@@ -32,31 +37,49 @@ export class PaymentService {
     currency: string;
     callbackUrl: string;
     shippingMethod: string;
-    paymentType: 'DEPOSIT' | 'HALF_DEPOSIT' | 'FULL_PAYMENT';
+    paymentType: PaymentType;
   }) {
 
     const reference = `AFZ-${Date.now()}`;
-    await this.paymentRepo.createPayment({
+
+    const provider =
+      payload.provider === 'stripe' ? this.stripe : this.paystack;
+
+    const result = await provider.initializePayment({
+      amount: payload.amountUsd,
+      currency: payload.currency,
+      email: payload.email,
+      reference,
+      metadata: { orderId: payload.orderId, callbackUrl: payload.callbackUrl, shippingMethod: payload.shippingMethod, paymentType: payload.paymentType }
+    });
+    // Create payment record with calculation data if available
+    const paymentData: any = {
       orderId: payload.orderId,
       userId: payload.userId,
       amountUsd: payload.amountUsd,
       paymentType: payload.paymentType,
       paymentProvider: payload.provider,
-      status: 'PENDING',
+      status: PaymentStatus.PENDING,
       transactionRef: reference,
       localCurrency: payload.currency
-    });
+    };
 
-    const provider =
-      payload.provider === 'stripe' ? this.stripe : this.paystack;
+    // Add calculation metadata if available
+    if (result.calculation) {
+      paymentData.metadata = {
+        calculation: result.calculation,
+        isDeposit: result.calculation.isDeposit,
+        depositPercentage: result.calculation.depositPercentage,
+        remainingBalance: result.calculation.remainingBalance
+      };
+    }
 
-    return provider.initializePayment({
-      amount: payload.amountUsd,
-      currency: payload.currency,
-      email: payload.email,
-      reference,
-      metadata: { orderId: payload.orderId, callbackUrl: payload.callbackUrl, shippingMethod: payload.shippingMethod, paymentType:payload.paymentType }
-    });
+    await this.paymentRepo.createPayment(paymentData);
+
+    return {
+      ...result,
+      ...paymentData.metadata
+    }
   }
 
   /**
@@ -91,13 +114,13 @@ export class PaymentService {
     ]);
   }
 
-   /**
-   * Verify payment (frontend verification)
-   */
-   async verifyPayment(reference: string, provider: 'stripe' | 'paystack') {
+  /**
+  * Verify payment (frontend verification)
+  */
+  async verifyPayment(reference: string, provider: 'stripe' | 'paystack') {
     // Get payment record
     const payment = await this.paymentRepo.findByReference(reference);
-    
+
     if (!payment) {
       throw new Error('Payment not found');
     }
@@ -121,7 +144,7 @@ export class PaymentService {
     if (verification.success) {
       // await this.handleSuccessfulVerification(payment, verification, provider);
       await this.handlePaymentSuccess(reference, provider);
-      
+
       return {
         success: true,
         payment: await this.paymentRepo.findByReference(reference),
@@ -137,7 +160,7 @@ export class PaymentService {
           providerResponse: verification
         }
       });
-      
+
 
       return {
         success: false,
@@ -148,15 +171,15 @@ export class PaymentService {
     }
   }
 
-  getPayments = ()=>{
+  getPayments = () => {
     return this.paymentRepo.findAll()
   }
-  getUserPayments = (userId: string)=>{
+  getUserPayments = (userId: string) => {
     return this.paymentRepo.findAllUserPayments(userId)
   }
-  getPaymentById = (id: string)=>{
+  getPaymentById = (id: string) => {
     return this.paymentRepo.findById(id)
   }
 
-  
+
 }

@@ -47,7 +47,8 @@ export class PaymentController {
         //         ApiError.badRequest("Invalid vehicle snapshot data")
         //     );
         // }
-        
+       console.log("============payments-=============") 
+       console.log(req.body) 
         const result = await this.paymentService.initiatePayment({
             orderId: req.body.orderId,
             userId: req.user.id,

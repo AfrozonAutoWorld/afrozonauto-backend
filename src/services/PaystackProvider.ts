@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import { IPaymentProvider } from '../validation/interfaces/IPaymentProvider';
+import { IPaymentProvider, PaymentInitResult } from '../validation/interfaces/IPaymentProvider';
 import { ExchangeRateService } from './ExchangeRateService';
 import { inject, injectable } from 'inversify';
 import { TYPES } from '../config/types';
@@ -34,7 +34,7 @@ export class PaystackProvider implements IPaymentProvider {
   }
 
 
-  async initializePayment(data: any) {
+  async initializePayment(data: any) : Promise<PaymentInitResult> {
     try {
       console.log('Paystack initializePayment received:', data);
   
@@ -47,9 +47,14 @@ export class PaystackProvider implements IPaymentProvider {
       );
   
       const totalUsd = pricing.totalUsd;
-  
+      const calculation = await this.pricingConfigService.calculatePaymentAmount({
+        totalAmountUsd: totalUsd,
+        paymentType: data.metadata.paymentType
+      });
+
+      const amountPayable = calculation.paymentAmount
       // Convert TOTAL USD → NGN (ONCE)
-      const amountInNgn = totalUsd * exchangeRate;
+      const amountInNgn = amountPayable * exchangeRate;
   
       // Convert to kobo
       const amountInKobo = Math.round(amountInNgn * 100);
@@ -85,7 +90,8 @@ export class PaystackProvider implements IPaymentProvider {
         accessCode: response.data.data.access_code,
         reference: data.reference,
         amountNgn: amountInNgn,
-        pricing
+        pricing,
+        calculation
       };
     } catch (error: any) {
       console.error('Paystack initialization error:', {

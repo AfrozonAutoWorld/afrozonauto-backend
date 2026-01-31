@@ -25,8 +25,9 @@ exports.PricingConfigService = void 0;
 const PricingConfigRepository_1 = require("../repositories/PricingConfigRepository");
 const inversify_1 = require("inversify");
 const types_1 = require("../config/types");
-const prismaNamespace_1 = require("../generated/prisma/internal/prismaNamespace");
 const enums_1 = require("../generated/prisma/enums");
+const ApiError_1 = require("../utils/ApiError");
+const secrets_1 = require("../secrets");
 let PricingConfigService = class PricingConfigService {
     constructor(settingsRepo) {
         this.settingsRepo = settingsRepo;
@@ -48,6 +49,7 @@ let PricingConfigService = class PricingConfigService {
             const totalUsd = fixedFees + vehiclePriceUsd;
             return {
                 totalUsd,
+                totalUsedDeposit: totalUsd * Number(secrets_1.DEPOSIT_PERCENTAGE),
                 shippingMethod,
                 breakdown: {
                     vehiclePriceUsd,
@@ -57,43 +59,6 @@ let PricingConfigService = class PricingConfigService {
                     // shippingCostUsd: fees.shippingCostUsd
                     shippingCostUsd
                 }
-            };
-        });
-    }
-    calculateTotal(input) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const fees = yield this.settingsRepo.getOrCreateSettings();
-            const priceUsd = new prismaNamespace_1.Decimal(input.productPriceUsd);
-            // Percentage fees
-            const importDuty = priceUsd.mul(fees.importDutyPercent).div(100);
-            const vat = priceUsd.mul(fees.vatPercent).div(100);
-            const ciss = priceUsd.mul(fees.cissPercent).div(100);
-            const sourcingFee = fees.sourcingFee;
-            // Fixed USD fees
-            const fixedFeesUsd = new prismaNamespace_1.Decimal(fees.prePurchaseInspectionUsd)
-                .plus(fees.usHandlingFeeUsd)
-                .plus(fees.shippingCostUsd)
-                .plus(fees.clearingFeeUsd)
-                .plus(fees.portChargesUsd)
-                .plus(fees.localDeliveryUsd);
-            const totalUsd = priceUsd
-                .plus(importDuty)
-                .plus(vat)
-                .plus(ciss)
-                .plus(sourcingFee)
-                .plus(fixedFeesUsd);
-            const totalNgn = totalUsd.mul(input.exchangeRate);
-            return {
-                breakdown: {
-                    productPriceUsd: priceUsd.toNumber(),
-                    importDuty: importDuty.toNumber(),
-                    vat: vat.toNumber(),
-                    ciss: ciss.toNumber(),
-                    sourcingFee: sourcingFee,
-                    fixedFeesUsd: fixedFeesUsd.toNumber(),
-                },
-                totalUsd: totalUsd.toNumber(),
-                totalNgn: totalNgn.toDecimalPlaces(0).toNumber()
             };
         });
     }
@@ -108,8 +73,38 @@ let PricingConfigService = class PricingConfigService {
             case enums_1.ShippingMethod.EXPRESS:
                 return 7500;
             default:
-                throw new Error("Unsupported shipping method");
+                throw ApiError_1.ApiError.badRequest("Unsupported shipping method");
         }
+    }
+    calculatePaymentAmount(payload) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const totalAmountUsd = payload.totalAmountUsd;
+            let depositPercentage = 0;
+            let paymentAmount = 0;
+            let isDeposit = false;
+            switch (payload.paymentType) {
+                case enums_1.PaymentType.DEPOSIT:
+                    depositPercentage = Number(secrets_1.DEPOSIT_PERCENTAGE) * 100;
+                    paymentAmount = totalAmountUsd * Number(secrets_1.DEPOSIT_PERCENTAGE);
+                    isDeposit = true;
+                    break;
+                case enums_1.PaymentType.FULL_PAYMENT:
+                    depositPercentage = 100;
+                    paymentAmount = totalAmountUsd;
+                    isDeposit = false;
+                    break;
+                default:
+                    throw ApiError_1.ApiError.badRequest('Invalid payment type');
+            }
+            return {
+                totalAmountUsd,
+                paymentAmount,
+                depositPercentage: isDeposit ? depositPercentage : 100,
+                isDeposit,
+                remainingBalance: isDeposit ? totalAmountUsd - paymentAmount : 0,
+                paymentType: payload.paymentType
+            };
+        });
     }
 };
 exports.PricingConfigService = PricingConfigService;
