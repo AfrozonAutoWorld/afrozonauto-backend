@@ -36,7 +36,6 @@ export class PaystackProvider implements IPaymentProvider {
 
   async initializePayment(data: any) : Promise<PaymentInitResult> {
     try {
-      console.log('Paystack initializePayment received:', data);
   
       // Get exchange rate
       const exchangeRate = await this.exchangeRateService.getUsdToNgnRate();
