@@ -13,7 +13,7 @@ exports.createOrderSchema = joi_1.default.object({
         .optional(),
     shippingMethod: joi_1.default.string()
         .valid(...Object.values(client_1.ShippingMethod))
-        .optional(),
+        .required(),
     destinationCountry: joi_1.default.string().optional(),
     destinationState: joi_1.default.string().optional(),
     destinationCity: joi_1.default.string().optional(),

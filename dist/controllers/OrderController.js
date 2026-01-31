@@ -49,7 +49,7 @@ let OrderController = class OrderController {
             if (!userId) {
                 return res.status(401).json(ApiError_1.ApiError.unauthorized("Authentication required"));
             }
-            const { vehicleId, shippingMethod, deliveryInstructions, customerNotes, specialRequests, tags, identifier, destinationCountry, destinationState, destinationCity, destinationAddress, type } = req.body;
+            const { vehicleId, shippingMethod, deliveryInstructions, customerNotes, specialRequests, tags, identifier, destinationCountry, destinationState, destinationCity, destinationAddress, type, } = req.body;
             const profile = yield this.profileService.findUserById(userId.toString());
             if (!profile) {
                 return res.status(404).json(ApiError_1.ApiError.notFound('Profile not found. Please complete your profile first.'));
@@ -63,7 +63,7 @@ let OrderController = class OrderController {
                 return res.status(404).json(ApiError_1.ApiError.notFound("vehicle not found"));
             }
             const vehiclePrice = (_b = vehicle.originalPriceUsd) !== null && _b !== void 0 ? _b : vehicle.priceUsd;
-            const paymentBreakdown = yield this.pricingService.calculateTotalUsd(vehiclePrice);
+            const paymentBreakdown = yield this.pricingService.calculateTotalUsd(vehiclePrice, shippingMethod);
             const order = yield this.service.createOrder({
                 userId,
                 vehicleId,
@@ -93,6 +93,10 @@ let OrderController = class OrderController {
             }
             const { identifier } = req.params;
             let raw = (_b = req.query) === null || _b === void 0 ? void 0 : _b.type;
+            const shippingMethod = req.query.shippingMethod;
+            if (!shippingMethod) {
+                return res.status(400).json(ApiError_1.ApiError.badRequest("shippingMethod is required"));
+            }
             const typeParam = (Array.isArray(raw) ? raw[0] : raw) || '';
             let type = (typeParam === null || typeParam === void 0 ? void 0 : typeParam.toString().trim().toLowerCase()) === 'vin' ? 'vin' : 'vin';
             if (identifier.startsWith('temp-')) {
@@ -115,7 +119,7 @@ let OrderController = class OrderController {
             }
             const vehiclePrice = (_c = vehicle.originalPriceUsd) !== null && _c !== void 0 ? _c : vehicle.priceUsd;
             const pricingInformation = yield this.pricingRepo.getOrCreateSettings();
-            const paymentBreakdown = yield this.pricingService.calculateTotalUsd(vehiclePrice);
+            const paymentBreakdown = yield this.pricingService.calculateTotalUsd(vehiclePrice, shippingMethod);
             return res.status(200).json(ApiResponse_1.ApiResponse.success({
                 defaultPricing: pricingInformation,
                 paymentBreakdown

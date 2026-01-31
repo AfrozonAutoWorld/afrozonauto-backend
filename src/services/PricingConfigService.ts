@@ -2,10 +2,11 @@ import { PricingConfigRepository } from "../repositories/PricingConfigRepository
 import { injectable, inject} from 'inversify';
 import { TYPES } from '../config/types';
 import { Decimal } from "../generated/prisma/internal/prismaNamespace";
+import { ShippingMethod } from "../generated/prisma/enums";
 
 
 export interface IPricingConfigService {
-  calculateTotalUsd(vehiclePriceUsd: number): Promise<any>;
+  calculateTotalUsd(vehiclePriceUsd: number,  shippingMethod: ShippingMethod): Promise<any>;
 }
 
 interface CalculatePaymentInput {
@@ -19,7 +20,7 @@ export class PricingConfigService implements IPricingConfigService {
     @inject(TYPES.PricingConfigRepository) private settingsRepo: PricingConfigRepository,
   ) {}
 
-  async calculateTotalUsd(vehiclePriceUsd: number){
+  async calculateTotalUsd(vehiclePriceUsd: number,  shippingMethod: ShippingMethod){
     const fees = await this.settingsRepo.getOrCreateSettings();
 
     const importDuty =
@@ -30,6 +31,9 @@ export class PricingConfigService implements IPricingConfigService {
 
     const ciss =
       (fees.cissPercent / 100) * vehiclePriceUsd;
+
+      const shippingCostUsd =
+      this.getShippingCostUsd(shippingMethod);
 
     const   fixedFees =
       fees.prePurchaseInspectionUsd +
@@ -44,12 +48,14 @@ export class PricingConfigService implements IPricingConfigService {
     
     return {
       totalUsd,
+      shippingMethod,
       breakdown: {
         vehiclePriceUsd,
         prePurchaseInspectionUsd: fees.prePurchaseInspectionUsd ,
         usHandlingFeeUsd: fees.usHandlingFeeUsd,
         sourcingFee: fees.sourcingFee,
-        shippingCostUsd: fees.shippingCostUsd
+        // shippingCostUsd: fees.shippingCostUsd
+        shippingCostUsd
       }
     };
   }
@@ -94,5 +100,20 @@ export class PricingConfigService implements IPricingConfigService {
       totalUsd: totalUsd.toNumber(),
       totalNgn: totalNgn.toDecimalPlaces(0).toNumber()
     };
+  }
+
+  getShippingCostUsd(method: ShippingMethod): number {
+    switch (method) {
+      case ShippingMethod.RORO:
+        return 1800;
+      case ShippingMethod.CONTAINER:
+        return 2500;
+      case ShippingMethod.AIR_FREIGHT:
+        return 5200;
+      case ShippingMethod.EXPRESS:
+        return 7500;
+      default:
+        throw new Error("Unsupported shipping method");
+    }
   }
 }

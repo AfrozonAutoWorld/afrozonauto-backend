@@ -340,7 +340,8 @@ exports.OrderScalarFieldEnum = {
     priority: 'priority',
     tags: 'tags',
     createdAt: 'createdAt',
-    updatedAt: 'updatedAt'
+    updatedAt: 'updatedAt',
+    paymentMethod: 'paymentMethod'
 };
 exports.PaymentScalarFieldEnum = {
     id: 'id',

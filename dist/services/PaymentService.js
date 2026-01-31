@@ -65,7 +65,7 @@ let PaymentService = class PaymentService {
                 currency: payload.currency,
                 email: payload.email,
                 reference,
-                metadata: { orderId: payload.orderId, callbackUrl: payload.callbackUrl }
+                metadata: { orderId: payload.orderId, callbackUrl: payload.callbackUrl, shippingMethod: payload.shippingMethod }
             });
         });
     }

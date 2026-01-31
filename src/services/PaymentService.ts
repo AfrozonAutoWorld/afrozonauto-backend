@@ -32,6 +32,7 @@ export class PaymentService {
     paymentType: any;
     currency: string;
     callbackUrl: string;
+    shippingMethod: string;
   }) {
 
     const reference = `AFZ-${Date.now()}`;
@@ -54,7 +55,7 @@ export class PaymentService {
       currency: payload.currency,
       email: payload.email,
       reference,
-      metadata: { orderId: payload.orderId, callbackUrl: payload.callbackUrl }
+      metadata: { orderId: payload.orderId, callbackUrl: payload.callbackUrl, shippingMethod: payload.shippingMethod }
     });
   }
 

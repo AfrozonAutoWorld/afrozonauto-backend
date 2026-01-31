@@ -482,7 +482,7 @@ model Order {
   // }
 
   // Shipping
-  shippingMethod       ShippingMethod?
+  shippingMethod       ShippingMethod
   originPort           String?
   destinationPort      String?
   destinationCountry   String          @default("Nigeria")
@@ -525,6 +525,8 @@ model Order {
   shipment     Shipment?
   messages     Message[]
   activityLogs ActivityLog[]
+
+  paymentMethod   PaymentMethod?
 
   @@index([userId])
   @@index([vehicleId])

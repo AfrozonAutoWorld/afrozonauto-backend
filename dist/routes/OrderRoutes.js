@@ -22,7 +22,7 @@ class OrderRoutes {
         // Get specific order by ID
         this.router.get('/:id', authMiddleware_1.authenticate, this.controller.getOrderById);
         // Get specific order by ID
-        this.router.get('/order-summary/:identifier', authMiddleware_1.authenticate, this.controller.orderSummary);
+        this.router.get('/order-summary/:identifier', this.controller.orderSummary);
         // Get order by request number
         this.router.get('/request/:requestNumber', this.controller.getOrderByRequestNumber);
         // Cancel order

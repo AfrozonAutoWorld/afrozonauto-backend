@@ -26,16 +26,18 @@ const PricingConfigRepository_1 = require("../repositories/PricingConfigReposito
 const inversify_1 = require("inversify");
 const types_1 = require("../config/types");
 const prismaNamespace_1 = require("../generated/prisma/internal/prismaNamespace");
+const enums_1 = require("../generated/prisma/enums");
 let PricingConfigService = class PricingConfigService {
     constructor(settingsRepo) {
         this.settingsRepo = settingsRepo;
     }
-    calculateTotalUsd(vehiclePriceUsd) {
+    calculateTotalUsd(vehiclePriceUsd, shippingMethod) {
         return __awaiter(this, void 0, void 0, function* () {
             const fees = yield this.settingsRepo.getOrCreateSettings();
             const importDuty = (fees.importDutyPercent / 100) * vehiclePriceUsd;
             const vat = (fees.vatPercent / 100) * vehiclePriceUsd;
             const ciss = (fees.cissPercent / 100) * vehiclePriceUsd;
+            const shippingCostUsd = this.getShippingCostUsd(shippingMethod);
             const fixedFees = fees.prePurchaseInspectionUsd +
                 fees.sourcingFee +
                 fees.usHandlingFeeUsd +
@@ -46,12 +48,14 @@ let PricingConfigService = class PricingConfigService {
             const totalUsd = fixedFees + vehiclePriceUsd;
             return {
                 totalUsd,
+                shippingMethod,
                 breakdown: {
                     vehiclePriceUsd,
                     prePurchaseInspectionUsd: fees.prePurchaseInspectionUsd,
                     usHandlingFeeUsd: fees.usHandlingFeeUsd,
                     sourcingFee: fees.sourcingFee,
-                    shippingCostUsd: fees.shippingCostUsd
+                    // shippingCostUsd: fees.shippingCostUsd
+                    shippingCostUsd
                 }
             };
         });
@@ -92,6 +96,20 @@ let PricingConfigService = class PricingConfigService {
                 totalNgn: totalNgn.toDecimalPlaces(0).toNumber()
             };
         });
+    }
+    getShippingCostUsd(method) {
+        switch (method) {
+            case enums_1.ShippingMethod.RORO:
+                return 1800;
+            case enums_1.ShippingMethod.CONTAINER:
+                return 2500;
+            case enums_1.ShippingMethod.AIR_FREIGHT:
+                return 5200;
+            case enums_1.ShippingMethod.EXPRESS:
+                return 7500;
+            default:
+                throw new Error("Unsupported shipping method");
+        }
     }
 };
 exports.PricingConfigService = PricingConfigService;

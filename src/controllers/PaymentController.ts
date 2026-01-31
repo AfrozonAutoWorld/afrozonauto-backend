@@ -57,7 +57,8 @@ export class PaymentController {
             provider: req.body.provider,
             paymentType: req.body.paymentType,
             currency: vehicleSnapshot.currency as string || 'USD',
-            callbackUrl:  req.body.callbackUrl
+            callbackUrl:  req.body.callbackUrl,
+            shippingMethod: order.shippingMethod
         });
         
         return res.status(200).json(

@@ -44,7 +44,7 @@ export class OrderController {
       destinationState,
       destinationCity,
       destinationAddress,
-      type
+      type,
     } = req.body;
 
 
@@ -63,7 +63,7 @@ export class OrderController {
       return res.status(404).json(ApiError.notFound("vehicle not found"));
     }
     const vehiclePrice = vehicle.originalPriceUsd ?? vehicle.priceUsd
-    const paymentBreakdown = await this.pricingService.calculateTotalUsd(vehiclePrice)
+    const paymentBreakdown = await this.pricingService.calculateTotalUsd(vehiclePrice, shippingMethod)
 
     const order = await this.service.createOrder({
       userId,
@@ -98,6 +98,14 @@ export class OrderController {
     }
     const { identifier } = req.params;
     let raw = req.query?.type;
+    const shippingMethod = req.query.shippingMethod as ShippingMethod;
+
+    if (!shippingMethod) {
+      return res.status(400).json(
+        ApiError.badRequest("shippingMethod is required")
+      );
+    }
+
 
     const typeParam = (Array.isArray(raw) ? raw[0] : raw) || '';
     let type: 'id' | 'vin' = typeParam?.toString().trim().toLowerCase() === 'vin' ? 'vin' : 'vin';
@@ -126,7 +134,7 @@ export class OrderController {
     }
     const vehiclePrice = vehicle.originalPriceUsd ?? vehicle.priceUsd
     const pricingInformation = await this.pricingRepo.getOrCreateSettings()
-    const paymentBreakdown = await this.pricingService.calculateTotalUsd(vehiclePrice)
+    const paymentBreakdown = await this.pricingService.calculateTotalUsd(vehiclePrice, shippingMethod)
     return res.status(200).json(
       ApiResponse.success({
         defaultPricing: pricingInformation,

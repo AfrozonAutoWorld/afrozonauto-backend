@@ -13,7 +13,7 @@ export const createOrderSchema = Joi.object({
     .optional(),
   shippingMethod: Joi.string()
     .valid(...Object.values(ShippingMethod))
-    .optional(),
+    .required(),
   destinationCountry: Joi.string().optional(),
   destinationState: Joi.string().optional(),
   destinationCity: Joi.string().optional(),

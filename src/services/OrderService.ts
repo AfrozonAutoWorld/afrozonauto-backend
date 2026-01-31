@@ -18,7 +18,7 @@ import { ApiError } from "../utils/ApiError";
 export interface CreateOrderData {
   userId: string;
   vehicleId?: string;
-  shippingMethod?: ShippingMethod;
+  shippingMethod: ShippingMethod;
   destinationCountry?: string;
   destinationState?: string;
   destinationCity?: string;

@@ -42,7 +42,8 @@ export class PaystackProvider implements IPaymentProvider {
       const exchangeRate = await this.exchangeRateService.getUsdToNgnRate();
       // Calculate TOTAL USD (vehicle + all fees)
       const pricing = await this.pricingConfigService.calculateTotalUsd(
-        data.amount
+        data.amount,
+        data?.metadata?.shippingMethod
       );
   
       const totalUsd = pricing.totalUsd;
@@ -70,7 +71,8 @@ export class PaystackProvider implements IPaymentProvider {
             pricing: pricing.breakdown,
             totalUsd,
             exchangeRate,
-            totalNgn: amountInNgn
+            totalNgn: amountInNgn,
+            shippingMethod: data?.metadata?.shippingMethod 
           },
           callback_url:
             data.metadata?.callbackUrl ||

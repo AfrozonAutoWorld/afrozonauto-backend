@@ -50,13 +50,13 @@ let PaystackProvider = class PaystackProvider {
     }
     initializePayment(data) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a, _b, _c, _d;
+            var _a, _b, _c, _d, _e, _f;
             try {
                 console.log('Paystack initializePayment received:', data);
                 // Get exchange rate
                 const exchangeRate = yield this.exchangeRateService.getUsdToNgnRate();
                 // Calculate TOTAL USD (vehicle + all fees)
-                const pricing = yield this.pricingConfigService.calculateTotalUsd(data.amount);
+                const pricing = yield this.pricingConfigService.calculateTotalUsd(data.amount, (_a = data === null || data === void 0 ? void 0 : data.metadata) === null || _a === void 0 ? void 0 : _a.shippingMethod);
                 const totalUsd = pricing.totalUsd;
                 // Convert TOTAL USD → NGN (ONCE)
                 const amountInNgn = totalUsd * exchangeRate;
@@ -71,8 +71,8 @@ let PaystackProvider = class PaystackProvider {
                     currency: 'NGN',
                     reference: data.reference,
                     metadata: Object.assign(Object.assign({}, data.metadata), { pricing: pricing.breakdown, totalUsd,
-                        exchangeRate, totalNgn: amountInNgn }),
-                    callback_url: ((_a = data.metadata) === null || _a === void 0 ? void 0 : _a.callbackUrl) ||
+                        exchangeRate, totalNgn: amountInNgn, shippingMethod: (_b = data === null || data === void 0 ? void 0 : data.metadata) === null || _b === void 0 ? void 0 : _b.shippingMethod }),
+                    callback_url: ((_c = data.metadata) === null || _c === void 0 ? void 0 : _c.callbackUrl) ||
                         `${process.env.FRONTEND_URL}/payment/verify`
                 });
                 return {
@@ -86,9 +86,9 @@ let PaystackProvider = class PaystackProvider {
             catch (error) {
                 console.error('Paystack initialization error:', {
                     message: error.message,
-                    response: (_b = error.response) === null || _b === void 0 ? void 0 : _b.data
+                    response: (_d = error.response) === null || _d === void 0 ? void 0 : _d.data
                 });
-                throw new Error(`Paystack payment initialization failed: ${((_d = (_c = error.response) === null || _c === void 0 ? void 0 : _c.data) === null || _d === void 0 ? void 0 : _d.message) || error.message}`);
+                throw new Error(`Paystack payment initialization failed: ${((_f = (_e = error.response) === null || _e === void 0 ? void 0 : _e.data) === null || _f === void 0 ? void 0 : _f.message) || error.message}`);
             }
         });
     }
