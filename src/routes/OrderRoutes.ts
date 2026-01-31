@@ -35,6 +35,11 @@ class OrderRoutes {
             authenticate,
             this.controller.getOrderById);
 
+        // Get specific order by ID
+        this.router.get('/order-summary/:identifier', 
+            authenticate,
+            this.controller.orderSummary);
+
         // Get order by request number
         this.router.get('/request/:requestNumber', this.controller.getOrderByRequestNumber);
 

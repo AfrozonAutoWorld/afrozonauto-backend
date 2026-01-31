@@ -297,6 +297,9 @@ model Inspection {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  paymentBreakdown Json?
+
+
   @@map("inspections")
 }
 

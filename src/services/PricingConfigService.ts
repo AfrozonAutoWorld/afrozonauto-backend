@@ -46,10 +46,10 @@ export class PricingConfigService implements IPricingConfigService {
       totalUsd,
       breakdown: {
         vehiclePriceUsd,
-        importDuty,
-        vat,
-        ciss,
+        prePurchaseInspectionUsd: fees.prePurchaseInspectionUsd ,
+        usHandlingFeeUsd: fees.usHandlingFeeUsd,
         sourcingFee: fees.sourcingFee,
+        shippingCostUsd: fees.shippingCostUsd
       }
     };
   }
