@@ -28,6 +28,7 @@ export interface CreateOrderData {
   specialRequests?: string;
   tags?: string[];
   vehicleSnapshot: Record<string, any>;
+  paymentBreakdown: Record<string, any>;
 }
 
 export interface UpdateOrderData {
@@ -81,7 +82,8 @@ export class OrderService {
       specialRequests: data.specialRequests,
       tags: data.tags || [],
       status: OrderStatus.PENDING_QUOTE,
-      vehicleSnapshot: data.vehicleSnapshot
+      vehicleSnapshot: data.vehicleSnapshot,
+      paymentBreakdown: data.paymentBreakdown,
     };
     
     return this.orderRepository.create(orderData);

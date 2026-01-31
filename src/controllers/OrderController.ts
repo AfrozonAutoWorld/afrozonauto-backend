@@ -62,7 +62,8 @@ export class OrderController {
     if (!vehicle) {
       return res.status(404).json(ApiError.notFound("vehicle not found"));
     }
-
+    const vehiclePrice = vehicle.originalPriceUsd ?? vehicle.priceUsd
+    const paymentBreakdown = await this.pricingService.calculateTotalUsd(vehiclePrice)
 
     const order = await this.service.createOrder({
       userId,
@@ -80,7 +81,8 @@ export class OrderController {
       customerNotes,
       specialRequests,
       tags,
-      vehicleSnapshot: vehicle
+      vehicleSnapshot: vehicle,
+      paymentBreakdown
     });
 
     return res.status(201).json(

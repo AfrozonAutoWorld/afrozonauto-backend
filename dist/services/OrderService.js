@@ -38,7 +38,7 @@ let OrderService = class OrderService {
             const requestNumber = this.generateRequestNumber();
             const orderData = Object.assign(Object.assign({ requestNumber, user: { connect: { id: data.userId } } }, (data.vehicleId && {
                 vehicle: { connect: { id: data.vehicleId } }
-            })), { shippingMethod: data.shippingMethod, destinationCountry: data.destinationCountry || "Nigeria", destinationState: data.destinationState, destinationCity: data.destinationCity, destinationAddress: data.destinationAddress, deliveryInstructions: data.deliveryInstructions, customerNotes: data.customerNotes, specialRequests: data.specialRequests, tags: data.tags || [], status: client_1.OrderStatus.PENDING_QUOTE, vehicleSnapshot: data.vehicleSnapshot });
+            })), { shippingMethod: data.shippingMethod, destinationCountry: data.destinationCountry || "Nigeria", destinationState: data.destinationState, destinationCity: data.destinationCity, destinationAddress: data.destinationAddress, deliveryInstructions: data.deliveryInstructions, customerNotes: data.customerNotes, specialRequests: data.specialRequests, tags: data.tags || [], status: client_1.OrderStatus.PENDING_QUOTE, vehicleSnapshot: data.vehicleSnapshot, paymentBreakdown: data.paymentBreakdown });
             return this.orderRepository.create(orderData);
         });
     }

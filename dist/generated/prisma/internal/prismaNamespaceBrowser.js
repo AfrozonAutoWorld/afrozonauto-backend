@@ -305,6 +305,7 @@ exports.OrderScalarFieldEnum = {
     externalVehicleId: 'externalVehicleId',
     externalProvider: 'externalProvider',
     vehicleSnapshot: 'vehicleSnapshot',
+    paymentBreakdown: 'paymentBreakdown',
     status: 'status',
     previousStatus: 'previousStatus',
     statusChangedAt: 'statusChangedAt',

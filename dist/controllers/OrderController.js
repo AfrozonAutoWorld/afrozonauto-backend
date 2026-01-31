@@ -44,7 +44,7 @@ let OrderController = class OrderController {
         this.addressService = addressService;
         // ========== CREATE ==========
         this.createOrder = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
-            var _a;
+            var _a, _b;
             const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
             if (!userId) {
                 return res.status(401).json(ApiError_1.ApiError.unauthorized("Authentication required"));
@@ -62,6 +62,8 @@ let OrderController = class OrderController {
             if (!vehicle) {
                 return res.status(404).json(ApiError_1.ApiError.notFound("vehicle not found"));
             }
+            const vehiclePrice = (_b = vehicle.originalPriceUsd) !== null && _b !== void 0 ? _b : vehicle.priceUsd;
+            const paymentBreakdown = yield this.pricingService.calculateTotalUsd(vehiclePrice);
             const order = yield this.service.createOrder({
                 userId,
                 vehicleId,
@@ -78,7 +80,8 @@ let OrderController = class OrderController {
                 customerNotes,
                 specialRequests,
                 tags,
-                vehicleSnapshot: vehicle
+                vehicleSnapshot: vehicle,
+                paymentBreakdown
             });
             return res.status(201).json(ApiResponse_1.ApiResponse.success(order, "Order created successfully"));
         }));

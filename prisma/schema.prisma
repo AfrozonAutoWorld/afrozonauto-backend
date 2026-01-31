@@ -147,25 +147,26 @@ model SystemSetting {
   @@index([category])
   @@map("system_settings")
 }
+
 model FeeSettings {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Percentages (e.g. 35 = 35%)
-  importDutyPercent   Float
-  vatPercent          Float
-  cissPercent         Float
-  sourcingFee  Float
+  importDutyPercent Float
+  vatPercent        Float
+  cissPercent       Float
+  sourcingFee       Float
 
   // USD-based fixed fees (STORED IN CENTS)
   prePurchaseInspectionUsd Float
   usHandlingFeeUsd         Float
   shippingCostUsd          Float
 
-  clearingFeeUsd     Float
-  portChargesUsd     Float
-  localDeliveryUsd   Float
+  clearingFeeUsd   Float
+  portChargesUsd   Float
+  localDeliveryUsd Float
 }
 
 // ============================================
@@ -296,9 +297,6 @@ model Inspection {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  paymentBreakdown Json?
-
 
   @@map("inspections")
 }
@@ -459,7 +457,8 @@ model Order {
   externalProvider  String? // "autodev"
 
   // Snapshot at order time (CRITICAL)
-  vehicleSnapshot Json
+  vehicleSnapshot  Json
+  paymentBreakdown Json?
 
   // Status (flexible workflow)
   status          OrderStatus @default(PENDING_QUOTE)
