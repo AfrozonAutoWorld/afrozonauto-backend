@@ -52,7 +52,7 @@ export class VehicleTransformer {
       model: vehicle.model,
       year: vehicle.year,
       priceUsd: retailListing.price || listing.price || 0,
-      mileage: retailListing.mileage || listing.mileage,
+      mileage: retailListing.miles ?? retailListing.mileage ?? listing.miles ?? listing.mileage,
       vehicleType: this.mapVehicleType(vehicle.bodyStyle || listing.bodyStyle || ''),
       transmission: vehicle.transmission || listing.transmission,
       fuelType: vehicle.fuel || listing.fuelType,
