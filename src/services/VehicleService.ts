@@ -314,7 +314,7 @@ export class VehicleService {
           if (filters.priceMax != null && price > filters.priceMax) return false;
 
           // Mileage filter (must be <= mileageMax)
-          const mileage = retailListing.mileage ?? listing.mileage ?? undefined;
+          const mileage = retailListing.miles ?? retailListing.mileage ?? listing.miles ?? listing.mileage ?? undefined;
           if (filters.mileageMax != null && (mileage == null || mileage > filters.mileageMax)) return false;
 
           // Year range filter
