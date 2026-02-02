@@ -20,6 +20,7 @@ const initPaymentSchema = joi_1.default.object({
         'any.only': 'Provider must be one of: stripe, paystack, flutterwave',
         'any.required': 'Payment provider is required'
     }),
+    callbackUrl: joi_1.default.string().required(),
     paymentType: joi_1.default.string()
         .valid(...Object.values(enums_1.PaymentType))
         .optional(),

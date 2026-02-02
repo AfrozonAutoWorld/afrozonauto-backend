@@ -43,7 +43,7 @@ export class ProfileRepository {
      FIND BY USER ID (WITH USER INFO)
   ----------------------------------------------------- */
   async findUserById(userId: string): Promise<Profile | null> {
-    return prisma.profile.findUnique({
+    return prisma.profile.findFirst({
       where: { userId },
       include: {
         user: {

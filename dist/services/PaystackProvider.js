@@ -52,7 +52,6 @@ let PaystackProvider = class PaystackProvider {
         return __awaiter(this, void 0, void 0, function* () {
             var _a, _b, _c, _d, _e, _f;
             try {
-                console.log('Paystack initializePayment received:', data);
                 // Get exchange rate
                 const exchangeRate = yield this.exchangeRateService.getUsdToNgnRate();
                 // Calculate TOTAL USD (vehicle + all fees)

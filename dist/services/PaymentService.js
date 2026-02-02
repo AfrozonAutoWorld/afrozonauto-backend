@@ -89,8 +89,9 @@ let PaymentService = class PaymentService {
      */
     handlePaymentSuccess(reference, provider) {
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             const payment = yield this.paymentRepo.findByReference(reference);
-            if (!payment || payment.status === 'COMPLETED')
+            if (!payment || payment.status === enums_1.PaymentStatus.COMPLETED)
                 return;
             const providerClient = provider === 'stripe' ? this.stripe : this.paystack;
             const verification = yield providerClient.verifyPayment(reference);
@@ -98,15 +99,15 @@ let PaymentService = class PaymentService {
                 return;
             yield db_1.default.$transaction([
                 this.paymentRepo.updatePaymentByRef(reference, {
-                    status: 'COMPLETED',
-                    providerTransactionId: verification.providerTransactionId,
-                    receiptUrl: verification.receiptUrl,
+                    status: enums_1.PaymentStatus.COMPLETED,
+                    providerTransactionId: String(verification.providerTransactionId),
+                    receiptUrl: (_a = verification.receiptUrl) !== null && _a !== void 0 ? _a : null,
                     completedAt: new Date(),
                     escrowStatus: 'HELD'
                 }),
-                this.orderRepo.updateOrderStatus(payment.orderId, payment.paymentType === 'DEPOSIT'
-                    ? 'DEPOSIT_PAID'
-                    : 'PAID')
+                this.orderRepo.updateOrderStatus(payment.orderId, payment.paymentType === enums_1.PaymentType.DEPOSIT
+                    ? enums_1.OrderStatus.DEPOSIT_PAID
+                    : enums_1.OrderStatus.BALANCE_PAID)
             ]);
         });
     }

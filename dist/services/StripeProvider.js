@@ -115,6 +115,7 @@ let StripeProvider = class StripeProvider {
 exports.StripeProvider = StripeProvider;
 exports.StripeProvider = StripeProvider = __decorate([
     (0, inversify_1.injectable)(),
+    __param(0, (0, inversify_1.inject)(types_1.TYPES.ExchangeRateService)),
     __param(1, (0, inversify_1.inject)(types_1.TYPES.PricingConfigService)),
     __metadata("design:paramtypes", [ExchangeRateService_1.ExchangeRateService,
         PricingConfigService_1.PricingConfigService])

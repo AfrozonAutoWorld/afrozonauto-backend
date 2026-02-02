@@ -35,6 +35,12 @@ class ProfileRoutes {
             uploadToCloudinary,
             this.controller.create
         );
+        // Get current authenticated user's profile
+        this.router.get(
+            '/me-profile',
+            authenticate,
+            this.controller.currentUserProfile
+        );
 
         this.router.get(
             '/:id',
@@ -68,12 +74,7 @@ class ProfileRoutes {
             this.controller.list
         );
 
-        // Get current authenticated user's profile
-        this.router.get(
-            '/me',
-            authenticate,
-            this.controller.currentUserProfile
-        );
+
 
         // Reset password for current user
         this.router.post(

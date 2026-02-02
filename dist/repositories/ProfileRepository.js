@@ -55,7 +55,7 @@ let ProfileRepository = class ProfileRepository {
     ----------------------------------------------------- */
     findUserById(userId) {
         return __awaiter(this, void 0, void 0, function* () {
-            return db_1.default.profile.findUnique({
+            return db_1.default.profile.findFirst({
                 where: { userId },
                 include: {
                     user: {

@@ -159,6 +159,9 @@ export class AuthService {
   async login(email: string, password: string): Promise<User> {
     const user = await prisma.user.findUnique({
       where: { email },
+      include: {
+        profile: true,
+      },
     });
 
     if (!user) {
