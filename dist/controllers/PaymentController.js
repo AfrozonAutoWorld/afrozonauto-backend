@@ -41,23 +41,29 @@ let PaymentController = class PaymentController {
             if (!order) {
                 return res.status(404).json(ApiError_1.ApiError.notFound("Order not found"));
             }
-            console.log("=======orders=========");
-            console.log(order);
             if (!order.vehicleSnapshot) {
                 return res.status(400).json(ApiError_1.ApiError.badRequest("Order is missing vehicle snapshot data"));
             }
             // Type guard to ensure it's an object
             const vehicleSnapshot = order.vehicleSnapshot;
-            if (typeof vehicleSnapshot.originalPriceUsd !== 'number') {
-                return res.status(400).json(ApiError_1.ApiError.badRequest("Invalid vehicle snapshot data"));
-            }
+            // if (typeof vehicleSnapshot.originalPriceUsd !== 'number') {
+            //     return res.status(400).json(
+            //         ApiError.badRequest("Invalid vehicle snapshot data")
+            //     );
+            // }
+            console.log("============payments-=============");
+            console.log(req.body);
             const result = yield this.paymentService.initiatePayment({
                 orderId: req.body.orderId,
                 userId: req.user.id,
                 email: req.user.email,
-                amountUsd: vehicleSnapshot.originalPriceUsd,
+                // amountUsd: 1000 || (vehicleSnapshot.originalPriceUsd ?? vehicleSnapshot.priceUsd) as number,
+                amountUsd: 1000,
                 provider: req.body.provider,
-                paymentType: req.body.paymentType
+                paymentType: req.body.paymentType,
+                currency: vehicleSnapshot.currency || 'USD',
+                callbackUrl: req.body.callbackUrl,
+                shippingMethod: order.shippingMethod
             });
             return res.status(200).json(ApiResponse_1.ApiResponse.success(result));
         }));

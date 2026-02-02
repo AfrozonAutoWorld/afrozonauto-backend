@@ -1,7 +1,18 @@
 export interface PaymentInitResult {
     authorizationUrl?: string;
+    accessCode?: string;
     clientSecret?: string;
     reference: string;
+    amountNgn: number;
+    pricing: any;
+    calculation?: {
+      totalAmountUsd: number;
+      paymentAmount: number;
+      depositPercentage: number;
+      isDeposit: boolean;
+      remainingBalance: number;
+      paymentType: string;
+    };
   }
   
   export interface IPaymentProvider {

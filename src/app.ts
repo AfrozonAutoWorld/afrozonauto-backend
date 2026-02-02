@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { errors as celebrateErrors } from 'celebrate';
 import { CORS_ORIGINS, DATABASE_URL, NODE_ENV } from "./secrets"
 import { ApiError } from './utils/ApiError';
@@ -55,6 +56,7 @@ class App {
     
     // Body parsers
     this.app.use(express.json({ limit: '10mb' }));
+    this.app.use(cookieParser());
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
   
     // Parse and clean origins

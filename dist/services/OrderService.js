@@ -38,7 +38,7 @@ let OrderService = class OrderService {
             const requestNumber = this.generateRequestNumber();
             const orderData = Object.assign(Object.assign({ requestNumber, user: { connect: { id: data.userId } } }, (data.vehicleId && {
                 vehicle: { connect: { id: data.vehicleId } }
-            })), { shippingMethod: data.shippingMethod, destinationCountry: data.destinationCountry || "Nigeria", destinationState: data.destinationState, destinationCity: data.destinationCity, destinationAddress: data.destinationAddress, deliveryInstructions: data.deliveryInstructions, customerNotes: data.customerNotes, specialRequests: data.specialRequests, tags: data.tags || [], status: client_1.OrderStatus.PENDING_QUOTE, vehicleSnapshot: data.vehicleSnapshot });
+            })), { shippingMethod: data.shippingMethod, destinationCountry: data.destinationCountry || "Nigeria", destinationState: data.destinationState, destinationCity: data.destinationCity, destinationAddress: data.destinationAddress, deliveryInstructions: data.deliveryInstructions, customerNotes: data.customerNotes, specialRequests: data.specialRequests, tags: data.tags || [], status: client_1.OrderStatus.PENDING_QUOTE, vehicleSnapshot: data.vehicleSnapshot, paymentBreakdown: data.paymentBreakdown });
             return this.orderRepository.create(orderData);
         });
     }
@@ -243,6 +243,9 @@ let OrderService = class OrderService {
             [client_1.OrderStatus.QUOTE_SENT]: [client_1.OrderStatus.QUOTE_ACCEPTED, client_1.OrderStatus.QUOTE_REJECTED, client_1.OrderStatus.QUOTE_EXPIRED, client_1.OrderStatus.CANCELLED],
             [client_1.OrderStatus.QUOTE_ACCEPTED]: [client_1.OrderStatus.DEPOSIT_PENDING, client_1.OrderStatus.CANCELLED],
             [client_1.OrderStatus.DEPOSIT_PENDING]: [client_1.OrderStatus.DEPOSIT_PAID, client_1.OrderStatus.CANCELLED],
+            [client_1.OrderStatus.HALF_DEPOSIT_PAID]: [client_1.OrderStatus.BALANCE_PAID, client_1.OrderStatus.CANCELLED],
+            [client_1.OrderStatus.BALANCE_PAID]: [client_1.OrderStatus.BALANCE_PAID, client_1.OrderStatus.CANCELLED],
+            [client_1.OrderStatus.AWAITING_BALANCE]: [client_1.OrderStatus.BALANCE_PAID, client_1.OrderStatus.CANCELLED],
             [client_1.OrderStatus.DEPOSIT_PAID]: [client_1.OrderStatus.INSPECTION_PENDING, client_1.OrderStatus.CANCELLED],
             [client_1.OrderStatus.INSPECTION_PENDING]: [client_1.OrderStatus.INSPECTION_COMPLETE, client_1.OrderStatus.INSPECTION_FAILED, client_1.OrderStatus.CANCELLED],
             [client_1.OrderStatus.INSPECTION_COMPLETE]: [client_1.OrderStatus.AWAITING_APPROVAL, client_1.OrderStatus.CANCELLED],

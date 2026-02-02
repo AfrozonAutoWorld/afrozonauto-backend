@@ -148,6 +148,27 @@ model SystemSetting {
   @@map("system_settings")
 }
 
+model FeeSettings {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Percentages (e.g. 35 = 35%)
+  importDutyPercent Float
+  vatPercent        Float
+  cissPercent       Float
+  sourcingFee       Float
+
+  // USD-based fixed fees (STORED IN CENTS)
+  prePurchaseInspectionUsd Float
+  usHandlingFeeUsd         Float
+  shippingCostUsd          Float
+
+  clearingFeeUsd   Float
+  portChargesUsd   Float
+  localDeliveryUsd Float
+}
+
 // ============================================
 // API INTEGRATION TRACKING
 // ============================================
@@ -436,7 +457,8 @@ model Order {
   externalProvider  String? // "autodev"
 
   // Snapshot at order time (CRITICAL)
-  vehicleSnapshot Json
+  vehicleSnapshot  Json
+  paymentBreakdown Json?
 
   // Status (flexible workflow)
   status          OrderStatus @default(PENDING_QUOTE)
@@ -460,7 +482,7 @@ model Order {
   // }
 
   // Shipping
-  shippingMethod       ShippingMethod?
+  shippingMethod       ShippingMethod
   originPort           String?
   destinationPort      String?
   destinationCountry   String          @default("Nigeria")
@@ -504,6 +526,8 @@ model Order {
   messages     Message[]
   activityLogs ActivityLog[]
 
+  paymentMethod   PaymentMethod?
+
   @@index([userId])
   @@index([vehicleId])
   @@index([status])
@@ -542,6 +566,10 @@ enum OrderStatus {
   CANCELLED
   REFUNDED
   PARTIALLY_REFUNDED
+  
+  HALF_DEPOSIT_PAID      // When 50% is paid
+  BALANCE_PAID           // When remaining balance is paid
+  AWAITING_BALANCE       // Waiting for remaining balance payment
 }
 
 enum ShippingMethod {

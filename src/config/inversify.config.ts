@@ -37,6 +37,9 @@ import { TestimonialService } from '../services/TestimonialService';
 import { TestimonialController } from '../controllers/TestimonialController';
 import { OrderService } from '../services/OrderService';
 import { OrderController } from '../controllers/OrderController';
+import { ExchangeRateService } from '../services/ExchangeRateService';
+import { PricingConfigRepository } from '../repositories/PricingConfigRepository';
+import { PricingConfigService } from '../services/PricingConfigService';
 
 
 
@@ -63,6 +66,9 @@ container.bind<TokenService>(TYPES.TokenService).to(TokenService);
 // payments
 container.bind<PaymentController>(TYPES.PaymentController).to(PaymentController);
 container.bind<PaymentService>(TYPES.PaymentService).to(PaymentService);
+container.bind<ExchangeRateService>(TYPES.ExchangeRateService).to(ExchangeRateService);
+container.bind<PricingConfigRepository>(TYPES.PricingConfigRepository).to(PricingConfigRepository);
+container.bind<PricingConfigService>(TYPES.PricingConfigService).to(PricingConfigService);
 container.bind<PaymentRepository>(TYPES.PaymentRepository).to(PaymentRepository);
 container.bind<StripeProvider>(TYPES.StripeProvider).to(StripeProvider);
 container.bind<PaystackProvider>(TYPES.PaystackProvider)

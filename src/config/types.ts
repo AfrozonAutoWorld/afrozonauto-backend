@@ -30,6 +30,7 @@ export const TYPES = {
     PaymentService: Symbol.for('PaymentService'),
     PaymentController: Symbol.for('PaymentController'),
     
+    ExchangeRateService: Symbol.for('ExchangeRateService'),
     StripeProvider: Symbol.for('StripeProvider'),
     PaystackProvider: Symbol.for('PaystackProvider'),
     
@@ -40,5 +41,7 @@ export const TYPES = {
     OrderRepository: Symbol.for('OrderRepository'),
     OrderService: Symbol.for('OrderService'),
     OrderController: Symbol.for('OrderController'),
-
+    
+    PricingConfigRepository: Symbol.for('PricingConfigRepository'),
+    PricingConfigService: Symbol.for('PricingConfigService')
 };

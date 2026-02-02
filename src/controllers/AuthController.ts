@@ -15,11 +15,13 @@ import { ApiResponse } from '../utils/ApiResponse';
 import { ApiError } from '../utils/ApiError';
 import loggers from '../utils/loggers';
 import oauthConfig from '../config/oauth.config';
-import { GOOGLE_CLIENT_ID, NODE_ENV } from '../secrets';
+import { ACCESS_TOKEN_COOKIE_NAME, ACCESS_TOKEN_MAX_AGE, GOOGLE_CLIENT_ID, NODE_ENV, REFRESH_TOKEN_COOKIE_NAME, REFRESH_TOKEN_MAX_AGE, REFRESH_TOKEN_PATH } from '../secrets';
 import { GoogleAuthService } from '../services/GoogleAuthService';
 import { UserRepository } from '../repositories/UserRepository';
 import { AppleAuthService } from '../services/AppleAuthService';
 import { container } from '../config/inversify.config';
+import { AuthenticatedRequest } from '../types/customRequest';
+import { cookieConfig } from '../config/cookkie.config';
 
 @injectable()
 export class AuthController {
@@ -109,22 +111,30 @@ export class AuthController {
   });
 
 
+  cookieControls = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    console.log(req.user)
+    return res.json({
+      success: true,
+      user: req.user,
+    });
+  })
+
   registerFinalization = asyncHandler(async (req: Request, res: Response) => {
     const { email, ...others } = req.body;
 
     if (!email) {
-      return res.status(400).json( ApiError.badRequest('Email is required'));
+      return res.status(400).json(ApiError.badRequest('Email is required'));
     }
     const user = await this.userService.getUserByEmail(email);
 
     if (!user) {
-      return res.status(404).json( ApiError.notFound('User does not exist'));
+      return res.status(404).json(ApiError.notFound('User does not exist'));
     }
 
     const userUpdated = await this.userService.updateUserInfo(user.id, { email, ...others });
 
     if (!userUpdated) {
-      return res.status(500).json( ApiError.internal('Failed to update user information'));
+      return res.status(500).json(ApiError.internal('Failed to update user information'));
     }
 
     const { passwordHash, ...safeUser } = userUpdated;
@@ -158,30 +168,70 @@ export class AuthController {
     }, 'Login successful'));
   });
 
+  // login = asyncHandler(async (req: Request, res: Response) => {
+  //   const { email, password } = req.body;
+
+  //   if (!email || !password) {
+  //     return res.status(400).json(ApiError.badRequest('Email and password are required'));
+  //   }
+
+  //   const userLogged = await this.authService.login(email, password);
+  //   const { passwordHash, ...user } = userLogged;
+
+  //   const jtoken = container.get<Jtoken>(TYPES.Jtoken);
+  //   const { accessToken, refreshToken } = await jtoken.createToken({
+  //     id: user.id.toString(),
+  //     email: user.email,
+  //     role: user.role,
+  //   });
+
+  //   // Access token cookie
+  //   res.cookie(ACCESS_TOKEN_COOKIE_NAME!, accessToken, {
+  //     httpOnly: true,
+  //     ...cookieConfig,
+  //     maxAge: Number(ACCESS_TOKEN_MAX_AGE),
+  //     path: '/',
+  //   });
+
+  //   // Refresh token cookie
+  //   res.cookie(REFRESH_TOKEN_COOKIE_NAME!, refreshToken, {
+  //     httpOnly: true,
+  //     ...cookieConfig,
+  //     maxAge: Number(REFRESH_TOKEN_MAX_AGE),
+  //     path: REFRESH_TOKEN_PATH,
+  //   });
+
+  //   return res.status(200).json({
+  //     success: true,
+  //     message: 'Login successful',
+  //     user: { ...user, online: true, accessToken, refreshToken },
+  //   });
+  // });
+
 
   sendReset = asyncHandler(async (req: Request, res: Response) => {
     const { email } = req.body;
 
     if (!email) {
-      return res.status(400).json( ApiError.badRequest('Email is required'))
+      return res.status(400).json(ApiError.badRequest('Email is required'))
     }
 
     const user = await this.authService.sendResetToken(email);
-    return res.json(ApiResponse.success( {
+    return res.json(ApiResponse.success({
     }, 'Reset token sent to email'));
   });
 
 
   resetPassword = asyncHandler(async (req: Request, res: Response) => {
     const { email, token, newPassword } = req.body;
-  
+
     if (!email || !token || !newPassword) {
       return res.status(400).json(ApiError.badRequest('Email, token, and new password are required'))
     }
-  
+
     // Pass identifier as an object with email property
     await this.authService.resetPassword({ email }, token, newPassword);
-  
+
     return res.json(new ApiResponse(200, null, 'Password reset successful'));
   });
 
@@ -189,7 +239,7 @@ export class AuthController {
     const { email, token } = req.body;
 
     if (!email || !token) {
-      return res.status(400).json( ApiError.badRequest('Email and token are required'))
+      return res.status(400).json(ApiError.badRequest('Email and token are required'))
     }
 
     const userExist = await this.userService.getUserByEmail(email);
@@ -233,6 +283,45 @@ export class AuthController {
       )
     );
   });
+
+  // refreshToken = asyncHandler(async (req: Request, res: Response) => {
+  //   const refreshToken = req.cookies?.[process.env.REFRESH_TOKEN_COOKIE_NAME!];
+
+  //   if (!refreshToken) {
+  //     return res.status(402).json(ApiError.unauthorized('Refresh token missing'))
+  //   }
+
+  //   const jtoken = container.get<Jtoken>(TYPES.Jtoken);
+  //   const refreshResult = await jtoken.refreshAccessToken(refreshToken);
+
+  //   if (!refreshResult) {
+  //     return res.status(402).json(ApiError.unauthorized('Invalid or expired refresh token'))
+  //   }
+
+  //   // Rotate ACCESS token
+  //   res.cookie(ACCESS_TOKEN_COOKIE_NAME!, refreshResult.accessToken, {
+  //     httpOnly: true,
+  //     ...cookieConfig,
+  //     maxAge: Number(ACCESS_TOKEN_MAX_AGE),
+  //     path: '/',
+  //   });
+
+  //   // Rotate REFRESH token
+  //   res.cookie(REFRESH_TOKEN_COOKIE_NAME!, refreshResult.refreshToken, {
+  //     httpOnly: true,
+  //     ...cookieConfig,
+  //     maxAge: Number(REFRESH_TOKEN_MAX_AGE),
+  //     path: REFRESH_TOKEN_PATH,
+  //   });
+
+  //   return res.status(200).json(
+  //     ApiResponse.success(
+  //       { user: refreshResult.user },
+  //       'Session refreshed'
+  //     )
+  //   );
+  // });
+
 
   /**
    * Google login using ID token

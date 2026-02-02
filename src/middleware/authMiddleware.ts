@@ -17,13 +17,15 @@ const userRepository = new UserRepository();
 export const authenticate = asyncHandler(
   async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const header = req.header('Authorization');
-
+    // const token = req.cookies?.access_token;
     if (!header || !header.startsWith('Bearer ')) {
       throw ApiError.unauthorized('Authentication required');
     }
 
     const token = header.replace('Bearer ', '').trim();
-
+    if (!token) {
+      throw ApiError.unauthorized('Authentication required');
+    }
     const payload = await jtoken.verifyToken(token);
     if (!payload || !payload.id) {
       throw ApiError.unauthorized('Invalid or expired token');

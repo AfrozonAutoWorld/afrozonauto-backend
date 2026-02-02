@@ -18,7 +18,7 @@ import { ApiError } from "../utils/ApiError";
 export interface CreateOrderData {
   userId: string;
   vehicleId?: string;
-  shippingMethod?: ShippingMethod;
+  shippingMethod: ShippingMethod;
   destinationCountry?: string;
   destinationState?: string;
   destinationCity?: string;
@@ -28,6 +28,7 @@ export interface CreateOrderData {
   specialRequests?: string;
   tags?: string[];
   vehicleSnapshot: Record<string, any>;
+  paymentBreakdown: Record<string, any>;
 }
 
 export interface UpdateOrderData {
@@ -81,11 +82,14 @@ export class OrderService {
       specialRequests: data.specialRequests,
       tags: data.tags || [],
       status: OrderStatus.PENDING_QUOTE,
-      vehicleSnapshot: data.vehicleSnapshot
+      vehicleSnapshot: data.vehicleSnapshot,
+      paymentBreakdown: data.paymentBreakdown,
     };
     
     return this.orderRepository.create(orderData);
   }
+
+  
 
   private generateRequestNumber(): string {
     const year = new Date().getFullYear().toString().slice(-2);
@@ -305,6 +309,9 @@ private isOrderLocked(order: Order): boolean {
       [OrderStatus.QUOTE_SENT]: [OrderStatus.QUOTE_ACCEPTED, OrderStatus.QUOTE_REJECTED, OrderStatus.QUOTE_EXPIRED, OrderStatus.CANCELLED],
       [OrderStatus.QUOTE_ACCEPTED]: [OrderStatus.DEPOSIT_PENDING, OrderStatus.CANCELLED],
       [OrderStatus.DEPOSIT_PENDING]: [OrderStatus.DEPOSIT_PAID, OrderStatus.CANCELLED],
+      [OrderStatus.HALF_DEPOSIT_PAID]: [OrderStatus.BALANCE_PAID, OrderStatus.CANCELLED],
+      [OrderStatus.BALANCE_PAID]: [OrderStatus.BALANCE_PAID, OrderStatus.CANCELLED],
+      [OrderStatus.AWAITING_BALANCE]: [OrderStatus.BALANCE_PAID, OrderStatus.CANCELLED],
       [OrderStatus.DEPOSIT_PAID]: [OrderStatus.INSPECTION_PENDING, OrderStatus.CANCELLED],
       [OrderStatus.INSPECTION_PENDING]: [OrderStatus.INSPECTION_COMPLETE, OrderStatus.INSPECTION_FAILED, OrderStatus.CANCELLED],
       [OrderStatus.INSPECTION_COMPLETE]: [OrderStatus.AWAITING_APPROVAL, OrderStatus.CANCELLED],

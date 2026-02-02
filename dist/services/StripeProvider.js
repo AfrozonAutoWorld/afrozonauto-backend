@@ -8,6 +8,9 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -26,8 +29,13 @@ const stripe_1 = __importDefault(require("stripe"));
 const inversify_1 = require("inversify");
 const secrets_1 = require("../secrets");
 const loggers_1 = __importDefault(require("../utils/loggers"));
+const types_1 = require("../config/types");
+const PricingConfigService_1 = require("./PricingConfigService");
+const ExchangeRateService_1 = require("./ExchangeRateService");
 let StripeProvider = class StripeProvider {
-    constructor() {
+    constructor(exchangeRateService, pricingConfigService) {
+        this.exchangeRateService = exchangeRateService;
+        this.pricingConfigService = pricingConfigService;
         this.stripe = null;
         this.isConfigured = false;
         if (secrets_1.STRIPE_API_KEY) {
@@ -50,17 +58,34 @@ let StripeProvider = class StripeProvider {
     }
     initializePayment(data) {
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             if (!this.isConfigured || !this.stripe) {
                 throw new Error('Stripe is not configured. Please set STRIPE_API_KEY environment variable.');
             }
+            // Get exchange rate
+            const exchangeRate = yield this.exchangeRateService.getUsdToNgnRate();
+            const pricing = yield this.pricingConfigService.calculateTotalUsd(data.amount, (_a = data === null || data === void 0 ? void 0 : data.metadata) === null || _a === void 0 ? void 0 : _a.shippingMethod);
+            const totalUsd = pricing.totalUsd;
+            const calculation = yield this.pricingConfigService.calculatePaymentAmount({
+                totalAmountUsd: totalUsd,
+                paymentType: data.metadata.paymentType
+            });
+            const amountPayable = calculation.paymentAmount;
+            // Convert TOTAL USD → NGN (ONCE)
+            const amountInNgn = amountPayable * exchangeRate;
             const intent = yield this.stripe.paymentIntents.create({
-                amount: data.amount * 100,
+                // amount: data.amount * 100,
+                amount: amountPayable * 100,
                 currency: data.currency || 'usd',
-                metadata: data.metadata
+                metadata: data.metadata,
             });
             return {
                 clientSecret: intent.client_secret,
-                reference: data.reference
+                reference: data.reference,
+                amountNgn: amountInNgn,
+                pricing,
+                accessCode: undefined,
+                calculation
             };
         });
     }
@@ -90,5 +115,7 @@ let StripeProvider = class StripeProvider {
 exports.StripeProvider = StripeProvider;
 exports.StripeProvider = StripeProvider = __decorate([
     (0, inversify_1.injectable)(),
-    __metadata("design:paramtypes", [])
+    __param(1, (0, inversify_1.inject)(types_1.TYPES.PricingConfigService)),
+    __metadata("design:paramtypes", [ExchangeRateService_1.ExchangeRateService,
+        PricingConfigService_1.PricingConfigService])
 ], StripeProvider);

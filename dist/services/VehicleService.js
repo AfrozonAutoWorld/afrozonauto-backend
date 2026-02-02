@@ -247,13 +247,42 @@ let VehicleService = class VehicleService {
                         });
                         loggers_1.default.info(`Cached vehicle listings for filters: ${JSON.stringify(apiFilters)}`);
                     }
-                    // Apply ALL filters in-memory (price, mileage, year, vehicleType, location)
+                    // Apply ALL filters in-memory (price, mileage, year, vehicleType, location, search)
                     // since Auto.dev API doesn't support these filters
                     const needCount = limit - dbResult.vehicles.length;
                     const filteredListings = apiListings.filter((listing) => {
                         var _a, _b, _c, _d, _e;
                         const vehicle = listing.vehicle || listing;
                         const retailListing = listing.retailListing || {};
+                        // Search filter: only search model and VIN (not make)
+                        // Make should be filtered explicitly, not searched
+                        if (filters.search) {
+                            const searchTerm = filters.search.trim();
+                            const searchLower = searchTerm.toLowerCase();
+                            const model = (vehicle.model || listing.model || '').toLowerCase();
+                            const vin = (listing.vin || vehicle.vin || '').toUpperCase();
+                            const isFullVIN = searchTerm.length === 17 && /^[A-HJ-NPR-Z0-9]{17}$/i.test(searchTerm);
+                            let matchesSearch = false;
+                            // Search model (if not already filtered)
+                            if (!filters.model && model.includes(searchLower)) {
+                                matchesSearch = true;
+                            }
+                            // VIN search: full VIN (exact match) or partial VIN (if make/model are filtered for context)
+                            if (isFullVIN) {
+                                // Full VIN - exact match (case-insensitive)
+                                if (vin === searchTerm.toUpperCase()) {
+                                    matchesSearch = true;
+                                }
+                            }
+                            else if (filters.make || filters.model) {
+                                // Partial VIN search only when make/model are filtered (more specific context)
+                                if (vin.includes(searchTerm.toUpperCase())) {
+                                    matchesSearch = true;
+                                }
+                            }
+                            if (!matchesSearch)
+                                return false;
+                        }
                         // Price filter
                         const price = (_b = (_a = retailListing.price) !== null && _a !== void 0 ? _a : listing.price) !== null && _b !== void 0 ? _b : 0;
                         if (filters.priceMin != null && price < filters.priceMin)

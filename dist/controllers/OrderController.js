@@ -32,21 +32,24 @@ const inversify_1 = require("inversify");
 const VehicleService_1 = require("../services/VehicleService");
 const ProfileService_1 = require("../services/ProfileService");
 const AddressService_1 = require("../services/AddressService");
+const PricingConfigRepository_1 = require("../repositories/PricingConfigRepository");
+const PricingConfigService_1 = require("../services/PricingConfigService");
 let OrderController = class OrderController {
-    constructor(service, vehicleService, profileService, addressService) {
+    constructor(service, vehicleService, pricingRepo, pricingService, profileService, addressService) {
         this.service = service;
         this.vehicleService = vehicleService;
+        this.pricingRepo = pricingRepo;
+        this.pricingService = pricingService;
         this.profileService = profileService;
         this.addressService = addressService;
         // ========== CREATE ==========
         this.createOrder = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
-            var _a, _b, _c, _d, _e;
+            var _a, _b;
             const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
-            console.log(userId);
             if (!userId) {
                 return res.status(401).json(ApiError_1.ApiError.unauthorized("Authentication required"));
             }
-            const { vehicleId, shippingMethod, deliveryInstructions, customerNotes, specialRequests, tags, identifier, type } = req.body;
+            const { vehicleId, shippingMethod, deliveryInstructions, customerNotes, specialRequests, tags, identifier, destinationCountry, destinationState, destinationCity, destinationAddress, type, } = req.body;
             const profile = yield this.profileService.findUserById(userId.toString());
             if (!profile) {
                 return res.status(404).json(ApiError_1.ApiError.notFound('Profile not found. Please complete your profile first.'));
@@ -59,21 +62,56 @@ let OrderController = class OrderController {
             if (!vehicle) {
                 return res.status(404).json(ApiError_1.ApiError.notFound("vehicle not found"));
             }
+            const vehiclePrice = (_b = vehicle.originalPriceUsd) !== null && _b !== void 0 ? _b : vehicle.priceUsd;
+            const paymentBreakdown = yield this.pricingService.calculateTotalUsd(vehiclePrice, shippingMethod);
             const order = yield this.service.createOrder({
                 userId,
                 vehicleId,
                 shippingMethod,
-                destinationCountry: (_b = address.country) !== null && _b !== void 0 ? _b : undefined,
-                destinationState: (_c = address.state) !== null && _c !== void 0 ? _c : undefined,
-                destinationCity: (_d = address.city) !== null && _d !== void 0 ? _d : undefined,
-                destinationAddress: (_e = address.street) !== null && _e !== void 0 ? _e : undefined,
+                // destinationCountry: address.country ?? undefined,
+                // destinationState: address.state ?? undefined,
+                // destinationCity: address.city ?? undefined,
+                // destinationAddress: address.street ?? undefined,
+                destinationCountry,
+                destinationState,
+                destinationCity,
+                destinationAddress,
                 deliveryInstructions,
                 customerNotes,
                 specialRequests,
                 tags,
-                vehicleSnapshot: vehicle
+                vehicleSnapshot: vehicle,
+                paymentBreakdown
             });
             return res.status(201).json(ApiResponse_1.ApiResponse.success(order, "Order created successfully"));
+        }));
+        this.orderSummary = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            var _a, _b;
+            const { identifier } = req.params;
+            let raw = (_a = req.query) === null || _a === void 0 ? void 0 : _a.type;
+            const shippingMethod = req.query.shippingMethod;
+            if (!shippingMethod) {
+                return res.status(400).json(ApiError_1.ApiError.badRequest("shippingMethod is required"));
+            }
+            const typeParam = (Array.isArray(raw) ? raw[0] : raw) || '';
+            let type = (typeParam === null || typeParam === void 0 ? void 0 : typeParam.toString().trim().toLowerCase()) === 'vin' ? 'vin' : 'vin';
+            if (identifier.startsWith('temp-')) {
+                type = 'id';
+            }
+            if (!identifier) {
+                return res.json(ApiError_1.ApiError.badRequest('Vehicle identifier is required'));
+            }
+            const vehicle = yield this.vehicleService.getVehicle(identifier, type);
+            if (!vehicle) {
+                return res.status(404).json(ApiError_1.ApiError.notFound("vehicle not found"));
+            }
+            const vehiclePrice = (_b = vehicle.originalPriceUsd) !== null && _b !== void 0 ? _b : vehicle.priceUsd;
+            const pricingInformation = yield this.pricingRepo.getOrCreateSettings();
+            const paymentBreakdown = yield this.pricingService.calculateTotalUsd(vehiclePrice, shippingMethod);
+            return res.status(200).json(ApiResponse_1.ApiResponse.success({
+                defaultPricing: pricingInformation,
+                paymentBreakdown
+            }));
         }));
         // ========== READ ==========
         this.getOrderById = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
@@ -368,10 +406,14 @@ exports.OrderController = OrderController;
 exports.OrderController = OrderController = __decorate([
     __param(0, (0, inversify_1.inject)(types_1.TYPES.OrderService)),
     __param(1, (0, inversify_1.inject)(types_1.TYPES.VehicleService)),
-    __param(2, (0, inversify_1.inject)(types_1.TYPES.ProfileService)),
-    __param(3, (0, inversify_1.inject)(types_1.TYPES.AddressService)),
+    __param(2, (0, inversify_1.inject)(types_1.TYPES.PricingConfigRepository)),
+    __param(3, (0, inversify_1.inject)(types_1.TYPES.PricingConfigService)),
+    __param(4, (0, inversify_1.inject)(types_1.TYPES.ProfileService)),
+    __param(5, (0, inversify_1.inject)(types_1.TYPES.AddressService)),
     __metadata("design:paramtypes", [OrderService_1.OrderService,
         VehicleService_1.VehicleService,
+        PricingConfigRepository_1.PricingConfigRepository,
+        PricingConfigService_1.PricingConfigService,
         ProfileService_1.ProfileService,
         AddressService_1.AddressService])
 ], OrderController);

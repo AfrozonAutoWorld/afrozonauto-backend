@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const mongoose_1 = __importDefault(require("mongoose"));
 const cors_1 = __importDefault(require("cors"));
+const cookie_parser_1 = __importDefault(require("cookie-parser"));
 const celebrate_1 = require("celebrate");
 const secrets_1 = require("./secrets");
 const ApiError_1 = require("./utils/ApiError");
@@ -50,6 +51,7 @@ class App {
         this.app.use('/api', limiter);
         // Body parsers
         this.app.use(express_1.default.json({ limit: '10mb' }));
+        this.app.use((0, cookie_parser_1.default)());
         this.app.use(express_1.default.urlencoded({ extended: true, limit: '10mb' }));
         // Parse and clean origins
         const allowedOrigins = secrets_1.CORS_ORIGINS

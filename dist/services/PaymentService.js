@@ -30,10 +30,13 @@ const PaymentRepository_1 = require("../repositories/PaymentRepository");
 const OrderRepository_1 = require("../repositories/OrderRepository");
 const types_1 = require("../config/types");
 const db_1 = __importDefault(require("../db"));
+const PricingConfigService_1 = require("./PricingConfigService");
+const enums_1 = require("../generated/prisma/enums");
 let PaymentService = class PaymentService {
-    constructor(paymentRepo, orderRepo, stripe, paystack) {
+    constructor(paymentRepo, orderRepo, pricingService, stripe, paystack) {
         this.paymentRepo = paymentRepo;
         this.orderRepo = orderRepo;
+        this.pricingService = pricingService;
         this.stripe = stripe;
         this.paystack = paystack;
         this.getPayments = () => {
@@ -49,23 +52,36 @@ let PaymentService = class PaymentService {
     initiatePayment(payload) {
         return __awaiter(this, void 0, void 0, function* () {
             const reference = `AFZ-${Date.now()}`;
-            yield this.paymentRepo.createPayment({
+            const provider = payload.provider === 'stripe' ? this.stripe : this.paystack;
+            const result = yield provider.initializePayment({
+                amount: payload.amountUsd,
+                currency: payload.currency,
+                email: payload.email,
+                reference,
+                metadata: { orderId: payload.orderId, callbackUrl: payload.callbackUrl, shippingMethod: payload.shippingMethod, paymentType: payload.paymentType }
+            });
+            // Create payment record with calculation data if available
+            const paymentData = {
                 orderId: payload.orderId,
                 userId: payload.userId,
                 amountUsd: payload.amountUsd,
                 paymentType: payload.paymentType,
                 paymentProvider: payload.provider,
-                status: 'PENDING',
-                transactionRef: reference
-            });
-            const provider = payload.provider === 'stripe' ? this.stripe : this.paystack;
-            return provider.initializePayment({
-                amount: payload.amountUsd,
-                currency: 'USD',
-                email: payload.email,
-                reference,
-                metadata: { orderId: payload.orderId }
-            });
+                status: enums_1.PaymentStatus.PENDING,
+                transactionRef: reference,
+                localCurrency: payload.currency
+            };
+            // Add calculation metadata if available
+            if (result.calculation) {
+                paymentData.metadata = {
+                    calculation: result.calculation,
+                    isDeposit: result.calculation.isDeposit,
+                    depositPercentage: result.calculation.depositPercentage,
+                    remainingBalance: result.calculation.remainingBalance
+                };
+            }
+            yield this.paymentRepo.createPayment(paymentData);
+            return Object.assign(Object.assign({}, result), paymentData.metadata);
         });
     }
     /**
@@ -151,8 +167,10 @@ exports.PaymentService = PaymentService = __decorate([
     (0, inversify_1.injectable)(),
     __param(0, (0, inversify_1.inject)(types_1.TYPES.PaymentRepository)),
     __param(1, (0, inversify_1.inject)(types_1.TYPES.OrderRepository)),
-    __param(2, (0, inversify_1.inject)(types_1.TYPES.StripeProvider)),
-    __param(3, (0, inversify_1.inject)(types_1.TYPES.PaystackProvider)),
+    __param(2, (0, inversify_1.inject)(types_1.TYPES.PricingConfigService)),
+    __param(3, (0, inversify_1.inject)(types_1.TYPES.StripeProvider)),
+    __param(4, (0, inversify_1.inject)(types_1.TYPES.PaystackProvider)),
     __metadata("design:paramtypes", [PaymentRepository_1.PaymentRepository,
-        OrderRepository_1.OrderRepository, Object, Object])
+        OrderRepository_1.OrderRepository,
+        PricingConfigService_1.PricingConfigService, Object, Object])
 ], PaymentService);

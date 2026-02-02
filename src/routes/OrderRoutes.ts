@@ -25,7 +25,6 @@ class OrderRoutes {
             validateBody(createOrderSchema),
             this.controller.createOrder
         );
-
         // Get user's orders
         this.router.get('/my-orders',
              authenticate, 
@@ -35,6 +34,9 @@ class OrderRoutes {
         this.router.get('/:id', 
             authenticate,
             this.controller.getOrderById);
+
+        // Get specific order by ID
+        this.router.get('/order-summary/:identifier', this.controller.orderSummary);
 
         // Get order by request number
         this.router.get('/request/:requestNumber', this.controller.getOrderByRequestNumber);

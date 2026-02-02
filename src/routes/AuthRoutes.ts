@@ -10,8 +10,8 @@ import {
     loginSchema,
     userVerifySchema
 } from '../validation/schema/user.vallidation';
-import { uploadToCloudinary } from '../middleware/cloudinaryUploads';
-import { upload } from '../config/multer.config';
+import { authenticate } from '../middleware/authMiddleware';
+
 
 class AuthRoutes {
     private router = Router();
@@ -25,6 +25,11 @@ class AuthRoutes {
         this.router.post(
             '/register-start',
             this.controller.checkUser.bind(this.controller) // Add .bind()
+        );
+        this.router.get(
+            '/me',
+            // authenticate,
+            this.controller.cookieControls.bind(this.controller) // Add .bind()
         );
         
         this.router.post(

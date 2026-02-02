@@ -119,12 +119,28 @@ let VehicleRepository = class VehicleRepository {
             if (filters.mileageMax) {
                 where.mileage = { lte: filters.mileageMax };
             }
+            // Search filter: only search model and VIN (not make)
+            // Make should be filtered explicitly, not searched
             if (filters.search) {
-                where.OR = [
-                    { make: { contains: filters.search, mode: 'insensitive' } },
-                    { model: { contains: filters.search, mode: 'insensitive' } },
-                    { vin: { contains: filters.search, mode: 'insensitive' } },
-                ];
+                const searchConditions = [];
+                const searchTerm = filters.search.trim();
+                const isFullVIN = searchTerm.length === 17 && /^[A-HJ-NPR-Z0-9]{17}$/i.test(searchTerm);
+                // Search model (if not already filtered)
+                if (!filters.model) {
+                    searchConditions.push({ model: { contains: searchTerm, mode: 'insensitive' } });
+                }
+                // VIN search: full VIN (exact match) or partial VIN (if make/model are filtered for context)
+                if (isFullVIN) {
+                    // Full VIN - exact match
+                    searchConditions.push({ vin: { equals: searchTerm.toUpperCase() } });
+                }
+                else if (filters.make || filters.model) {
+                    // Partial VIN search only when make/model are filtered (more specific context)
+                    searchConditions.push({ vin: { contains: searchTerm, mode: 'insensitive' } });
+                }
+                if (searchConditions.length > 0) {
+                    where.OR = searchConditions;
+                }
             }
             const [vehicles, total] = yield Promise.all([
                 db_1.default.vehicle.findMany({
