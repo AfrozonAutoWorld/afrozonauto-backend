@@ -7,6 +7,7 @@ class VehicleTransformer {
      * Transform Auto.dev listing to our Vehicle model
      */
     static fromAutoDevListing(listing, photos = [], specs) {
+        var _a, _b, _c;
         const vehicle = listing.vehicle || listing;
         const retailListing = listing.retailListing || {};
         return {
@@ -16,7 +17,7 @@ class VehicleTransformer {
             model: vehicle.model,
             year: vehicle.year,
             priceUsd: retailListing.price || listing.price || 0,
-            mileage: retailListing.mileage || listing.mileage,
+            mileage: (_c = (_b = (_a = retailListing.miles) !== null && _a !== void 0 ? _a : retailListing.mileage) !== null && _b !== void 0 ? _b : listing.miles) !== null && _c !== void 0 ? _c : listing.mileage,
             vehicleType: this.mapVehicleType(vehicle.bodyStyle || listing.bodyStyle || ''),
             transmission: vehicle.transmission || listing.transmission,
             fuelType: vehicle.fuel || listing.fuelType,

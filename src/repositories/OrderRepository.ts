@@ -90,7 +90,7 @@ export interface RevenueStats {
   totalRefunds: number;
   averageOrderValue: number;
   byStatus: Record<OrderStatus, { count: number; revenue: number }>;
-  byCountry: Record<string, { count: number; revenue: number }>;
+  byCountry?: Record<string, { count: number; revenue: number }>;
 }
 
 
@@ -670,13 +670,13 @@ export class OrderRepository {
       };
     });
     
-    const byCountry: Record<string, { count: number; revenue: number }> = {};
-    revenueByCountry.forEach(item => {
-      byCountry[item.destinationCountry] = {
-        count: item._count,
-        revenue: item._sum.totalLandedCostUsd || 0
-      };
-    });
+    // const byCountry: Record<string, { count: number; revenue: number }> = {};
+    // revenueByCountry.forEach(item => {
+    //   byCountry[item?.destinationCountry] = {
+    //     count: item._count,
+    //     revenue: item._sum.totalLandedCostUsd || 0
+    //   };
+    // });
     
     return {
       totalRevenue,
@@ -685,7 +685,7 @@ export class OrderRepository {
       totalRefunds,
       averageOrderValue: totals._count > 0 ? totalRevenue / totals._count : 0,
       byStatus,
-      byCountry
+      // byCountry
     };
   }
 

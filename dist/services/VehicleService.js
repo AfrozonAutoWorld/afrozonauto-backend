@@ -251,7 +251,7 @@ let VehicleService = class VehicleService {
                     // since Auto.dev API doesn't support these filters
                     const needCount = limit - dbResult.vehicles.length;
                     const filteredListings = apiListings.filter((listing) => {
-                        var _a, _b, _c, _d, _e;
+                        var _a, _b, _c, _d, _e, _f, _g;
                         const vehicle = listing.vehicle || listing;
                         const retailListing = listing.retailListing || {};
                         // Search filter: only search model and VIN (not make)
@@ -290,11 +290,11 @@ let VehicleService = class VehicleService {
                         if (filters.priceMax != null && price > filters.priceMax)
                             return false;
                         // Mileage filter (must be <= mileageMax)
-                        const mileage = (_d = (_c = retailListing.mileage) !== null && _c !== void 0 ? _c : listing.mileage) !== null && _d !== void 0 ? _d : undefined;
+                        const mileage = (_f = (_e = (_d = (_c = retailListing.miles) !== null && _c !== void 0 ? _c : retailListing.mileage) !== null && _d !== void 0 ? _d : listing.miles) !== null && _e !== void 0 ? _e : listing.mileage) !== null && _f !== void 0 ? _f : undefined;
                         if (filters.mileageMax != null && (mileage == null || mileage > filters.mileageMax))
                             return false;
                         // Year range filter
-                        const listingYear = (_e = vehicle.year) !== null && _e !== void 0 ? _e : listing.year;
+                        const listingYear = (_g = vehicle.year) !== null && _g !== void 0 ? _g : listing.year;
                         if (filters.yearMin != null && (listingYear == null || listingYear < filters.yearMin))
                             return false;
                         if (filters.yearMax != null && (listingYear == null || listingYear > filters.yearMax))

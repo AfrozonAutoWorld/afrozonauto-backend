@@ -545,13 +545,13 @@ let OrderRepository = class OrderRepository {
                     revenue: item._sum.totalLandedCostUsd || 0
                 };
             });
-            const byCountry = {};
-            revenueByCountry.forEach(item => {
-                byCountry[item.destinationCountry] = {
-                    count: item._count,
-                    revenue: item._sum.totalLandedCostUsd || 0
-                };
-            });
+            // const byCountry: Record<string, { count: number; revenue: number }> = {};
+            // revenueByCountry.forEach(item => {
+            //   byCountry[item?.destinationCountry] = {
+            //     count: item._count,
+            //     revenue: item._sum.totalLandedCostUsd || 0
+            //   };
+            // });
             return {
                 totalRevenue,
                 totalDeposits,
@@ -559,7 +559,7 @@ let OrderRepository = class OrderRepository {
                 totalRefunds,
                 averageOrderValue: totals._count > 0 ? totalRevenue / totals._count : 0,
                 byStatus,
-                byCountry
+                // byCountry
             };
         });
     }

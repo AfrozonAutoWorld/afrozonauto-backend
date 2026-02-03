@@ -49,7 +49,12 @@ let OrderController = class OrderController {
             if (!userId) {
                 return res.status(401).json(ApiError_1.ApiError.unauthorized("Authentication required"));
             }
-            const { vehicleId, shippingMethod, deliveryInstructions, customerNotes, specialRequests, tags, identifier, destinationCountry, destinationState, destinationCity, destinationAddress, type, } = req.body;
+            const { vehicleId, shippingMethod, deliveryInstructions, customerNotes, specialRequests, tags, identifier, 
+            // destinationCountry,
+            // destinationState,
+            // destinationCity,
+            // destinationAddress,
+            type, } = req.body;
             const profile = yield this.profileService.findUserById(userId.toString());
             if (!profile) {
                 return res.status(404).json(ApiError_1.ApiError.notFound('Profile not found. Please complete your profile first.'));
@@ -72,10 +77,10 @@ let OrderController = class OrderController {
                 // destinationState: address.state ?? undefined,
                 // destinationCity: address.city ?? undefined,
                 // destinationAddress: address.street ?? undefined,
-                destinationCountry,
-                destinationState,
-                destinationCity,
-                destinationAddress,
+                // destinationCountry,
+                // destinationState,
+                // destinationCity,
+                // destinationAddress,
                 deliveryInstructions,
                 customerNotes,
                 specialRequests,
