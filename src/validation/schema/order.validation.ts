@@ -14,10 +14,10 @@ export const createOrderSchema = Joi.object({
   shippingMethod: Joi.string()
     .valid(...Object.values(ShippingMethod))
     .required(),
-  destinationCountry: Joi.string().optional(),
-  destinationState: Joi.string().optional(),
-  destinationCity: Joi.string().optional(),
-  destinationAddress: Joi.string().optional(),
+  // destinationCountry: Joi.string().optional(),
+  // destinationState: Joi.string().optional(),
+  // destinationCity: Joi.string().optional(),
+  // destinationAddress: Joi.string().optional(),
 
   priority: Joi.string()
     .valid(...Object.values(OrderPriority))

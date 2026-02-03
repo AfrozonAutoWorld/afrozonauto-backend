@@ -485,7 +485,7 @@ model Order {
   shippingMethod       ShippingMethod
   originPort           String?
   destinationPort      String?
-  destinationCountry   String          @default("Nigeria")
+  destinationCountry   String?          @default("Nigeria")
   destinationState     String?
   destinationCity      String?
   destinationAddress   String?
