@@ -36,11 +36,13 @@ let PricingConfigService = class PricingConfigService {
         return __awaiter(this, void 0, void 0, function* () {
             const fees = yield this.settingsRepo.getOrCreateSettings();
             const importDuty = (fees.importDutyPercent / 100) * vehiclePriceUsd;
+            const sourcingFee = (fees.sourcingFee / 100) * vehiclePriceUsd;
+            (fees.importDutyPercent / 100) * vehiclePriceUsd;
             const vat = (fees.vatPercent / 100) * vehiclePriceUsd;
             const ciss = (fees.cissPercent / 100) * vehiclePriceUsd;
             const shippingCostUsd = this.getShippingCostUsd(shippingMethod);
             const fixedFees = fees.prePurchaseInspectionUsd +
-                fees.sourcingFee +
+                sourcingFee +
                 fees.usHandlingFeeUsd +
                 fees.shippingCostUsd;
             // fees.clearingFeeUsd +
@@ -55,7 +57,8 @@ let PricingConfigService = class PricingConfigService {
                     vehiclePriceUsd,
                     prePurchaseInspectionUsd: fees.prePurchaseInspectionUsd,
                     usHandlingFeeUsd: fees.usHandlingFeeUsd,
-                    sourcingFee: fees.sourcingFee,
+                    sourcingFee,
+                    // sourcingFee: fees.sourcingFee,
                     // shippingCostUsd: fees.shippingCostUsd
                     shippingCostUsd
                 }

@@ -1,7 +1,6 @@
 import { PricingConfigRepository } from "../repositories/PricingConfigRepository";
 import { injectable, inject} from 'inversify';
 import { TYPES } from '../config/types';
-import { Decimal } from "../generated/prisma/internal/prismaNamespace";
 import { PaymentType, ShippingMethod } from "../generated/prisma/enums";
 import { ApiError } from "../utils/ApiError";
 import { DEPOSIT_PERCENTAGE } from "../secrets";
@@ -27,6 +26,8 @@ export class PricingConfigService implements IPricingConfigService {
 
     const importDuty =
       (fees.importDutyPercent / 100) * vehiclePriceUsd;
+    const sourcingFee =  (fees.sourcingFee / 100) * vehiclePriceUsd; 
+      (fees.importDutyPercent / 100) * vehiclePriceUsd;
 
     const vat =
       (fees.vatPercent / 100) * vehiclePriceUsd;
@@ -39,7 +40,7 @@ export class PricingConfigService implements IPricingConfigService {
 
     const   fixedFees =
       fees.prePurchaseInspectionUsd +
-      fees.sourcingFee +
+      sourcingFee +
       fees.usHandlingFeeUsd +
       fees.shippingCostUsd
       // fees.clearingFeeUsd +
@@ -56,7 +57,8 @@ export class PricingConfigService implements IPricingConfigService {
         vehiclePriceUsd,
         prePurchaseInspectionUsd: fees.prePurchaseInspectionUsd ,
         usHandlingFeeUsd: fees.usHandlingFeeUsd,
-        sourcingFee: fees.sourcingFee,
+        sourcingFee,
+        // sourcingFee: fees.sourcingFee,
         // shippingCostUsd: fees.shippingCostUsd
         shippingCostUsd
       }

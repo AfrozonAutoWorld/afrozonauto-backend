@@ -21,7 +21,7 @@ export const DEFAULT_FEE_SETTINGS: Prisma.FeeSettingsCreateInput = {
     importDutyPercent: 35,
     vatPercent: 7.5,
     cissPercent: 15,
-    sourcingFee: 5250,
+    sourcingFee: 5, // 5% of the initial vehicle amount
 
     prePurchaseInspectionUsd: 150,
     usHandlingFeeUsd: 350,
