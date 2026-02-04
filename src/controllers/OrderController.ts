@@ -53,10 +53,10 @@ export class OrderController {
       return res.status(404).json(ApiError.notFound('Profile not found. Please complete your profile first.'));
     }
 
-    const address = await this.addressService.getDefaultAddress(profile.id, AddressType.NORMAL);
-    if (!address) {
-      return res.status(400).json(ApiError.badRequest('Default address required. Please set a default address.'));
-    }
+    // const address = await this.addressService.getDefaultAddress(profile.id, AddressType.NORMAL);
+    // if (!address) {
+    //   return res.status(400).json(ApiError.badRequest('Default address required. Please set a default address.'));
+    // }
 
     const vehicle = await this.vehicleService.getVehicle(identifier, type);
     if (!vehicle) {

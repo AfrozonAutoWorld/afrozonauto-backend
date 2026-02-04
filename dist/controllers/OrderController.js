@@ -59,10 +59,10 @@ let OrderController = class OrderController {
             if (!profile) {
                 return res.status(404).json(ApiError_1.ApiError.notFound('Profile not found. Please complete your profile first.'));
             }
-            const address = yield this.addressService.getDefaultAddress(profile.id, client_1.AddressType.NORMAL);
-            if (!address) {
-                return res.status(400).json(ApiError_1.ApiError.badRequest('Default address required. Please set a default address.'));
-            }
+            // const address = await this.addressService.getDefaultAddress(profile.id, AddressType.NORMAL);
+            // if (!address) {
+            //   return res.status(400).json(ApiError.badRequest('Default address required. Please set a default address.'));
+            // }
             const vehicle = yield this.vehicleService.getVehicle(identifier, type);
             if (!vehicle) {
                 return res.status(404).json(ApiError_1.ApiError.notFound("vehicle not found"));
