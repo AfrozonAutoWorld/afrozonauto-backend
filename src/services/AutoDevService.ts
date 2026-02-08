@@ -75,6 +75,31 @@ export class AutoDevService {
   }
 
   /**
+   * Fetch all pages of listings from Auto.dev (for caching full result set in Redis).
+   * Uses limit=100 per page; stops when a page returns fewer than 100 or maxPages is reached.
+   */
+  async fetchAllListings(filters: {
+    make?: string;
+    model?: string;
+    year?: number;
+    zip?: string;
+    distance?: number;
+  }, maxPages: number = 20): Promise<AutoDevListing[]> {
+    const all: AutoDevListing[] = [];
+    const pageSize = 100;
+    let page = 1;
+
+    while (page <= maxPages) {
+      const chunk = await this.fetchListings({ ...filters, page, limit: pageSize });
+      all.push(...chunk);
+      if (chunk.length < pageSize) break;
+      page++;
+    }
+
+    return all;
+  }
+
+  /**
    * Fetch single listing by VIN
    */
   async fetchListingByVIN(vin: string): Promise<AutoDevListing | null> {
