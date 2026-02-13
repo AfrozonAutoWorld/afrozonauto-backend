@@ -204,16 +204,13 @@ let VehicleService = class VehicleService {
             const priceRefreshPromises = staleVehicles.map(v => this.refreshVehiclePrice(v).catch(() => null));
             // Don't await - let it run in background, but refresh the vehicles we return
             Promise.all(priceRefreshPromises).catch(() => { });
-            // Step 2: If DB results are insufficient, check Redis cache, then Auto.dev API
-            // Apply in-memory filtering to cached/API listings since Auto.dev API doesn't support
-            // price, mileage, vehicleType, or location filters - we filter in-memory after fetching
+            // Step 2: Get full API list from Redis (or fetch all pages from Auto.dev and cache)
+            // Then filter in-memory and paginate so total/pages include API results
             let apiVehicles = [];
             let fromApiCount = 0;
-            if (includeApiResults && dbResult.vehicles.length < limit) {
+            let apiOnlyCount = 0; // count of API-only listings (not in DB) after filters
+            if (includeApiResults) {
                 try {
-                    // Map our filters to Auto.dev API filters (API only supports make, model, year, zip)
-                    // Note: We don't map dealerState to zip because dealerState could be a state abbreviation (CA, NY)
-                    // and API expects zip codes. We'll filter by state in-memory instead.
                     const apiFilters = {};
                     if (filters.make)
                         apiFilters.make = filters.make;
@@ -227,35 +224,25 @@ let VehicleService = class VehicleService {
                             apiFilters.year = filters.yearMin;
                         }
                     }
-                    // Skip dealerState -> zip mapping - filter by state in-memory instead
-                    // Cache key: same filters, page 1, fixed batch size (cache stores unfiltered batch)
-                    const apiBatchLimit = 100;
-                    const cacheKey = RedisCacheService_1.RedisCacheService.getVehicleListingsKey(Object.assign(Object.assign({}, apiFilters), { page: 1, limit: apiBatchLimit }));
+                    // Cache key: full list per apiFilters (no page) – we store everything from Auto.dev for this filter
+                    const cacheKey = RedisCacheService_1.RedisCacheService.getVehicleListingsKey(Object.assign(Object.assign({}, apiFilters), { full: true }));
                     const cachedResult = yield this.cache.get(cacheKey);
                     let apiListings = [];
                     if ((_a = cachedResult === null || cachedResult === void 0 ? void 0 : cachedResult.listings) === null || _a === void 0 ? void 0 : _a.length) {
-                        loggers_1.default.info(`Using cached vehicle listings for filters: ${JSON.stringify(apiFilters)}`);
+                        loggers_1.default.info(`Using cached full vehicle listings for filters: ${JSON.stringify(apiFilters)}`);
                         apiListings = cachedResult.listings;
                     }
                     else {
-                        // Fetch from Auto.dev API
-                        apiListings = yield this.autoDevService.fetchListings(Object.assign(Object.assign({}, apiFilters), { page: 1, limit: apiBatchLimit }));
-                        // Cache the unfiltered batch (we'll filter in-memory per request)
-                        yield this.cache.set(cacheKey, {
-                            listings: apiListings,
-                            total: apiListings.length,
-                        });
-                        loggers_1.default.info(`Cached vehicle listings for filters: ${JSON.stringify(apiFilters)}`);
+                        // Fetch all pages from Auto.dev and cache
+                        apiListings = yield this.autoDevService.fetchAllListings(apiFilters);
+                        yield this.cache.set(cacheKey, { listings: apiListings });
+                        loggers_1.default.info(`Cached full vehicle listings (${apiListings.length}) for filters: ${JSON.stringify(apiFilters)}`);
                     }
-                    // Apply ALL filters in-memory (price, mileage, year, vehicleType, location, search)
-                    // since Auto.dev API doesn't support these filters
-                    const needCount = limit - dbResult.vehicles.length;
+                    // Apply in-memory filters (price, mileage, year, vehicleType, location, search)
                     const filteredListings = apiListings.filter((listing) => {
                         var _a, _b, _c, _d, _e, _f, _g;
                         const vehicle = listing.vehicle || listing;
                         const retailListing = listing.retailListing || {};
-                        // Search filter: only search model and VIN (not make)
-                        // Make should be filtered explicitly, not searched
                         if (filters.search) {
                             const searchTerm = filters.search.trim();
                             const searchLower = searchTerm.toLowerCase();
@@ -263,67 +250,49 @@ let VehicleService = class VehicleService {
                             const vin = (listing.vin || vehicle.vin || '').toUpperCase();
                             const isFullVIN = searchTerm.length === 17 && /^[A-HJ-NPR-Z0-9]{17}$/i.test(searchTerm);
                             let matchesSearch = false;
-                            // Search model (if not already filtered)
-                            if (!filters.model && model.includes(searchLower)) {
+                            if (!filters.model && model.includes(searchLower))
                                 matchesSearch = true;
-                            }
-                            // VIN search: full VIN (exact match) or partial VIN (if make/model are filtered for context)
-                            if (isFullVIN) {
-                                // Full VIN - exact match (case-insensitive)
-                                if (vin === searchTerm.toUpperCase()) {
-                                    matchesSearch = true;
-                                }
-                            }
-                            else if (filters.make || filters.model) {
-                                // Partial VIN search only when make/model are filtered (more specific context)
-                                if (vin.includes(searchTerm.toUpperCase())) {
-                                    matchesSearch = true;
-                                }
-                            }
+                            if (isFullVIN && vin === searchTerm.toUpperCase())
+                                matchesSearch = true;
+                            else if ((filters.make || filters.model) && vin.includes(searchTerm.toUpperCase()))
+                                matchesSearch = true;
                             if (!matchesSearch)
                                 return false;
                         }
-                        // Price filter
                         const price = (_b = (_a = retailListing.price) !== null && _a !== void 0 ? _a : listing.price) !== null && _b !== void 0 ? _b : 0;
                         if (filters.priceMin != null && price < filters.priceMin)
                             return false;
                         if (filters.priceMax != null && price > filters.priceMax)
                             return false;
-                        // Mileage filter (must be <= mileageMax)
                         const mileage = (_f = (_e = (_d = (_c = retailListing.miles) !== null && _c !== void 0 ? _c : retailListing.mileage) !== null && _d !== void 0 ? _d : listing.miles) !== null && _e !== void 0 ? _e : listing.mileage) !== null && _f !== void 0 ? _f : undefined;
                         if (filters.mileageMax != null && (mileage == null || mileage > filters.mileageMax))
                             return false;
-                        // Year range filter
                         const listingYear = (_g = vehicle.year) !== null && _g !== void 0 ? _g : listing.year;
                         if (filters.yearMin != null && (listingYear == null || listingYear < filters.yearMin))
                             return false;
                         if (filters.yearMax != null && (listingYear == null || listingYear > filters.yearMax))
                             return false;
-                        // VehicleType filter (transform bodyStyle to vehicleType and compare)
                         if (filters.vehicleType) {
                             const bodyStyle = vehicle.bodyStyle || listing.bodyStyle || '';
-                            const mappedType = vehicle_transformer_1.VehicleTransformer.mapVehicleType(bodyStyle);
-                            if (mappedType !== filters.vehicleType)
+                            if (vehicle_transformer_1.VehicleTransformer.mapVehicleType(bodyStyle) !== filters.vehicleType)
                                 return false;
                         }
-                        // Location/dealerState filter
                         if (filters.dealerState) {
-                            const listingState = retailListing.state || listing.dealerState || '';
-                            // Case-insensitive comparison
-                            if (listingState.toLowerCase() !== filters.dealerState.toLowerCase())
+                            const listingState = (retailListing.state || listing.dealerState || '').toLowerCase();
+                            if (listingState !== filters.dealerState.toLowerCase())
                                 return false;
                         }
                         return true;
                     });
-                    // Batch check existing VINs to avoid duplicates
                     const vinsToCheck = filteredListings.map((l) => l.vin).filter(Boolean);
                     const existingVins = yield this.vehicleRepo.findExistingVINs(vinsToCheck);
-                    // Transform and add filtered listings
-                    for (const listing of filteredListings) {
-                        if (!listing.vin || existingVins.has(listing.vin))
-                            continue;
-                        if (apiVehicles.length >= needCount)
-                            break;
+                    const apiOnlyList = filteredListings.filter((l) => l.vin && !existingVins.has(l.vin));
+                    apiOnlyCount = apiOnlyList.length;
+                    // Paginate API slice for this page: DB fills first, then API fills the rest of the page
+                    const apiOffset = Math.max(0, (page - 1) * limit - dbResult.total);
+                    const needCount = limit - dbResult.vehicles.length;
+                    const apiChunk = apiOnlyList.slice(apiOffset, apiOffset + needCount);
+                    for (const listing of apiChunk) {
                         const vehicleData = vehicle_transformer_1.VehicleTransformer.fromAutoDevListing(listing, []);
                         vehicleData.apiData = {
                             listing,
@@ -334,17 +303,17 @@ let VehicleService = class VehicleService {
                         vehicleData.apiSyncStatus = 'PENDING';
                         vehicleData.id = `temp-${listing.vin}`;
                         apiVehicles.push(vehicleData);
-                        fromApiCount++;
                     }
+                    fromApiCount = apiVehicles.length;
                 }
                 catch (error) {
                     loggers_1.default.warn('Failed to fetch from Auto.dev API, returning DB results only:', error);
                 }
             }
-            // Step 3: Combine results (DB first, then filtered API/Redis). Total/pages based on DB only.
-            const allVehicles = [...dbResult.vehicles, ...apiVehicles];
-            const total = dbResult.total;
+            // Step 3: Combined total and pages (DB + API-only count) so frontend can paginate
+            const total = dbResult.total + apiOnlyCount;
             const pages = Math.ceil(total / limit) || 1;
+            const allVehicles = [...dbResult.vehicles, ...apiVehicles];
             return {
                 vehicles: allVehicles,
                 total,

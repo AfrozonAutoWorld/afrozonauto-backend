@@ -2,14 +2,9 @@ import { injectable } from 'inversify';
 import { AUTO_DEV_API_KEY, AUTO_DEV_BASE_URL } from '../secrets';
 import { VehicleTransformer, AutoDevListing, AutoDevVINDecode } from '../helpers/vehicle-transformer';
 import loggers from '../utils/loggers';
+import { ApiError } from '../utils/ApiError';
+import {AutoDevResponse} from "../validation/interfaces/IVehicle"
 
-interface AutoDevResponse<T> {
-  data?: T;
-  error?: {
-    message: string;
-    code: string;
-  };
-}
 
 @injectable()
 export class AutoDevService {
@@ -30,7 +25,7 @@ export class AutoDevService {
   }): Promise<AutoDevListing[]> {
     if (!this.apiKey) {
       loggers.warn('AUTO_DEV_API_KEY is not configured. Cannot fetch listings from Auto.dev API.');
-      throw new Error('Auto.dev API key is not configured');
+      throw ApiError.internal('Auto.dev API key is not configured');
     }
 
     try {
@@ -57,14 +52,14 @@ export class AutoDevService {
           statusText: response.statusText,
           body: errorText.substring(0, 200)
         });
-        throw new Error(`Auto.dev API error: ${response.statusText} (Status: ${response.status})`);
+        throw ApiError.internal(`Auto.dev API error: ${response.statusText} (Status: ${response.status})`);
       }
 
       const data: AutoDevResponse<AutoDevListing[]> = await response.json();
       
       if (data.error) {
         loggers.error('Auto.dev API returned error:', data.error);
-        throw new Error(data.error.message || 'Auto.dev API error');
+        throw  ApiError.internal(data.error.message || 'Auto.dev API error');
       }
 
       return data.data || [];
@@ -116,7 +111,7 @@ export class AutoDevService {
       }
 
       if (!response.ok) {
-        throw new Error(`Auto.dev API error: ${response.statusText}`);
+        throw ApiError.internal(`Auto.dev API error: ${response.statusText}`);
       }
 
       const data: AutoDevResponse<AutoDevListing> = await response.json();
@@ -144,7 +139,7 @@ export class AutoDevService {
       }
 
       if (!response.ok) {
-        throw new Error(`Auto.dev API error: ${response.statusText}`);
+        throw  ApiError.badGateway(`Auto.dev API error: ${response.statusText}`);
       }
 
       const data: AutoDevResponse<AutoDevVINDecode> = await response.json();
@@ -183,7 +178,7 @@ export class AutoDevService {
   /**
    * Fetch vehicle specifications
    */
-  async fetchSpecifications(vin: string): Promise<any> {
+  fetchSpecifications = async (vin: string): Promise<any> => {
     try {
       const response = await fetch(`${this.baseUrl}/specs/${vin}`, {
         headers: {

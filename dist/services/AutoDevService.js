@@ -22,10 +22,33 @@ exports.AutoDevService = void 0;
 const inversify_1 = require("inversify");
 const secrets_1 = require("../secrets");
 const loggers_1 = __importDefault(require("../utils/loggers"));
+const ApiError_1 = require("../utils/ApiError");
 let AutoDevService = class AutoDevService {
     constructor() {
         this.baseUrl = secrets_1.AUTO_DEV_BASE_URL || 'https://api.auto.dev';
         this.apiKey = secrets_1.AUTO_DEV_API_KEY;
+        /**
+         * Fetch vehicle specifications
+         */
+        this.fetchSpecifications = (vin) => __awaiter(this, void 0, void 0, function* () {
+            try {
+                const response = yield fetch(`${this.baseUrl}/specs/${vin}`, {
+                    headers: {
+                        'Authorization': `Bearer ${this.apiKey}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+                if (!response.ok) {
+                    return null;
+                }
+                const data = yield response.json();
+                return data.specs || null;
+            }
+            catch (error) {
+                loggers_1.default.error('Auto.dev fetchSpecifications error:', error);
+                return null;
+            }
+        });
     }
     /**
      * Fetch vehicle listings from Auto.dev
@@ -34,7 +57,7 @@ let AutoDevService = class AutoDevService {
         return __awaiter(this, void 0, void 0, function* () {
             if (!this.apiKey) {
                 loggers_1.default.warn('AUTO_DEV_API_KEY is not configured. Cannot fetch listings from Auto.dev API.');
-                throw new Error('Auto.dev API key is not configured');
+                throw ApiError_1.ApiError.internal('Auto.dev API key is not configured');
             }
             try {
                 const params = new URLSearchParams();
@@ -65,12 +88,12 @@ let AutoDevService = class AutoDevService {
                         statusText: response.statusText,
                         body: errorText.substring(0, 200)
                     });
-                    throw new Error(`Auto.dev API error: ${response.statusText} (Status: ${response.status})`);
+                    throw ApiError_1.ApiError.internal(`Auto.dev API error: ${response.statusText} (Status: ${response.status})`);
                 }
                 const data = yield response.json();
                 if (data.error) {
                     loggers_1.default.error('Auto.dev API returned error:', data.error);
-                    throw new Error(data.error.message || 'Auto.dev API error');
+                    throw ApiError_1.ApiError.internal(data.error.message || 'Auto.dev API error');
                 }
                 return data.data || [];
             }
@@ -78,6 +101,25 @@ let AutoDevService = class AutoDevService {
                 loggers_1.default.error('Auto.dev fetchListings error:', error);
                 throw error;
             }
+        });
+    }
+    /**
+     * Fetch all pages of listings from Auto.dev (for caching full result set in Redis).
+     * Uses limit=100 per page; stops when a page returns fewer than 100 or maxPages is reached.
+     */
+    fetchAllListings(filters_1) {
+        return __awaiter(this, arguments, void 0, function* (filters, maxPages = 20) {
+            const all = [];
+            const pageSize = 100;
+            let page = 1;
+            while (page <= maxPages) {
+                const chunk = yield this.fetchListings(Object.assign(Object.assign({}, filters), { page, limit: pageSize }));
+                all.push(...chunk);
+                if (chunk.length < pageSize)
+                    break;
+                page++;
+            }
+            return all;
         });
     }
     /**
@@ -96,7 +138,7 @@ let AutoDevService = class AutoDevService {
                     return null;
                 }
                 if (!response.ok) {
-                    throw new Error(`Auto.dev API error: ${response.statusText}`);
+                    throw ApiError_1.ApiError.internal(`Auto.dev API error: ${response.statusText}`);
                 }
                 const data = yield response.json();
                 return data.data || null;
@@ -123,7 +165,7 @@ let AutoDevService = class AutoDevService {
                     return null;
                 }
                 if (!response.ok) {
-                    throw new Error(`Auto.dev API error: ${response.statusText}`);
+                    throw ApiError_1.ApiError.badGateway(`Auto.dev API error: ${response.statusText}`);
                 }
                 const data = yield response.json();
                 return data.data || null;
@@ -157,30 +199,6 @@ let AutoDevService = class AutoDevService {
             catch (error) {
                 loggers_1.default.error('Auto.dev fetchPhotos error:', error);
                 return [];
-            }
-        });
-    }
-    /**
-     * Fetch vehicle specifications
-     */
-    fetchSpecifications(vin) {
-        return __awaiter(this, void 0, void 0, function* () {
-            try {
-                const response = yield fetch(`${this.baseUrl}/specs/${vin}`, {
-                    headers: {
-                        'Authorization': `Bearer ${this.apiKey}`,
-                        'Content-Type': 'application/json',
-                    },
-                });
-                if (!response.ok) {
-                    return null;
-                }
-                const data = yield response.json();
-                return data.specs || null;
-            }
-            catch (error) {
-                loggers_1.default.error('Auto.dev fetchSpecifications error:', error);
-                return null;
             }
         });
     }
