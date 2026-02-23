@@ -2,25 +2,47 @@ import { Router } from 'express';
 import { container } from '../config/inversify.config';
 import { TYPES } from '../config/types';
 import { VehicleController } from '../controllers/VehicleController';
-import { authenticate } from '../middleware/authMiddleware';
+import { TrendingDefinitionController } from '../controllers/TrendingDefinitionController';
+import { VehicleCategoryController } from '../controllers/VehicleCategoryController';
+import { authenticate, authorize } from '../middleware/authMiddleware';
 import { validateBody } from '../middleware/bodyValidate';
 import { createVehicleSchema } from '../validation/schema/vehicle.validation';
-
-
+import { UserRole } from '../generated/prisma/client';
 
 class VehicleRoutes {
     private router: Router;
     private controller: VehicleController;
+    private trendingDefController: TrendingDefinitionController;
+    private categoryController: VehicleCategoryController;
 
     constructor() {
         this.router = Router();
         this.controller = container.get<VehicleController>(TYPES.VehicleController);
+        this.trendingDefController = container.get<TrendingDefinitionController>(TYPES.TrendingDefinitionController);
+        this.categoryController = container.get<VehicleCategoryController>(TYPES.VehicleCategoryController);
         this.initializeRoutes();
     }
 
     private initializeRoutes(): void {
-        // Public routes
+        // Public routes (order matters: specific paths before /:identifier)
         this.router.get('/', this.controller.getVehicles);
+        this.router.get('/trending', this.controller.getTrending);
+        this.router.get('/categories', this.controller.getCategories);
+
+        // Admin: trending definitions (CRUD) - before /:identifier
+        this.router.get('/trending-definitions', authenticate, authorize([UserRole.SUPER_ADMIN, UserRole.OPERATIONS_ADMIN]), this.trendingDefController.list);
+        this.router.get('/trending-definitions/:id', authenticate, authorize([UserRole.SUPER_ADMIN, UserRole.OPERATIONS_ADMIN]), this.trendingDefController.getById);
+        this.router.post('/trending-definitions', authenticate, authorize([UserRole.SUPER_ADMIN, UserRole.OPERATIONS_ADMIN]), this.trendingDefController.create);
+        this.router.put('/trending-definitions/:id', authenticate, authorize([UserRole.SUPER_ADMIN, UserRole.OPERATIONS_ADMIN]), this.trendingDefController.update);
+        this.router.delete('/trending-definitions/:id', authenticate, authorize([UserRole.SUPER_ADMIN, UserRole.OPERATIONS_ADMIN]), this.trendingDefController.delete);
+
+        // Admin: vehicle categories (CRUD)
+        this.router.get('/admin/categories', authenticate, authorize([UserRole.SUPER_ADMIN, UserRole.OPERATIONS_ADMIN]), this.categoryController.list);
+        this.router.get('/admin/categories/:id', authenticate, authorize([UserRole.SUPER_ADMIN, UserRole.OPERATIONS_ADMIN]), this.categoryController.getById);
+        this.router.post('/admin/categories', authenticate, authorize([UserRole.SUPER_ADMIN, UserRole.OPERATIONS_ADMIN]), this.categoryController.create);
+        this.router.put('/admin/categories/:id', authenticate, authorize([UserRole.SUPER_ADMIN, UserRole.OPERATIONS_ADMIN]), this.categoryController.update);
+        this.router.delete('/admin/categories/:id', authenticate, authorize([UserRole.SUPER_ADMIN, UserRole.OPERATIONS_ADMIN]), this.categoryController.delete);
+
         this.router.get('/:identifier', this.controller.getVehicle);
 
         // Protected routes (require authentication)

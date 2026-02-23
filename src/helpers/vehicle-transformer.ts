@@ -44,7 +44,11 @@ export class VehicleTransformer {
   ): Partial<Vehicle> {
     const vehicle = (listing as any).vehicle || listing;
     const retailListing = (listing as any).retailListing || {};
-    
+    // Use fetched photos when present; otherwise fall back to primaryImage from listing (e.g. from GET /listings)
+    const primaryImage = retailListing.primaryImage;
+    const images =
+      photos.length > 0 ? photos : primaryImage ? [primaryImage] : [];
+
     return {
       vin: listing.vin || vehicle.vin,
       slug: this.generateSlug(vehicle.make, vehicle.model, vehicle.year, listing.vin || vehicle.vin),
@@ -64,7 +68,7 @@ export class VehicleTransformer {
       dealerState: retailListing.state || listing.dealerState,
       dealerCity: retailListing.city || listing.dealerCity,
       dealerZipCode: retailListing.zip || listing.dealerZipCode,
-      images: photos,
+      images,
       features: listing.features || [],
       source: VehicleSource.API,
       apiProvider: 'autodev',
@@ -125,6 +129,23 @@ export class VehicleTransformer {
     if (style.includes('wagon')) return VehicleType.WAGON;
     if (style.includes('convertible')) return VehicleType.CONVERTIBLE;
     return VehicleType.CAR;
+  }
+
+  static vehicleTypeToBodyStyle(vehicleType: VehicleType): string {
+    const map: Partial<Record<VehicleType, string>> = {
+      [VehicleType.CAR]: 'sedan',
+      [VehicleType.SEDAN]: 'sedan',
+      [VehicleType.SUV]: 'suv',
+      [VehicleType.TRUCK]: 'truck',
+      [VehicleType.VAN]: 'van',
+      [VehicleType.COUPE]: 'coupe',
+      [VehicleType.HATCHBACK]: 'hatchback',
+      [VehicleType.WAGON]: 'wagon',
+      [VehicleType.CONVERTIBLE]: 'convertible',
+      [VehicleType.MOTORCYCLE]: '',
+      [VehicleType.OTHER]: '',
+    };
+    return map[vehicleType] ?? '';
   }
 }
 

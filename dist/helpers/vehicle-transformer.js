@@ -10,6 +10,9 @@ class VehicleTransformer {
         var _a, _b, _c;
         const vehicle = listing.vehicle || listing;
         const retailListing = listing.retailListing || {};
+        // Use fetched photos when present; otherwise fall back to primaryImage from listing (e.g. from GET /listings)
+        const primaryImage = retailListing.primaryImage;
+        const images = photos.length > 0 ? photos : primaryImage ? [primaryImage] : [];
         return {
             vin: listing.vin || vehicle.vin,
             slug: this.generateSlug(vehicle.make, vehicle.model, vehicle.year, listing.vin || vehicle.vin),
@@ -29,7 +32,7 @@ class VehicleTransformer {
             dealerState: retailListing.state || listing.dealerState,
             dealerCity: retailListing.city || listing.dealerCity,
             dealerZipCode: retailListing.zip || listing.dealerZipCode,
-            images: photos,
+            images,
             features: listing.features || [],
             source: client_1.VehicleSource.API,
             apiProvider: 'autodev',
@@ -90,6 +93,23 @@ class VehicleTransformer {
         if (style.includes('convertible'))
             return client_1.VehicleType.CONVERTIBLE;
         return client_1.VehicleType.CAR;
+    }
+    static vehicleTypeToBodyStyle(vehicleType) {
+        var _a;
+        const map = {
+            [client_1.VehicleType.CAR]: 'sedan',
+            [client_1.VehicleType.SEDAN]: 'sedan',
+            [client_1.VehicleType.SUV]: 'suv',
+            [client_1.VehicleType.TRUCK]: 'truck',
+            [client_1.VehicleType.VAN]: 'van',
+            [client_1.VehicleType.COUPE]: 'coupe',
+            [client_1.VehicleType.HATCHBACK]: 'hatchback',
+            [client_1.VehicleType.WAGON]: 'wagon',
+            [client_1.VehicleType.CONVERTIBLE]: 'convertible',
+            [client_1.VehicleType.MOTORCYCLE]: '',
+            [client_1.VehicleType.OTHER]: '',
+        };
+        return (_a = map[vehicleType]) !== null && _a !== void 0 ? _a : '';
     }
 }
 exports.VehicleTransformer = VehicleTransformer;

@@ -18,6 +18,10 @@ export interface VehicleFilters {
   isHidden?: boolean;
   featured?: boolean;
   search?: string; // Search in model or VIN (make should be filtered explicitly, not searched)
+  // Category-derived (from VehicleCategory: bodyStyle, fuel, luxuryMakes, priceMin)
+  bodyStyle?: string;
+  fuel?: string;
+  luxuryMakes?: string[];
 }
 
 export interface VehiclePagination {
@@ -76,6 +80,18 @@ export class VehicleRepository {
   }
 
   /**
+   * Find vehicles by IDs (preserves order of ids when possible)
+   */
+  async findManyByIds(ids: string[]): Promise<Vehicle[]> {
+    if (ids.length === 0) return [];
+    const vehicles = await prisma.vehicle.findMany({
+      where: { id: { in: ids }, isActive: true, isHidden: false },
+    });
+    const byId = new Map(vehicles.map((v) => [v.id, v]));
+    return ids.map((id) => byId.get(id)).filter((v): v is Vehicle => v != null);
+  }
+
+  /**
    * Find vehicles with filters and pagination
    */
   async findMany(
@@ -91,7 +107,11 @@ export class VehicleRepository {
       isHidden: filters.isHidden !== true,
     };
 
-    if (filters.make) where.make = { equals: filters.make, mode: 'insensitive' };
+    if (filters.luxuryMakes?.length) {
+      where.make = { in: filters.luxuryMakes };
+    } else if (filters.make) {
+      where.make = { equals: filters.make, mode: 'insensitive' };
+    }
     if (filters.model) where.model = { equals: filters.model, mode: 'insensitive' };
     if (filters.vehicleType) where.vehicleType = filters.vehicleType;
     if (filters.status) where.status = filters.status;

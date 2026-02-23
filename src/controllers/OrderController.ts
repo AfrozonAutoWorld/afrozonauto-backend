@@ -6,7 +6,7 @@ import { OrderStatus, ShippingMethod, OrderPriority, AddressType } from '../gene
 import { asyncHandler } from '../utils/asyncHandler';
 import { TYPES } from '../config/types';
 import { inject, injectable } from 'inversify';
-import { VehicleService } from '../services/VehicleService';
+import { VehicleServiceDirect } from '../services/VehicleServiceDirect';
 import { ProfileService } from '../services/ProfileService';
 import { AddressService } from '../services/AddressService';
 import { AuthenticatedRequest } from '../types/customRequest';
@@ -16,7 +16,7 @@ import { PricingConfigService } from '../services/PricingConfigService';
 export class OrderController {
   constructor(
     @inject(TYPES.OrderService) private service: OrderService,
-    @inject(TYPES.VehicleService) private vehicleService: VehicleService,
+    @inject(TYPES.VehicleService) private vehicleService: VehicleServiceDirect,
     @inject(TYPES.PricingConfigRepository) private pricingRepo: PricingConfigRepository,
     @inject(TYPES.PricingConfigService) private pricingService: PricingConfigService,
     @inject(TYPES.ProfileService) private profileService: ProfileService,

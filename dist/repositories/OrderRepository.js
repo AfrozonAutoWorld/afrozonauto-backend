@@ -256,6 +256,29 @@ let OrderRepository = class OrderRepository {
             });
         });
     }
+    /**
+     * Get vehicle IDs that have been ordered, sorted by order count (most ordered first).
+     * Used for "trending" - vehicles people actually ordered.
+     */
+    findOrderedVehicleIds() {
+        return __awaiter(this, arguments, void 0, function* (limit = 20) {
+            var _a;
+            const orders = yield db_1.default.order.findMany({
+                where: { vehicleId: { not: null } },
+                select: { vehicleId: true },
+            });
+            const countByVehicleId = new Map();
+            for (const o of orders) {
+                if (o.vehicleId) {
+                    countByVehicleId.set(o.vehicleId, ((_a = countByVehicleId.get(o.vehicleId)) !== null && _a !== void 0 ? _a : 0) + 1);
+                }
+            }
+            return Array.from(countByVehicleId.entries())
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, limit)
+                .map(([id]) => id);
+        });
+    }
     // ========== ADVANCED QUERIES ==========
     // async findAllWithFilters(filters: OrderFilters, page = 1, limit = 20): Promise<{
     //   orders: Order[];

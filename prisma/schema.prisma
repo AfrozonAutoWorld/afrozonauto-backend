@@ -1023,6 +1023,45 @@ model SavedVehicle {
 }
 
 // ============================================
+// TRENDING & CATEGORIES (Admin-configurable)
+// ============================================
+
+model TrendingDefinition {
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  make      String
+  model     String? // optional
+  yearStart Int
+  yearEnd   Int
+  label     String? // e.g. "Hot in Africa", "Popular in Europe"
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@map("trending_definitions")
+}
+
+model VehicleCategory {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  slug        String   @unique // e.g. electric, suv, sedan
+  label       String   // e.g. "Electric", "SUV"
+  bodyStyle   String?  // maps to vehicle.bodyStyle for Auto.dev
+  fuel        String?  // maps to vehicle.fuel for Auto.dev (Electric, Hybrid, etc.)
+  luxuryMakes String[] @default([]) // for Luxury: ["Mercedes-Benz", "BMW", ...]
+  priceMin    Float?   // optional min price for Luxury
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@map("vehicle_categories")
+}
+
+// ============================================
 // TESTIMONIALS (Marketing & Trust)
 // ============================================
 

@@ -77,10 +77,25 @@ let VehicleRepository = class VehicleRepository {
         });
     }
     /**
+     * Find vehicles by IDs (preserves order of ids when possible)
+     */
+    findManyByIds(ids) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (ids.length === 0)
+                return [];
+            const vehicles = yield db_1.default.vehicle.findMany({
+                where: { id: { in: ids }, isActive: true, isHidden: false },
+            });
+            const byId = new Map(vehicles.map((v) => [v.id, v]));
+            return ids.map((id) => byId.get(id)).filter((v) => v != null);
+        });
+    }
+    /**
      * Find vehicles with filters and pagination
      */
     findMany(filters_1) {
         return __awaiter(this, arguments, void 0, function* (filters, pagination = {}) {
+            var _a;
             const page = pagination.page || 1;
             const limit = Math.min(pagination.limit || 50, 100); // Max 100 per page
             const skip = (page - 1) * limit;
@@ -88,8 +103,12 @@ let VehicleRepository = class VehicleRepository {
                 isActive: filters.isActive !== false,
                 isHidden: filters.isHidden !== true,
             };
-            if (filters.make)
+            if ((_a = filters.luxuryMakes) === null || _a === void 0 ? void 0 : _a.length) {
+                where.make = { in: filters.luxuryMakes };
+            }
+            else if (filters.make) {
                 where.make = { equals: filters.make, mode: 'insensitive' };
+            }
             if (filters.model)
                 where.model = { equals: filters.model, mode: 'insensitive' };
             if (filters.vehicleType)

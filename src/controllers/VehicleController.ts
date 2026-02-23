@@ -1,7 +1,8 @@
 import { Response } from 'express';
 import { inject, injectable } from 'inversify';
 import { TYPES } from '../config/types';
-import { VehicleService } from '../services/VehicleService';
+import { VehicleServiceDirect } from '../services/VehicleServiceDirect';
+import { CategoryService } from '../services/CategoryService';
 import { AuthenticatedRequest } from '../types/customRequest';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiResponse } from '../utils/ApiResponse';
@@ -12,14 +13,32 @@ import { UserRole } from '../generated/prisma/client';
 @injectable()
 export class VehicleController {
   constructor(
-    @inject(TYPES.VehicleService) private vehicleService: VehicleService
+    @inject(TYPES.VehicleService) private vehicleService: VehicleServiceDirect,
+    @inject(TYPES.CategoryService) private categoryService: CategoryService
   ) { }
 
   /**
+   * GET /api/vehicles/trending
+   * Trending vehicles: ordered first, then 5 per trending rule from Auto.dev
+   */
+  getTrending = asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
+    const vehicles = await this.vehicleService.getTrendingVehicles();
+    return res.json(ApiResponse.success(vehicles, 'Trending vehicles retrieved successfully'));
+  });
+
+  /**
+   * GET /api/vehicles/categories
+   * List active categories for filtering (Electric, SUV, Sedan, etc.)
+   */
+  getCategories = asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
+    const categories = await this.categoryService.listCategories();
+    return res.json(ApiResponse.success(categories, 'Categories retrieved successfully'));
+  });
+
+  /**
    * GET /api/vehicles
-   * Get list of vehicles with filters (DB first, Redis cache, API fallback)
+   * Get list of vehicles with filters (DB first, API)
    * Query param: includeApi=true/false (default: true) - whether to include API results
-   * API results are cached in Redis (12hr TTL) to handle price changes
    */
   getVehicles = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const q = req.query;
@@ -52,8 +71,9 @@ export class VehicleController {
     };
 
     const includeApi = req.query.includeApi !== 'false';
+    const categorySlug = str(q.category);
 
-    const result = await this.vehicleService.getVehicles(filters, pagination, includeApi);
+    const result = await this.vehicleService.getVehicles(filters, pagination, includeApi, categorySlug);
 
     return res.json(
       ApiResponse.paginated(

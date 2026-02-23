@@ -24,19 +24,36 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.VehicleController = void 0;
 const inversify_1 = require("inversify");
 const types_1 = require("../config/types");
-const VehicleService_1 = require("../services/VehicleService");
+const VehicleServiceDirect_1 = require("../services/VehicleServiceDirect");
+const CategoryService_1 = require("../services/CategoryService");
 const asyncHandler_1 = require("../utils/asyncHandler");
 const ApiResponse_1 = require("../utils/ApiResponse");
 const ApiError_1 = require("../utils/ApiError");
 const client_1 = require("../generated/prisma/client");
 let VehicleController = class VehicleController {
-    constructor(vehicleService) {
+    constructor(vehicleService, categoryService) {
         this.vehicleService = vehicleService;
+        this.categoryService = categoryService;
+        /**
+         * GET /api/vehicles/trending
+         * Trending vehicles: ordered first, then 5 per trending rule from Auto.dev
+         */
+        this.getTrending = (0, asyncHandler_1.asyncHandler)((_req, res) => __awaiter(this, void 0, void 0, function* () {
+            const vehicles = yield this.vehicleService.getTrendingVehicles();
+            return res.json(ApiResponse_1.ApiResponse.success(vehicles, 'Trending vehicles retrieved successfully'));
+        }));
+        /**
+         * GET /api/vehicles/categories
+         * List active categories for filtering (Electric, SUV, Sedan, etc.)
+         */
+        this.getCategories = (0, asyncHandler_1.asyncHandler)((_req, res) => __awaiter(this, void 0, void 0, function* () {
+            const categories = yield this.categoryService.listCategories();
+            return res.json(ApiResponse_1.ApiResponse.success(categories, 'Categories retrieved successfully'));
+        }));
         /**
          * GET /api/vehicles
-         * Get list of vehicles with filters (DB first, Redis cache, API fallback)
+         * Get list of vehicles with filters (DB first, API)
          * Query param: includeApi=true/false (default: true) - whether to include API results
-         * API results are cached in Redis (12hr TTL) to handle price changes
          */
         this.getVehicles = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             const q = req.query;
@@ -79,7 +96,8 @@ let VehicleController = class VehicleController {
                 limit: Math.min(100, Math.max(1, q.limit ? parseInt(q.limit, 10) : 50)),
             };
             const includeApi = req.query.includeApi !== 'false';
-            const result = yield this.vehicleService.getVehicles(filters, pagination, includeApi);
+            const categorySlug = str(q.category);
+            const result = yield this.vehicleService.getVehicles(filters, pagination, includeApi, categorySlug);
             return res.json(ApiResponse_1.ApiResponse.paginated(result.vehicles, {
                 page: result.page,
                 limit: result.limit,
@@ -182,5 +200,7 @@ exports.VehicleController = VehicleController;
 exports.VehicleController = VehicleController = __decorate([
     (0, inversify_1.injectable)(),
     __param(0, (0, inversify_1.inject)(types_1.TYPES.VehicleService)),
-    __metadata("design:paramtypes", [VehicleService_1.VehicleService])
+    __param(1, (0, inversify_1.inject)(types_1.TYPES.CategoryService)),
+    __metadata("design:paramtypes", [VehicleServiceDirect_1.VehicleServiceDirect,
+        CategoryService_1.CategoryService])
 ], VehicleController);

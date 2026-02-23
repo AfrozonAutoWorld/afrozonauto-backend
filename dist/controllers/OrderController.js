@@ -29,7 +29,7 @@ const client_1 = require("../generated/prisma/client");
 const asyncHandler_1 = require("../utils/asyncHandler");
 const types_1 = require("../config/types");
 const inversify_1 = require("inversify");
-const VehicleService_1 = require("../services/VehicleService");
+const VehicleServiceDirect_1 = require("../services/VehicleServiceDirect");
 const ProfileService_1 = require("../services/ProfileService");
 const AddressService_1 = require("../services/AddressService");
 const PricingConfigRepository_1 = require("../repositories/PricingConfigRepository");
@@ -416,7 +416,7 @@ exports.OrderController = OrderController = __decorate([
     __param(4, (0, inversify_1.inject)(types_1.TYPES.ProfileService)),
     __param(5, (0, inversify_1.inject)(types_1.TYPES.AddressService)),
     __metadata("design:paramtypes", [OrderService_1.OrderService,
-        VehicleService_1.VehicleService,
+        VehicleServiceDirect_1.VehicleServiceDirect,
         PricingConfigRepository_1.PricingConfigRepository,
         PricingConfigService_1.PricingConfigService,
         ProfileService_1.ProfileService,

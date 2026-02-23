@@ -80,6 +80,84 @@ let AutoDevService = class AutoDevService {
             }
         });
     }
+    fetchListingsWithParams(params) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!this.apiKey) {
+                loggers_1.default.warn('AUTO_DEV_API_KEY is not configured. Cannot fetch listings from Auto.dev API.');
+                throw new Error('Auto.dev API key is not configured');
+            }
+            const searchParams = new URLSearchParams();
+            const keys = [
+                'vehicle.make', 'vehicle.model', 'vehicle.year', 'vehicle.bodyStyle', 'vehicle.fuel', 'vehicle.trim',
+                'vehicle.transmission', 'vehicle.exteriorColor', 'vehicle.interiorColor',
+                'retailListing.price', 'retailListing.miles', 'retailListing.state',
+                'wholesaleListing.state', 'wholesaleListing.miles', 'wholesaleListing.buyNowPrice',
+                'zip', 'page', 'limit', 'distance',
+            ];
+            for (const key of keys) {
+                const v = params[key];
+                if (v === undefined || v === null || v === '')
+                    continue;
+                if (key === 'distance' && typeof v === 'number') {
+                    searchParams.append(key, String(v));
+                }
+                else if (key === 'page' || key === 'limit') {
+                    if (typeof v === 'number')
+                        searchParams.append(key, String(v));
+                }
+                else if (typeof v === 'string') {
+                    searchParams.append(key, v);
+                }
+            }
+            const url = `${this.baseUrl}/listings?${searchParams}`;
+            try {
+                const response = yield fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${this.apiKey}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+                if (!response.ok) {
+                    const errorText = yield response.text();
+                    loggers_1.default.error(`Auto.dev API error (${response.status}): ${response.statusText}`, {
+                        status: response.status,
+                        statusText: response.statusText,
+                        body: errorText.substring(0, 200),
+                    });
+                    throw new Error(`Auto.dev API error: ${response.statusText} (Status: ${response.status})`);
+                }
+                const data = yield response.json();
+                if (data.error) {
+                    loggers_1.default.error('Auto.dev API returned error:', data.error);
+                    throw new Error(data.error.message || 'Auto.dev API error');
+                }
+                return data.data || [];
+            }
+            catch (error) {
+                loggers_1.default.error('Auto.dev fetchListingsWithParams error:', error);
+                throw error;
+            }
+        });
+    }
+    /**
+     * Fetch all pages of listings from Auto.dev (for caching full result set in Redis).
+     * Uses limit=100 per page; stops when a page returns fewer than 100 or maxPages is reached.
+     */
+    fetchAllListings(filters_1) {
+        return __awaiter(this, arguments, void 0, function* (filters, maxPages = 50) {
+            const all = [];
+            const pageSize = 100;
+            let page = 1;
+            while (page <= maxPages) {
+                const chunk = yield this.fetchListings(Object.assign(Object.assign({}, filters), { page, limit: pageSize }));
+                all.push(...chunk);
+                if (chunk.length < pageSize)
+                    break;
+                page++;
+            }
+            return all;
+        });
+    }
     /**
      * Fetch single listing by VIN
      */

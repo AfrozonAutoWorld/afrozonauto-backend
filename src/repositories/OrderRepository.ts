@@ -337,6 +337,24 @@ export class OrderRepository {
     });
   }
 
+
+  async findOrderedVehicleIds(limit: number = 20): Promise<string[]> {
+    const orders = await prisma.order.findMany({
+      where: { vehicleId: { not: null } },
+      select: { vehicleId: true },
+    });
+    const countByVehicleId = new Map<string, number>();
+    for (const o of orders) {
+      if (o.vehicleId) {
+        countByVehicleId.set(o.vehicleId, (countByVehicleId.get(o.vehicleId) ?? 0) + 1);
+      }
+    }
+    return Array.from(countByVehicleId.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+      .map(([id]) => id);
+  }
+
   // ========== ADVANCED QUERIES ==========
   
   // async findAllWithFilters(filters: OrderFilters, page = 1, limit = 20): Promise<{
