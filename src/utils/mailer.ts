@@ -1,7 +1,8 @@
 import nodemailer, { Transporter } from 'nodemailer';
-import { MAIL_HOST, MAIL_USERNAME, MAIL_PORT, FROM_EMAIL, MAIL_PASSWORD } from "../secrets"
+import { MAIL_HOST, MAIL_USERNAME, MAIL_PORT, FROM_EMAIL, MAIL_PASSWORD, RESEND_EMAIL } from "../secrets"
 import logger from "./loggers";
 import { ApiError } from './ApiError';
+import { resend } from '../config/resend.config';
 
 // Singleton transporter instance
 let transporter: Transporter | null = null;
@@ -91,27 +92,56 @@ function stripHtml(html: string): string {
     .trim();
 }
 
-const sendMail = async (to: string, subject: string, html: string, textContent?: string) => {
+// const sendMail = async (to: string, subject: string, html: string, textContent?: string) => {
 
-  const transporter = getTransporter();
-  const mailOptions = {
-    from: FROM_EMAIL,
-    to: to,
-    subject: subject,
-    html: html,
-    text: textContent || stripHtml(html)
-  };
+//   const transporter = getTransporter();
+//   const mailOptions = {
+//     from: FROM_EMAIL,
+//     to: to,
+//     subject: subject,
+//     html: html,
+//     text: textContent || stripHtml(html)
+//   };
 
-  logger.info(`Sending mail to - ${to}`);
-  await transporter.sendMail(mailOptions, (error, info) => {
+//   logger.info(`Sending mail to - ${to}`);
+//   await transporter.sendMail(mailOptions, (error, info) => {
+//     if (error) {
+//       console.log(error);
+//       logger.error(error);
+//     } else {
+//       logger.info('Email sent: ' + info.response);
+//     }
+//   });
+// }
+
+export const sendMail = async (
+  to: string,
+  subject: string,
+  html: string,
+  textContent?: string
+) => {
+  try {
+    logger.info(`Sending mail to - ${to}`);
+
+    const { data, error } = await resend.emails.send({
+      from: RESEND_EMAIL,
+      to,
+      subject,
+      html,
+    });
+
     if (error) {
-      console.log(error);
-      logger.error(error);
-    } else {
-      logger.info('Email sent: ' + info.response);
+      logger.error('Resend email error:', error);
+      throw error;
     }
-  });
-}
+
+    logger.info(`Email sent successfully. ID: ${data?.id}`);
+    return data;
+  } catch (err) {
+    logger.error('Failed to send email:', err);
+    throw err;
+  }
+};
 
 
 export default sendMail

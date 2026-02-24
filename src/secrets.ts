@@ -71,6 +71,5 @@ export const ACCESS_TOKEN_MAX_AGE = process.env.ACCESS_TOKEN_MAX_AGE!;
 export const REFRESH_TOKEN_COOKIE_NAME = process.env.REFRESH_TOKEN_COOKIE_NAME!;
 export const REFRESH_TOKEN_MAX_AGE = process.env.REFRESH_TOKEN_MAX_AGE!;
 export const REFRESH_TOKEN_PATH = process.env.REFRESH_TOKEN_PATH!;
-
-
-
+export const RESEND_API_KEY = process.env.RESEND_API_KEY!;
+export const RESEND_EMAIL = process.env.RESEND_EMAIL!;

@@ -12,11 +12,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.mailerActive = exports.getTransporter = void 0;
+exports.sendMail = exports.mailerActive = exports.getTransporter = void 0;
 const nodemailer_1 = __importDefault(require("nodemailer"));
 const secrets_1 = require("../secrets");
 const loggers_1 = __importDefault(require("./loggers"));
 const ApiError_1 = require("./ApiError");
+const resend_config_1 = require("../config/resend.config");
 // Singleton transporter instance
 let transporter = null;
 /**
@@ -93,24 +94,45 @@ function stripHtml(html) {
         .replace(/\s+/g, ' ') // Collapse whitespace
         .trim();
 }
+// const sendMail = async (to: string, subject: string, html: string, textContent?: string) => {
+//   const transporter = getTransporter();
+//   const mailOptions = {
+//     from: FROM_EMAIL,
+//     to: to,
+//     subject: subject,
+//     html: html,
+//     text: textContent || stripHtml(html)
+//   };
+//   logger.info(`Sending mail to - ${to}`);
+//   await transporter.sendMail(mailOptions, (error, info) => {
+//     if (error) {
+//       console.log(error);
+//       logger.error(error);
+//     } else {
+//       logger.info('Email sent: ' + info.response);
+//     }
+//   });
+// }
 const sendMail = (to, subject, html, textContent) => __awaiter(void 0, void 0, void 0, function* () {
-    const transporter = (0, exports.getTransporter)();
-    const mailOptions = {
-        from: secrets_1.FROM_EMAIL,
-        to: to,
-        subject: subject,
-        html: html,
-        text: textContent || stripHtml(html)
-    };
-    loggers_1.default.info(`Sending mail to - ${to}`);
-    yield transporter.sendMail(mailOptions, (error, info) => {
+    try {
+        loggers_1.default.info(`Sending mail to - ${to}`);
+        const { data, error } = yield resend_config_1.resend.emails.send({
+            from: secrets_1.RESEND_EMAIL,
+            to,
+            subject,
+            html,
+        });
         if (error) {
-            console.log(error);
-            loggers_1.default.error(error);
+            loggers_1.default.error('Resend email error:', error);
+            throw error;
         }
-        else {
-            loggers_1.default.info('Email sent: ' + info.response);
-        }
-    });
+        loggers_1.default.info(`Email sent successfully. ID: ${data === null || data === void 0 ? void 0 : data.id}`);
+        return data;
+    }
+    catch (err) {
+        loggers_1.default.error('Failed to send email:', err);
+        throw err;
+    }
 });
-exports.default = sendMail;
+exports.sendMail = sendMail;
+exports.default = exports.sendMail;
