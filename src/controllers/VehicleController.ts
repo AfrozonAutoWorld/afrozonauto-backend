@@ -45,6 +45,17 @@ export class VehicleController {
   });
 
   /**
+   * GET /api/vehicles/debug/auto-dev-page?page=4&limit=24
+   * Debug: see what Auto.dev returns on a given page (no filters). Use to inspect make/model mix.
+   */
+  getAutoDevPageDebug = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const page = Math.max(1, parseInt(String(req.query.page || 4), 10) || 4);
+    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || 24), 10) || 24));
+    const data = await this.vehicleService.getAutoDevPageSummary(page, limit);
+    return res.json(ApiResponse.success(data, `Auto.dev page ${page} summary`));
+  });
+
+  /**
    * GET /api/vehicles
    * Get list of vehicles with filters (DB first, API)
    * Query param: includeApi=true/false (default: true) - whether to include API results

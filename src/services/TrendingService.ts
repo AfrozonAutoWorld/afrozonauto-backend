@@ -8,7 +8,6 @@ import { VehicleTransformer } from '../helpers/vehicle-transformer';
 import { Vehicle } from '../generated/prisma/client';
 import loggers from '../utils/loggers';
 
-const TRENDING_PER_RULE = 5;
 const MAX_ORDERED_VEHICLES = 15;
 
 @injectable()
@@ -21,7 +20,7 @@ export class TrendingService {
   ) {}
 
   /**
-   * Get trending vehicles: (1) vehicles people ordered, (2) 5 per trending rule from Auto.dev.
+   * Get trending vehicles: (1) vehicles people ordered, (2) upto maxFetchCount per trending rule from Auto.dev.
    */
   async getTrendingVehicles(): Promise<Vehicle[]> {
     const result: Vehicle[] = [];
@@ -41,14 +40,14 @@ export class TrendingService {
       loggers.warn('TrendingService: failed to load ordered vehicles', e);
     }
 
-    // 2. Curated: 5 per trending definition from Auto.dev
+    // 2. Curated: up to maxFetchCount per trending definition from Auto.dev
     const definitions = await this.trendingRepo.findManyActive();
     for (const def of definitions) {
       try {
         const params: Record<string, string | number> = {
           'vehicle.make': def.make,
           'vehicle.year': `${def.yearStart}-${def.yearEnd}`,
-          limit: TRENDING_PER_RULE,
+          limit: def.maxFetchCount,
         };
         if (def.model?.trim()) params['vehicle.model'] = def.model.trim();
         const listings = await this.autoDevService.fetchListingsWithParams(params as any);
@@ -69,5 +68,13 @@ export class TrendingService {
     }
 
     return result;
+  }
+
+  async getMaxFetchCount(): Promise<number> {
+    const defs = await this.trendingRepo.findManyActive() as any[];
+    if (!defs.length) return 1;
+    const values = defs
+      .map((d) => (typeof d.maxFetchCount === 'number' && d.maxFetchCount > 0 ? d.maxFetchCount : 1));
+    return values.length ? Math.max(...values) : 1;
   }
 }

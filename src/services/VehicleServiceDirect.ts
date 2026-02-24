@@ -32,6 +32,44 @@ export class VehicleServiceDirect {
     return await this.autoDevService.fetchMakeModelsReference();
   }
 
+  /**
+   * Debug: fetch one raw page from Auto.dev (no filters) and return make/model summary.
+   * Use to inspect what Auto.dev returns on e.g. page 4 and avoid Hummer/truck dominance.
+   */
+  async getAutoDevPageSummary(
+    page: number = 4,
+    limit: number = 24
+  ): Promise<{
+    page: number;
+    limit: number;
+    count: number;
+    byMake: Record<string, number>;
+    byMakeModel: Record<string, Record<string, number>>;
+    sample: Array<{ make: string; model: string; year?: number }>;
+  }> {
+    const params: AutoDevListingsParams = { page, limit };
+    const apiListings = await this.autoDevService.fetchListingsWithParams(params);
+
+    const byMake: Record<string, number> = {};
+    const byMakeModel: Record<string, Record<string, number>> = {};
+    const sample: Array<{ make: string; model: string; year?: number }> = [];
+
+    for (const listing of apiListings) {
+      const v = (listing as any).vehicle || listing;
+      const make = (v.make || '').toString().trim() || 'Unknown';
+      const model = (v.model || '').toString().trim() || 'Unknown';
+      const year = typeof v.year === 'number' ? v.year : undefined;
+
+      byMake[make] = (byMake[make] ?? 0) + 1;
+      if (!byMakeModel[make]) byMakeModel[make] = {};
+      byMakeModel[make][model] = (byMakeModel[make][model] ?? 0) + 1;
+
+      if (sample.length < 15) sample.push({ make, model, year });
+    }
+
+    return { page, limit, count: apiListings.length, byMake, byMakeModel, sample };
+  }
+
   private filtersToAutoDevParams(
     filters: VehicleFilters,
     page?: number,
@@ -185,7 +223,8 @@ export class VehicleServiceDirect {
   private sortVehiclesInPlace(
     vehicles: Vehicle[],
     sortBy?: string,
-    sortOrder: 'asc' | 'desc' = 'asc'
+    sortOrder: 'asc' | 'desc' = 'asc',
+    demoteHummers: boolean = false
   ): void {
     if (!sortBy || vehicles.length === 0) return;
 
@@ -207,7 +246,22 @@ export class VehicleServiceDirect {
         break;
     }
 
+    const isHummer = (v: Vehicle): boolean => {
+      const make = (v.make || '').toLowerCase();
+      const model = (v.model || '').toLowerCase();
+      return make.includes('hummer') || model.includes('hummer');
+    };
+
     vehicles.sort((a, b) => {
+      if (demoteHummers) {
+        const aH = isHummer(a);
+        const bH = isHummer(b);
+        if (aH !== bH) {
+          // Non‑Hummers first, Hummers after
+          return aH ? 1 : -1;
+        }
+      }
+
       const aVal = key === 'createdAt'
         ? ((a.createdAt as unknown as Date) ?? new Date(0)).getTime()
         : ((a as any)[key] ?? 0);
@@ -246,7 +300,9 @@ export class VehicleServiceDirect {
         resolvedFilters = { ...filters };
         if (category.bodyStyle) {
           (resolvedFilters as any).bodyStyle = category.bodyStyle;
-          resolvedFilters.vehicleType = VehicleTransformer.mapVehicleType(category.bodyStyle) as VehicleType;
+          resolvedFilters.vehicleType = VehicleTransformer.mapVehicleType(
+            category.bodyStyle
+          ) as VehicleType;
         }
         if (category.fuel) (resolvedFilters as any).fuel = category.fuel;
         if (category.luxuryMakes?.length) (resolvedFilters as any).luxuryMakes = category.luxuryMakes;
@@ -254,16 +310,36 @@ export class VehicleServiceDirect {
       }
     }
 
-    // When includeApi: one page from Auto.dev only (no DB merge) — frontend uses "Load more" / infinite scroll
+    const dbResult = await this.vehicleRepo.findMany(resolvedFilters, pagination);
+    const staleVehicles = dbResult.vehicles.filter((v) => this.isPriceStale(v));
+    Promise.all(
+      staleVehicles.map((v) => this.refreshVehiclePrice(v).catch(() => null))
+    ).catch(() => {});
+
+    let apiVehicles: Vehicle[] = [];
+    let fromApiCount = 0;
+    let apiOnlyCount = 0;
+
     if (includeApiResults) {
       try {
-        const apiParams = this.filtersToAutoDevParams(resolvedFilters, page, limit);
+        // When browsing "all" (no filters), start from Auto.dev page 5 to avoid Hummer-heavy pages 1–4
+        const isBrowsingAll =
+          !resolvedFilters.make &&
+          !resolvedFilters.model &&
+          !resolvedFilters.search &&
+          !resolvedFilters.vehicleType &&
+          !categorySlug;
+        const apiPage = isBrowsingAll ? 5 : 1;
+        const apiLimit = 100;
+        const apiParams = this.filtersToAutoDevParams(resolvedFilters, apiPage, apiLimit);
         const apiListings = await this.autoDevService.fetchListingsWithParams(apiParams);
 
+        // Optional search filter (API may not support free text; filter in-memory if needed)
         let filteredListings = apiListings;
         if (filters.search?.trim()) {
           const searchTerm = filters.search.trim().toLowerCase();
-          const isFullVIN = searchTerm.length === 17 && /^[a-hj-npr-z0-9]{17}$/i.test(searchTerm);
+          const isFullVIN =
+            searchTerm.length === 17 && /^[a-hj-npr-z0-9]{17}$/i.test(searchTerm);
           filteredListings = apiListings.filter((listing: any) => {
             const vehicle = listing.vehicle || listing;
             const model = (vehicle.model || listing.model || '').toLowerCase();
@@ -277,10 +353,16 @@ export class VehicleServiceDirect {
 
         const vinsToCheck = filteredListings.map((l: any) => l.vin).filter(Boolean);
         const existingVins = await this.vehicleRepo.findExistingVINs(vinsToCheck);
-        const apiVehicles: Vehicle[] = [];
+        const apiOnlyList = filteredListings.filter(
+          (l: any) => l.vin && !existingVins.has(l.vin)
+        );
+        apiOnlyCount = apiOnlyList.length;
 
-        for (const listing of filteredListings) {
-          if (!listing.vin || existingVins.has(listing.vin)) continue;
+        const apiOffset = Math.max(0, (page - 1) * limit - dbResult.total);
+        const needCount = limit - dbResult.vehicles.length;
+        const apiChunk = apiOnlyList.slice(apiOffset, apiOffset + needCount);
+
+        for (const listing of apiChunk) {
           const vehicleData = VehicleTransformer.fromAutoDevListing(listing, []);
           if (!vehicleData.priceUsd || vehicleData.priceUsd <= 0) continue;
           vehicleData.apiData = {
@@ -293,51 +375,32 @@ export class VehicleServiceDirect {
           vehicleData.id = `temp-${listing.vin}`;
           apiVehicles.push(vehicleData as Vehicle);
         }
-
-        // Apply sorting for API vehicles (per page) when requested
-        if (sortBy) {
-          this.sortVehiclesInPlace(apiVehicles, sortBy, sortOrder);
-        }
-
-        const fallThroughToDb = categorySlug && apiVehicles.length === 0 && apiListings.length > 0;
-        if (!fallThroughToDb) {
-          const hasMore = apiListings.length === limit;
-          return {
-            vehicles: apiVehicles,
-            total: 0,
-            page,
-            limit,
-            pages: 0,
-            fromApi: apiVehicles.length,
-            hasMore,
-          };
-        }
+        fromApiCount = apiVehicles.length;
       } catch (error) {
-        loggers.warn('Failed to fetch from Auto.dev API (direct), falling back to DB only:', error);
+        loggers.warn(
+          'Failed to fetch from Auto.dev API (direct), returning DB results only:',
+          error
+        );
       }
     }
 
-    const dbResult = await this.vehicleRepo.findMany(resolvedFilters, pagination);
-    const staleVehicles = dbResult.vehicles.filter((v) => this.isPriceStale(v));
-    Promise.all(staleVehicles.map((v) => this.refreshVehiclePrice(v).catch(() => null))).catch(() => {});
+    const total = dbResult.total + apiOnlyCount;
+    const pages = Math.ceil(total / limit) || 1;
+    const allVehicles: Vehicle[] = [...dbResult.vehicles, ...apiVehicles];
 
-    const sortedDbVehicles = [...dbResult.vehicles];
+    // Preserve new sorting behavior on top of the old merge logic
     if (sortBy) {
-      this.sortVehiclesInPlace(sortedDbVehicles, sortBy, sortOrder);
+      const demoteHummers = !resolvedFilters.make && !resolvedFilters.vehicleType;
+      this.sortVehiclesInPlace(allVehicles, sortBy, sortOrder, demoteHummers);
     }
 
-    const total = dbResult.total;
-    const pages = Math.ceil(total / limit) || 1;
-    const hasMore = page < pages;
-
     return {
-      vehicles: sortedDbVehicles,
+      vehicles: allVehicles,
       total,
       page,
       limit,
       pages,
-      fromApi: 0,
-      hasMore,
+      fromApi: fromApiCount,
     };
   }
 

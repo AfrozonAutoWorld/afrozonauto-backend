@@ -22,10 +22,69 @@ const defaultCategories = [
 ];
 
 const defaultTrending = [
-  { make: 'Mercedes-Benz', model: null, yearStart: 2020, yearEnd: 2025, label: 'Popular Luxury', sortOrder: 0 },
-  { make: 'BMW', model: null, yearStart: 2020, yearEnd: 2025, label: 'Hot in Europe', sortOrder: 1 },
-  { make: 'Lexus', model: null, yearStart: 2019, yearEnd: 2024, label: 'Hot in Africa', sortOrder: 2 },
-  { make: 'Toyota', model: 'Camry', yearStart: 2020, yearEnd: 2024, label: 'Best Seller', sortOrder: 3 },
+  {
+    make: 'Mercedes-Benz',
+    model: null,
+    yearStart: 2020,
+    yearEnd: 2025,
+    label: 'Popular Luxury',
+    sortOrder: 0,
+    maxFetchCount: 2,
+  },
+  {
+    make: 'BMW',
+    model: null,
+    yearStart: 2020,
+    yearEnd: 2025,
+    label: 'Hot in Europe',
+    sortOrder: 1,
+    maxFetchCount: 2,
+  },
+  {
+    make: 'Lexus',
+    model: null,
+    yearStart: 2019,
+    yearEnd: 2025,
+    label: 'Hot in Africa',
+    sortOrder: 2,
+    maxFetchCount: 2,
+  },
+  {
+    make: 'Toyota',
+    model: 'Camry',
+    yearStart: 2020,
+    yearEnd: 2024,
+    label: 'Best Seller',
+    sortOrder: 3,
+    maxFetchCount: 2,
+  },
+  {
+    make: 'Rolls-Royce',
+    model: null,
+    yearStart: 2018,
+    yearEnd: 2025,
+    label: 'Ultra Luxury',
+    sortOrder: 4,
+    maxFetchCount: 2,
+  },
+  {
+    make: 'Lexus',
+    model: 'LX 570',
+    yearStart: 2018,
+    yearEnd: 2024,
+    label: 'Premium SUV',
+    sortOrder: 5,
+    maxFetchCount: 2,
+  },
+  {
+    make: 'Lexus',
+    model: 'RX 350',
+    yearStart: 2019,
+    yearEnd: 2025,
+    label: 'Comfort SUV',
+    sortOrder: 6,
+    maxFetchCount: 2,
+  },
 ];
 
 async function main() {
@@ -67,6 +126,7 @@ async function main() {
         yearEnd: t.yearEnd,
         label: t.label ?? undefined,
         sortOrder: t.sortOrder,
+        maxFetchCount: (t as any).maxFetchCount ?? undefined,
         isActive: true,
       },
     });

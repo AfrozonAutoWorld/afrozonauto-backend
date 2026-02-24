@@ -105,6 +105,7 @@ export class VehicleRepository {
     const where: Prisma.VehicleWhereInput = {
       isActive: filters.isActive !== false,
       isHidden: filters.isHidden !== true,
+      priceUsd: { gt: 0 },
     };
 
     if (filters.luxuryMakes?.length) {
@@ -125,10 +126,12 @@ export class VehicleRepository {
       if (filters.yearMax) where.year.lte = filters.yearMax;
     }
 
-    if (filters.priceMin || filters.priceMax) {
-      where.priceUsd = {};
-      if (filters.priceMin) where.priceUsd.gte = filters.priceMin;
-      if (filters.priceMax) where.priceUsd.lte = filters.priceMax;
+    if (filters.priceMin != null || filters.priceMax != null) {
+      where.priceUsd = {
+        gt: 0,
+        ...(filters.priceMin != null && { gte: filters.priceMin }),
+        ...(filters.priceMax != null && { lte: filters.priceMax }),
+      };
     }
 
     if (filters.mileageMax) {
