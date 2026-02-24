@@ -28,6 +28,10 @@ export class VehicleServiceDirect {
     return this.trendingService.getTrendingVehicles();
   }
 
+  async getMakeModelsReference(): Promise<Record<string, string[]>> {
+    return await this.autoDevService.fetchMakeModelsReference();
+  }
+
   private filtersToAutoDevParams(
     filters: VehicleFilters,
     page?: number,
@@ -190,6 +194,7 @@ export class VehicleServiceDirect {
     limit: number;
     pages: number;
     fromApi?: number;
+    hasMore?: boolean;
   }> {
     const page = pagination.page || 1;
     const limit = pagination.limit || 50;
@@ -209,21 +214,12 @@ export class VehicleServiceDirect {
       }
     }
 
-    const dbResult = await this.vehicleRepo.findMany(resolvedFilters, pagination);
-
-    const staleVehicles = dbResult.vehicles.filter((v) => this.isPriceStale(v));
-    Promise.all(staleVehicles.map((v) => this.refreshVehiclePrice(v).catch(() => null))).catch(() => {});
-
-    let apiVehicles: Vehicle[] = [];
-    let fromApiCount = 0;
-    let apiOnlyCount = 0;
-
+    // When includeApi: one page from Auto.dev only (no DB merge) — frontend uses "Load more" / infinite scroll
     if (includeApiResults) {
       try {
-        const apiParams = this.filtersToAutoDevParams(resolvedFilters);
+        const apiParams = this.filtersToAutoDevParams(resolvedFilters, page, limit);
         const apiListings = await this.autoDevService.fetchListingsWithParams(apiParams);
 
-        // Optional search filter (API may not support free text; filter in-memory if needed)
         let filteredListings = apiListings;
         if (filters.search?.trim()) {
           const searchTerm = filters.search.trim().toLowerCase();
@@ -241,15 +237,12 @@ export class VehicleServiceDirect {
 
         const vinsToCheck = filteredListings.map((l: any) => l.vin).filter(Boolean);
         const existingVins = await this.vehicleRepo.findExistingVINs(vinsToCheck);
-        const apiOnlyList = filteredListings.filter((l: any) => l.vin && !existingVins.has(l.vin));
-        apiOnlyCount = apiOnlyList.length;
+        const apiVehicles: Vehicle[] = [];
 
-        const apiOffset = Math.max(0, (page - 1) * limit - dbResult.total);
-        const needCount = limit - dbResult.vehicles.length;
-        const apiChunk = apiOnlyList.slice(apiOffset, apiOffset + needCount);
-
-        for (const listing of apiChunk) {
+        for (const listing of filteredListings) {
+          if (!listing.vin || existingVins.has(listing.vin)) continue;
           const vehicleData = VehicleTransformer.fromAutoDevListing(listing, []);
+          if (!vehicleData.priceUsd || vehicleData.priceUsd <= 0) continue;
           vehicleData.apiData = {
             listing,
             raw: listing,
@@ -260,23 +253,42 @@ export class VehicleServiceDirect {
           vehicleData.id = `temp-${listing.vin}`;
           apiVehicles.push(vehicleData as Vehicle);
         }
-        fromApiCount = apiVehicles.length;
+
+
+        const fallThroughToDb = categorySlug && apiVehicles.length === 0 && apiListings.length > 0;
+        if (!fallThroughToDb) {
+          const hasMore = apiListings.length === limit;
+          return {
+            vehicles: apiVehicles,
+            total: 0,
+            page,
+            limit,
+            pages: 0,
+            fromApi: apiVehicles.length,
+            hasMore,
+          };
+        }
       } catch (error) {
-        loggers.warn('Failed to fetch from Auto.dev API (direct), returning DB results only:', error);
+        loggers.warn('Failed to fetch from Auto.dev API (direct), falling back to DB only:', error);
       }
     }
 
-    const total = dbResult.total + apiOnlyCount;
+    const dbResult = await this.vehicleRepo.findMany(resolvedFilters, pagination);
+    const staleVehicles = dbResult.vehicles.filter((v) => this.isPriceStale(v));
+    Promise.all(staleVehicles.map((v) => this.refreshVehiclePrice(v).catch(() => null))).catch(() => {});
+
+    const total = dbResult.total;
     const pages = Math.ceil(total / limit) || 1;
-    const allVehicles = [...dbResult.vehicles, ...apiVehicles];
+    const hasMore = page < pages;
 
     return {
-      vehicles: allVehicles,
+      vehicles: dbResult.vehicles,
       total,
       page,
       limit,
       pages,
-      fromApi: fromApiCount,
+      fromApi: 0,
+      hasMore,
     };
   }
 

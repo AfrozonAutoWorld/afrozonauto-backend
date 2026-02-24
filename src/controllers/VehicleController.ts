@@ -36,6 +36,15 @@ export class VehicleController {
   });
 
   /**
+   * GET /api/vehicles/reference/models
+   * Proxy Auto.dev models reference (make -> models). Cached in AutoDevService.
+   */
+  getMakeModelsReference = asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
+    const data = await this.vehicleService.getMakeModelsReference();
+    return res.json(ApiResponse.success(data, 'Make/models reference retrieved successfully'));
+  });
+
+  /**
    * GET /api/vehicles
    * Get list of vehicles with filters (DB first, API)
    * Query param: includeApi=true/false (default: true) - whether to include API results
@@ -84,6 +93,7 @@ export class VehicleController {
           total: result.total,
           pages: result.pages,
           fromApi: result.fromApi || 0,
+          hasMore: result.hasMore ?? (result.vehicles.length === result.limit),
         },
         'Vehicles retrieved successfully'
       )

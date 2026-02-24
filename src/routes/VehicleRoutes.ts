@@ -28,6 +28,7 @@ class VehicleRoutes {
         this.router.get('/', this.controller.getVehicles);
         this.router.get('/trending', this.controller.getTrending);
         this.router.get('/categories', this.controller.getCategories);
+        this.router.get('/reference/models', this.controller.getMakeModelsReference);
 
         // Admin: trending definitions (CRUD) - before /:identifier
         this.router.get('/trending-definitions', authenticate, authorize([UserRole.SUPER_ADMIN, UserRole.OPERATIONS_ADMIN]), this.trendingDefController.list);
