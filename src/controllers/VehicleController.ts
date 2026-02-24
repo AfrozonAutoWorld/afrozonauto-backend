@@ -1,7 +1,8 @@
 import { Response } from 'express';
 import { inject, injectable } from 'inversify';
 import { TYPES } from '../config/types';
-import { VehicleService } from '../services/VehicleService';
+import { VehicleServiceDirect } from '../services/VehicleServiceDirect';
+import { CategoryService } from '../services/CategoryService';
 import { AuthenticatedRequest } from '../types/customRequest';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiResponse } from '../utils/ApiResponse';
@@ -12,14 +13,52 @@ import { UserRole } from '../generated/prisma/client';
 @injectable()
 export class VehicleController {
   constructor(
-    @inject(TYPES.VehicleService) private vehicleService: VehicleService
+    @inject(TYPES.VehicleService) private vehicleService: VehicleServiceDirect,
+    @inject(TYPES.CategoryService) private categoryService: CategoryService
   ) { }
 
   /**
+   * GET /api/vehicles/trending
+   * Trending vehicles: ordered first, then 5 per trending rule from Auto.dev
+   */
+  getTrending = asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
+    const vehicles = await this.vehicleService.getTrendingVehicles();
+    return res.json(ApiResponse.success(vehicles, 'Trending vehicles retrieved successfully'));
+  });
+
+  /**
+   * GET /api/vehicles/categories
+   * List active categories for filtering (Electric, SUV, Sedan, etc.)
+   */
+  getCategories = asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
+    const categories = await this.categoryService.listCategories();
+    return res.json(ApiResponse.success(categories, 'Categories retrieved successfully'));
+  });
+
+  /**
+   * GET /api/vehicles/reference/models
+   * Proxy Auto.dev models reference (make -> models). Cached in AutoDevService.
+   */
+  getMakeModelsReference = asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
+    const data = await this.vehicleService.getMakeModelsReference();
+    return res.json(ApiResponse.success(data, 'Make/models reference retrieved successfully'));
+  });
+
+  /**
+   * GET /api/vehicles/debug/auto-dev-page?page=4&limit=24
+   * Debug: see what Auto.dev returns on a given page (no filters). Use to inspect make/model mix.
+   */
+  getAutoDevPageDebug = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const page = Math.max(1, parseInt(String(req.query.page || 4), 10) || 4);
+    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || 24), 10) || 24));
+    const data = await this.vehicleService.getAutoDevPageSummary(page, limit);
+    return res.json(ApiResponse.success(data, `Auto.dev page ${page} summary`));
+  });
+
+  /**
    * GET /api/vehicles
-   * Get list of vehicles with filters (DB first, Redis cache, API fallback)
+   * Get list of vehicles with filters (DB first, API)
    * Query param: includeApi=true/false (default: true) - whether to include API results
-   * API results are cached in Redis (12hr TTL) to handle price changes
    */
   getVehicles = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const q = req.query;
@@ -52,8 +91,20 @@ export class VehicleController {
     };
 
     const includeApi = req.query.includeApi !== 'false';
+    const categorySlug = str(q.category);
 
-    const result = await this.vehicleService.getVehicles(filters, pagination, includeApi);
+    const sortByParam = str(q.sortBy) as ('price' | 'year' | 'mileage' | 'createdAt') | undefined;
+    const sortOrderRaw = str(q.sortOrder);
+    const sortOrderParam = sortOrderRaw === 'desc' ? 'desc' : sortOrderRaw === 'asc' ? 'asc' : undefined;
+
+    const result = await this.vehicleService.getVehicles(
+      filters,
+      pagination,
+      includeApi,
+      categorySlug,
+      sortByParam,
+      sortOrderParam
+    );
 
     return res.json(
       ApiResponse.paginated(
@@ -64,6 +115,7 @@ export class VehicleController {
           total: result.total,
           pages: result.pages,
           fromApi: result.fromApi || 0,
+          hasMore: result.hasMore ?? (result.vehicles.length === result.limit),
         },
         'Vehicles retrieved successfully'
       )

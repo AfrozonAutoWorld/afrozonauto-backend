@@ -24,8 +24,14 @@ const GoogleAuthService_1 = require("../services/GoogleAuthService");
 const Jtoken_1 = __importDefault(require("../middleware/Jtoken"));
 // Vehicle dependencies
 const VehicleRepository_1 = require("../repositories/VehicleRepository");
-const VehicleService_1 = require("../services/VehicleService");
+const TrendingDefinitionRepository_1 = require("../repositories/TrendingDefinitionRepository");
+const VehicleCategoryRepository_1 = require("../repositories/VehicleCategoryRepository");
+const VehicleServiceDirect_1 = require("../services/VehicleServiceDirect");
+const TrendingService_1 = require("../services/TrendingService");
+const CategoryService_1 = require("../services/CategoryService");
 const VehicleController_1 = require("../controllers/VehicleController");
+const TrendingDefinitionController_1 = require("../controllers/TrendingDefinitionController");
+const VehicleCategoryController_1 = require("../controllers/VehicleCategoryController");
 const AutoDevService_1 = require("../services/AutoDevService");
 const RedisCacheService_1 = require("../services/RedisCacheService");
 const PaymentController_1 = require("../controllers/PaymentController");
@@ -75,8 +81,14 @@ container.bind(types_1.TYPES.PaystackProvider)
     .inSingletonScope();
 // Vehicle bindings
 container.bind(types_1.TYPES.VehicleRepository).to(VehicleRepository_1.VehicleRepository);
-container.bind(types_1.TYPES.VehicleService).to(VehicleService_1.VehicleService);
+container.bind(types_1.TYPES.TrendingDefinitionRepository).to(TrendingDefinitionRepository_1.TrendingDefinitionRepository);
+container.bind(types_1.TYPES.VehicleCategoryRepository).to(VehicleCategoryRepository_1.VehicleCategoryRepository);
+container.bind(types_1.TYPES.VehicleService).to(VehicleServiceDirect_1.VehicleServiceDirect);
+container.bind(types_1.TYPES.TrendingService).to(TrendingService_1.TrendingService);
+container.bind(types_1.TYPES.CategoryService).to(CategoryService_1.CategoryService);
 container.bind(types_1.TYPES.VehicleController).to(VehicleController_1.VehicleController);
+container.bind(types_1.TYPES.TrendingDefinitionController).to(TrendingDefinitionController_1.TrendingDefinitionController);
+container.bind(types_1.TYPES.VehicleCategoryController).to(VehicleCategoryController_1.VehicleCategoryController);
 container.bind(types_1.TYPES.AutoDevService).to(AutoDevService_1.AutoDevService);
 container.bind(types_1.TYPES.RedisCacheService).to(RedisCacheService_1.RedisCacheService).inSingletonScope();
 // Testimonial bindings

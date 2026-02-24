@@ -346,7 +346,7 @@
 							}
 						],
 						"url": {
-							"raw": "{{baseUrl}}/api/vehicles?make=Toyota&model=Camry&yearMin=2020&yearMax=2024&priceMin=10000&priceMax=50000&mileageMax=50000&vehicleType=CAR&status=AVAILABLE&state=CA&featured=true&search=camry&page=1&limit=50&includeApi=true",
+							"raw": "{{baseUrl}}/api/vehicles?make=Toyota&model=Camry&yearMin=2020&yearMax=2024&priceMin=10000&priceMax=50000&mileageMax=50000&vehicleType=CAR&status=AVAILABLE&state=CA&featured=true&search=camry&page=1&limit=50&includeApi=true&category=suv",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "vehicles"],
 							"query": [
@@ -424,10 +424,62 @@
 									"key": "includeApi",
 									"value": "true",
 									"description": "Include API results if DB results insufficient (default: true)"
+								},
+								{
+									"key": "category",
+									"value": "suv",
+									"description": "Category slug: electric, suv, sedan, pickup-truck, luxury, crossover, hybrid, diesel, coupe, hatchback, wagon, convertible, minivan, plug-in-hybrid, van"
 								}
 							]
 						},
-						"description": "Get list of vehicles with filters. **Public endpoint** - no authentication required.\n\n**Hybrid Search Strategy:**\n1. First searches database (DB)\n2. If results insufficient, checks Redis cache (12hr TTL)\n3. If cache miss, fetches from Auto.dev API and caches results\n4. Combines DB + API results\n5. Background price refresh for stale DB vehicles\n\n**Query Parameters (all optional):**\n- `make`: Vehicle make (e.g., Toyota, Jeep)\n- `model`: Vehicle model\n- `yearMin`, `yearMax`: Year range\n- `priceMin`, `priceMax`: Price range in USD\n- `mileageMax`: Maximum mileage\n- `vehicleType`: CAR, SUV, TRUCK, VAN, COUPE, SEDAN, HATCHBACK, WAGON, CONVERTIBLE\n- `status`: AVAILABLE, SOLD, PENDING, RESERVED\n- `state`: Dealer state (maps to `dealerState` filter)\n- `featured`: Filter featured vehicles (true/false)\n- `search`: Search in make, model, or VIN\n- `includeApi` (default: true): Whether to include Auto.dev API results if DB results insufficient\n- `page` (default: 1): Page number\n- `limit` (default: 50, max: 100): Items per page\n\n**Response Format:**\n```json\n{\n  \"success\": true,\n  \"message\": \"Vehicles retrieved successfully\",\n  \"data\": {\n    \"data\": [/* array of vehicles */],\n    \"meta\": {\n      \"page\": 1,\n      \"limit\": 50,\n      \"total\": 100,\n      \"pages\": 2,\n      \"fromApi\": 25\n    }\n  },\n  \"timestamp\": \"2025-01-08T...\"\n}\n```\n\n**Note:** API results are cached in Redis (12-hour TTL) to handle price changes efficiently and reduce external API calls."
+						"description": "Get list of vehicles with filters. **Public endpoint** - no authentication required.\n\n**Hybrid Search Strategy:**\n1. First searches database (DB)\n2. If results insufficient, checks Redis cache (12hr TTL)\n3. If cache miss, fetches from Auto.dev API and caches results\n4. Combines DB + API results\n5. Background price refresh for stale DB vehicles\n\n**Query Parameters (all optional):**\n- `make`: Vehicle make (e.g., Toyota, Jeep)\n- `model`: Vehicle model\n- `yearMin`, `yearMax`: Year range\n- `priceMin`, `priceMax`: Price range in USD\n- `mileageMax`: Maximum mileage\n- `vehicleType`: CAR, SUV, TRUCK, VAN, COUPE, SEDAN, HATCHBACK, WAGON, CONVERTIBLE\n- `status`: AVAILABLE, SOLD, PENDING, RESERVED\n- `state`: Dealer state (maps to `dealerState` filter)\n- `featured`: Filter featured vehicles (true/false)\n- `search`: Search in make, model, or VIN\n- `includeApi` (default: true): Whether to include Auto.dev API results if DB results insufficient\n- `page` (default: 1): Page number\n- `limit` (default: 50, max: 100): Items per page\n\n**Response Format:**\n```json\n{\n  \"success\": true,\n  \"message\": \"Vehicles retrieved successfully\",\n  \"data\": {\n    \"data\": [/* array of vehicles */],\n    \"meta\": {\n      \"page\": 1,\n      \"limit\": 50,\n      \"total\": 100,\n      \"pages\": 2,\n      \"fromApi\": 25\n    }\n  },\n  \"timestamp\": \"2025-01-08T...\"\n}\n```\n\n**Note:** API results are cached in Redis (12-hour TTL) to handle price changes efficiently and reduce external API calls. Use **category** to filter by admin-configured category slug (e.g. suv, electric, luxury)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Trending Vehicles",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"url": {
+							"raw": "{{baseUrl}}/api/vehicles/trending",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "vehicles", "trending"]
+						},
+						"description": "Get trending vehicles. **Public endpoint** - no auth required.\n\nReturns: (1) Vehicles people ordered (most ordered first), then (2) 5 vehicles per active trending rule from Auto.dev (make, model, year range). Admin configures rules at POST/PUT /api/vehicles/trending-definitions."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Categories",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"url": {
+							"raw": "{{baseUrl}}/api/vehicles/categories",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "vehicles", "categories"]
+						},
+						"description": "List active vehicle categories for filtering (Electric, SUV, Sedan, Luxury, etc.). **Public endpoint** - no auth required.\n\nUse returned slugs in GET /api/vehicles?category=<slug>."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Vehicles by Category",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"url": {
+							"raw": "{{baseUrl}}/api/vehicles?category=suv&page=1&limit=50",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "vehicles"],
+							"query": [
+								{"key": "category", "value": "suv", "description": "Category slug from GET /categories"},
+								{"key": "page", "value": "1"},
+								{"key": "limit", "value": "50"}
+							]
+						},
+						"description": "Get vehicles filtered by category. **Public endpoint.** Valid slugs: electric, suv, sedan, pickup-truck, luxury, crossover, hybrid, diesel, coupe, hatchback, wagon, convertible, minivan, plug-in-hybrid, van."
 					},
 					"response": []
 				},
@@ -636,9 +688,137 @@
 						"description": "Soft delete vehicle by ID (sets isActive=false, isHidden=true). Vehicle is not permanently deleted from database. Requires SUPER_ADMIN or OPERATIONS_ADMIN role. No request body needed."
 					},
 					"response": []
+				},
+				{
+					"name": "Admin - List Trending Definitions",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "Authorization", "value": "Bearer {{accessToken}}", "description": "Admin JWT required"}
+						],
+						"url": {"raw": "{{baseUrl}}/api/vehicles/trending-definitions", "host": ["{{baseUrl}}"], "path": ["api", "vehicles", "trending-definitions"]},
+						"description": "List all trending definitions (admin-configured make/model/year rules for trending). Requires SUPER_ADMIN or OPERATIONS_ADMIN."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin - Get Trending Definition by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "Authorization", "value": "Bearer {{accessToken}}", "description": "Admin JWT required"}
+						],
+						"url": {"raw": "{{baseUrl}}/api/vehicles/trending-definitions/:id", "host": ["{{baseUrl}}"], "path": ["api", "vehicles", "trending-definitions", ":id"], "variable": [{"key": "id", "value": "trending_definition_id_here"}]},
+						"description": "Get a single trending definition by ID. Requires SUPER_ADMIN or OPERATIONS_ADMIN."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin - Create Trending Definition",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "Authorization", "value": "Bearer {{accessToken}}", "description": "Admin JWT required"}
+						],
+						"body": {"mode": "raw", "raw": "{\n  \"make\": \"Mercedes-Benz\",\n  \"model\": null,\n  \"yearStart\": 2020,\n  \"yearEnd\": 2025,\n  \"label\": \"Popular Luxury\",\n  \"sortOrder\": 0,\n  \"isActive\": true\n}"},
+						"url": {"raw": "{{baseUrl}}/api/vehicles/trending-definitions", "host": ["{{baseUrl}}"], "path": ["api", "vehicles", "trending-definitions"]},
+						"description": "Create a trending rule. Required: make, yearStart, yearEnd. Optional: model, label, sortOrder, isActive. Each rule fetches 5 vehicles from Auto.dev for trending."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin - Update Trending Definition",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "Authorization", "value": "Bearer {{accessToken}}", "description": "Admin JWT required"}
+						],
+						"body": {"mode": "raw", "raw": "{\n  \"yearStart\": 2019,\n  \"yearEnd\": 2024,\n  \"label\": \"Hot in Europe\",\n  \"isActive\": true\n}"},
+						"url": {"raw": "{{baseUrl}}/api/vehicles/trending-definitions/:id", "host": ["{{baseUrl}}"], "path": ["api", "vehicles", "trending-definitions", ":id"], "variable": [{"key": "id", "value": "trending_definition_id_here"}]},
+						"description": "Update a trending definition by ID. Send only fields to update."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin - Delete Trending Definition",
+					"request": {
+						"method": "DELETE",
+						"header": [{"key": "Authorization", "value": "Bearer {{accessToken}}", "description": "Admin JWT required"}],
+						"url": {"raw": "{{baseUrl}}/api/vehicles/trending-definitions/:id", "host": ["{{baseUrl}}"], "path": ["api", "vehicles", "trending-definitions", ":id"], "variable": [{"key": "id", "value": "trending_definition_id_here"}]},
+						"description": "Delete a trending definition by ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin - List Categories",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "Authorization", "value": "Bearer {{accessToken}}", "description": "Admin JWT required"}
+						],
+						"url": {"raw": "{{baseUrl}}/api/vehicles/admin/categories", "host": ["{{baseUrl}}"], "path": ["api", "vehicles", "admin", "categories"]},
+						"description": "List all vehicle categories (including inactive). Requires SUPER_ADMIN or OPERATIONS_ADMIN."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin - Get Category by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "Authorization", "value": "Bearer {{accessToken}}", "description": "Admin JWT required"}
+						],
+						"url": {"raw": "{{baseUrl}}/api/vehicles/admin/categories/:id", "host": ["{{baseUrl}}"], "path": ["api", "vehicles", "admin", "categories", ":id"], "variable": [{"key": "id", "value": "category_id_here"}]},
+						"description": "Get a single category by ID. Requires SUPER_ADMIN or OPERATIONS_ADMIN."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin - Create Category",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "Authorization", "value": "Bearer {{accessToken}}", "description": "Admin JWT required"}
+						],
+						"body": {"mode": "raw", "raw": "{\n  \"slug\": \"suv\",\n  \"label\": \"SUV\",\n  \"bodyStyle\": \"suv\",\n  \"fuel\": null,\n  \"luxuryMakes\": [],\n  \"priceMin\": null,\n  \"sortOrder\": 1,\n  \"isActive\": true\n}"},
+						"url": {"raw": "{{baseUrl}}/api/vehicles/admin/categories", "host": ["{{baseUrl}}"], "path": ["api", "vehicles", "admin", "categories"]},
+						"description": "Create a category. Required: slug, label. Optional: bodyStyle, fuel, luxuryMakes (array), priceMin, sortOrder, isActive. For Luxury use luxuryMakes and/or priceMin."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin - Update Category",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "Authorization", "value": "Bearer {{accessToken}}", "description": "Admin JWT required"}
+						],
+						"body": {"mode": "raw", "raw": "{\n  \"label\": \"Sport Utility Vehicle\",\n  \"sortOrder\": 2,\n  \"isActive\": true\n}"},
+						"url": {"raw": "{{baseUrl}}/api/vehicles/admin/categories/:id", "host": ["{{baseUrl}}"], "path": ["api", "vehicles", "admin", "categories", ":id"], "variable": [{"key": "id", "value": "category_id_here"}]},
+						"description": "Update a category by ID. Send only fields to update."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin - Delete Category",
+					"request": {
+						"method": "DELETE",
+						"header": [{"key": "Authorization", "value": "Bearer {{accessToken}}", "description": "Admin JWT required"}],
+						"url": {"raw": "{{baseUrl}}/api/vehicles/admin/categories/:id", "host": ["{{baseUrl}}"], "path": ["api", "vehicles", "admin", "categories", ":id"], "variable": [{"key": "id", "value": "category_id_here"}]},
+						"description": "Delete a category by ID."
+					},
+					"response": []
 				}
 			],
-			"description": "Vehicle management endpoints. Supports DB-first search with Auto.dev API fallback.\n\n**Public Endpoints (no auth required):**\n- GET `/api/vehicles` - List vehicles with filters\n- GET `/api/vehicles/:id` - Get vehicle by ID or VIN\n\n**Protected Endpoints (require authentication):**\n- POST `/api/vehicles` - Create vehicle (Admin only)\n- POST `/api/vehicles/sync/:vin` - Sync vehicle from Auto.dev API\n- POST `/api/vehicles/save-from-api` - Save vehicle from API to DB (e.g., on payment)\n- PUT `/api/vehicles/:id` - Update vehicle (Admin only)\n- DELETE `/api/vehicles/:id` - Delete vehicle (Admin only)\n\n**Caching:**\n- Redis cache with 12-hour TTL for API responses\n- Automatic price refresh for stale DB vehicles"
+			"description": "Vehicle management endpoints. Supports DB-first search with Auto.dev API fallback.\n\n**Public Endpoints (no auth required):**\n- GET `/api/vehicles` - List vehicles with filters (use ?category=suv for category filter)\n- GET `/api/vehicles/trending` - Trending vehicles (ordered first, then 5 per trending rule)\n- GET `/api/vehicles/categories` - List active categories\n- GET `/api/vehicles/:id` - Get vehicle by ID or VIN\n\n**Protected Endpoints (require authentication):**\n- POST `/api/vehicles` - Create vehicle (Admin only)\n- POST `/api/vehicles/sync/:vin` - Sync vehicle from Auto.dev API\n- POST `/api/vehicles/save-from-api` - Save vehicle from API to DB (e.g., on payment)\n- PUT `/api/vehicles/:id` - Update vehicle (Admin only)\n- DELETE `/api/vehicles/:id` - Delete vehicle (Admin only)\n\n**Admin (SUPER_ADMIN / OPERATIONS_ADMIN):**\n- GET/POST/PUT/DELETE `/api/vehicles/trending-definitions` - Manage trending rules (make, model, yearStart, yearEnd)\n- GET/POST/PUT/DELETE `/api/vehicles/admin/categories` - Manage vehicle categories (slug, label, bodyStyle, fuel, luxuryMakes, priceMin)\n\n**Caching:**\n- Redis cache with 12-hour TTL for API responses\n- Automatic price refresh for stale DB vehicles"
 		},
 		{
 			"name": "Addresses",

@@ -44,7 +44,16 @@ export class VehicleTransformer {
   ): Partial<Vehicle> {
     const vehicle = (listing as any).vehicle || listing;
     const retailListing = (listing as any).retailListing || {};
-    
+    // Use fetched photos when present; otherwise fall back to primaryImage from listing (e.g. from GET /listings)
+    const primaryImage = retailListing.primaryImage;
+    const images =
+      photos.length > 0 ? photos : primaryImage ? [primaryImage] : [];
+
+    const bodyStyleSource =
+      (vehicle as any).bodyStyle ||
+      (listing as any).bodyStyle ||
+      `${(vehicle as any).make ?? ''} ${(vehicle as any).model ?? ''}`;
+
     return {
       vin: listing.vin || vehicle.vin,
       slug: this.generateSlug(vehicle.make, vehicle.model, vehicle.year, listing.vin || vehicle.vin),
@@ -53,7 +62,7 @@ export class VehicleTransformer {
       year: vehicle.year,
       priceUsd: retailListing.price || listing.price || 0,
       mileage: retailListing.miles ?? retailListing.mileage ?? listing.miles ?? listing.mileage,
-      vehicleType: this.mapVehicleType(vehicle.bodyStyle || listing.bodyStyle || ''),
+      vehicleType: this.mapVehicleType(bodyStyleSource || ''),
       transmission: vehicle.transmission || listing.transmission,
       fuelType: vehicle.fuel || listing.fuelType,
       engineSize: vehicle.engine || listing.engineSize,
@@ -64,7 +73,7 @@ export class VehicleTransformer {
       dealerState: retailListing.state || listing.dealerState,
       dealerCity: retailListing.city || listing.dealerCity,
       dealerZipCode: retailListing.zip || listing.dealerZipCode,
-      images: photos,
+      images,
       features: listing.features || [],
       source: VehicleSource.API,
       apiProvider: 'autodev',
@@ -115,16 +124,59 @@ export class VehicleTransformer {
    * Map body style to VehicleType enum
    */
   static mapVehicleType(bodyStyle: string): VehicleType {
-    const style = bodyStyle.toLowerCase();
-    if (style.includes('suv')) return VehicleType.SUV;
-    if (style.includes('truck')) return VehicleType.TRUCK;
-    if (style.includes('van')) return VehicleType.VAN;
+    const style = (bodyStyle || '').toLowerCase();
+
+    if (!style) return VehicleType.CAR;
+
+    // SUVs and crossovers
+    if (style.includes('suv') || style.includes('crossover')) return VehicleType.SUV;
+
+    // Trucks and pickups
+    if (style.includes('truck') || style.includes('pickup')) return VehicleType.TRUCK;
+
+    // Vans / minivans
+    if (style.includes('van') || style.includes('minivan')) return VehicleType.VAN;
+
     if (style.includes('coupe')) return VehicleType.COUPE;
-    if (style.includes('sedan')) return VehicleType.SEDAN;
+
+    // Sedans / saloons
+    if (style.includes('sedan') || style.includes('saloon')) return VehicleType.SEDAN;
+
     if (style.includes('hatchback')) return VehicleType.HATCHBACK;
-    if (style.includes('wagon')) return VehicleType.WAGON;
-    if (style.includes('convertible')) return VehicleType.CONVERTIBLE;
+
+    // Wagons / estates
+    if (style.includes('wagon') || style.includes('estate')) return VehicleType.WAGON;
+
+    // Convertibles / cabriolets
+    if (style.includes('convertible') || style.includes('cabrio')) return VehicleType.CONVERTIBLE;
+
+    // Motorcycles / bikes
+    if (style.includes('motorcycle') || style.includes('motorbike') || style.includes('bike')) {
+      return VehicleType.MOTORCYCLE;
+    }
+
+    // Hummer (often missing bodyStyle in API) – treat as SUV
+    if (style.includes('hummer')) return VehicleType.SUV;
+
+    // Fallback
     return VehicleType.CAR;
+  }
+
+  static vehicleTypeToBodyStyle(vehicleType: VehicleType): string {
+    const map: Partial<Record<VehicleType, string>> = {
+      [VehicleType.CAR]: 'sedan',
+      [VehicleType.SEDAN]: 'sedan',
+      [VehicleType.SUV]: 'suv',
+      [VehicleType.TRUCK]: 'truck',
+      [VehicleType.VAN]: 'van',
+      [VehicleType.COUPE]: 'coupe',
+      [VehicleType.HATCHBACK]: 'hatchback',
+      [VehicleType.WAGON]: 'wagon',
+      [VehicleType.CONVERTIBLE]: 'convertible',
+      [VehicleType.MOTORCYCLE]: '',
+      [VehicleType.OTHER]: '',
+    };
+    return map[vehicleType] ?? '';
   }
 }
 

@@ -18,6 +18,10 @@ export interface VehicleFilters {
   isHidden?: boolean;
   featured?: boolean;
   search?: string; // Search in model or VIN (make should be filtered explicitly, not searched)
+  // Category-derived (from VehicleCategory: bodyStyle, fuel, luxuryMakes, priceMin)
+  bodyStyle?: string;
+  fuel?: string;
+  luxuryMakes?: string[];
 }
 
 export interface VehiclePagination {
@@ -76,6 +80,18 @@ export class VehicleRepository {
   }
 
   /**
+   * Find vehicles by IDs (preserves order of ids when possible)
+   */
+  async findManyByIds(ids: string[]): Promise<Vehicle[]> {
+    if (ids.length === 0) return [];
+    const vehicles = await prisma.vehicle.findMany({
+      where: { id: { in: ids }, isActive: true, isHidden: false },
+    });
+    const byId = new Map(vehicles.map((v) => [v.id, v]));
+    return ids.map((id) => byId.get(id)).filter((v): v is Vehicle => v != null);
+  }
+
+  /**
    * Find vehicles with filters and pagination
    */
   async findMany(
@@ -89,9 +105,14 @@ export class VehicleRepository {
     const where: Prisma.VehicleWhereInput = {
       isActive: filters.isActive !== false,
       isHidden: filters.isHidden !== true,
+      priceUsd: { gt: 0 },
     };
 
-    if (filters.make) where.make = { equals: filters.make, mode: 'insensitive' };
+    if (filters.luxuryMakes?.length) {
+      where.make = { in: filters.luxuryMakes };
+    } else if (filters.make) {
+      where.make = { equals: filters.make, mode: 'insensitive' };
+    }
     if (filters.model) where.model = { equals: filters.model, mode: 'insensitive' };
     if (filters.vehicleType) where.vehicleType = filters.vehicleType;
     if (filters.status) where.status = filters.status;
@@ -105,10 +126,12 @@ export class VehicleRepository {
       if (filters.yearMax) where.year.lte = filters.yearMax;
     }
 
-    if (filters.priceMin || filters.priceMax) {
-      where.priceUsd = {};
-      if (filters.priceMin) where.priceUsd.gte = filters.priceMin;
-      if (filters.priceMax) where.priceUsd.lte = filters.priceMax;
+    if (filters.priceMin != null || filters.priceMax != null) {
+      where.priceUsd = {
+        gt: 0,
+        ...(filters.priceMin != null && { gte: filters.priceMin }),
+        ...(filters.priceMax != null && { lte: filters.priceMax }),
+      };
     }
 
     if (filters.mileageMax) {

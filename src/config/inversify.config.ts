@@ -21,8 +21,14 @@ import Jtoken from '../middleware/Jtoken';
 
 // Vehicle dependencies
 import { VehicleRepository } from '../repositories/VehicleRepository';
-import { VehicleService } from '../services/VehicleService';
+import { TrendingDefinitionRepository } from '../repositories/TrendingDefinitionRepository';
+import { VehicleCategoryRepository } from '../repositories/VehicleCategoryRepository';
+import { VehicleServiceDirect } from '../services/VehicleServiceDirect';
+import { TrendingService } from '../services/TrendingService';
+import { CategoryService } from '../services/CategoryService';
 import { VehicleController } from '../controllers/VehicleController';
+import { TrendingDefinitionController } from '../controllers/TrendingDefinitionController';
+import { VehicleCategoryController } from '../controllers/VehicleCategoryController';
 import { AutoDevService } from '../services/AutoDevService';
 import { RedisCacheService } from '../services/RedisCacheService';
 import { PaymentController } from '../controllers/PaymentController';
@@ -76,8 +82,14 @@ container.bind<PaystackProvider>(TYPES.PaystackProvider)
   .inSingletonScope();
 // Vehicle bindings
 container.bind<VehicleRepository>(TYPES.VehicleRepository).to(VehicleRepository);
-container.bind<VehicleService>(TYPES.VehicleService).to(VehicleService);
+container.bind<TrendingDefinitionRepository>(TYPES.TrendingDefinitionRepository).to(TrendingDefinitionRepository);
+container.bind<VehicleCategoryRepository>(TYPES.VehicleCategoryRepository).to(VehicleCategoryRepository);
+container.bind<VehicleServiceDirect>(TYPES.VehicleService).to(VehicleServiceDirect);
+container.bind<TrendingService>(TYPES.TrendingService).to(TrendingService);
+container.bind<CategoryService>(TYPES.CategoryService).to(CategoryService);
 container.bind<VehicleController>(TYPES.VehicleController).to(VehicleController);
+container.bind<TrendingDefinitionController>(TYPES.TrendingDefinitionController).to(TrendingDefinitionController);
+container.bind<VehicleCategoryController>(TYPES.VehicleCategoryController).to(VehicleCategoryController);
 container.bind<AutoDevService>(TYPES.AutoDevService).to(AutoDevService);
 container.bind<RedisCacheService>(TYPES.RedisCacheService).to(RedisCacheService).inSingletonScope();
 // Testimonial bindings

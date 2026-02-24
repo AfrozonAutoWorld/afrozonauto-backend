@@ -25,6 +25,12 @@ export const TYPES = {
     VehicleController: Symbol.for('VehicleController'),
     AutoDevService: Symbol.for('AutoDevService'),
     RedisCacheService: Symbol.for('RedisCacheService'),
+    TrendingDefinitionRepository: Symbol.for('TrendingDefinitionRepository'),
+    VehicleCategoryRepository: Symbol.for('VehicleCategoryRepository'),
+    TrendingService: Symbol.for('TrendingService'),
+    CategoryService: Symbol.for('CategoryService'),
+    TrendingDefinitionController: Symbol.for('TrendingDefinitionController'),
+    VehicleCategoryController: Symbol.for('VehicleCategoryController'),
    
     PaymentRepository: Symbol.for('PaymentRepository'),
     PaymentService: Symbol.for('PaymentService'),
