@@ -33,7 +33,6 @@ const TrendingDefinitionRepository_1 = require("../repositories/TrendingDefiniti
 const AutoDevService_1 = require("../services/AutoDevService");
 const vehicle_transformer_1 = require("../helpers/vehicle-transformer");
 const loggers_1 = __importDefault(require("../utils/loggers"));
-const TRENDING_PER_RULE = 5;
 const MAX_ORDERED_VEHICLES = 15;
 let TrendingService = class TrendingService {
     constructor(orderRepo, vehicleRepo, trendingRepo, autoDevService) {
@@ -43,7 +42,7 @@ let TrendingService = class TrendingService {
         this.autoDevService = autoDevService;
     }
     /**
-     * Get trending vehicles: (1) vehicles people ordered, (2) 5 per trending rule from Auto.dev.
+     * Get trending vehicles: (1) vehicles people ordered, (2) upto maxFetchCount per trending rule from Auto.dev.
      */
     getTrendingVehicles() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -64,14 +63,14 @@ let TrendingService = class TrendingService {
             catch (e) {
                 loggers_1.default.warn('TrendingService: failed to load ordered vehicles', e);
             }
-            // 2. Curated: 5 per trending definition from Auto.dev
+            // 2. Curated: up to maxFetchCount per trending definition from Auto.dev
             const definitions = yield this.trendingRepo.findManyActive();
             for (const def of definitions) {
                 try {
                     const params = {
                         'vehicle.make': def.make,
                         'vehicle.year': `${def.yearStart}-${def.yearEnd}`,
-                        limit: TRENDING_PER_RULE,
+                        limit: def.maxFetchCount,
                     };
                     if ((_a = def.model) === null || _a === void 0 ? void 0 : _a.trim())
                         params['vehicle.model'] = def.model.trim();
@@ -93,6 +92,16 @@ let TrendingService = class TrendingService {
                 }
             }
             return result;
+        });
+    }
+    getMaxFetchCount() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const defs = yield this.trendingRepo.findManyActive();
+            if (!defs.length)
+                return 1;
+            const values = defs
+                .map((d) => (typeof d.maxFetchCount === 'number' && d.maxFetchCount > 0 ? d.maxFetchCount : 1));
+            return values.length ? Math.max(...values) : 1;
         });
     }
 };

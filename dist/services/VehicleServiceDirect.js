@@ -44,10 +44,41 @@ let VehicleServiceDirect = class VehicleServiceDirect {
         this.categoryService = categoryService;
         this.cacheTTLHours = parseInt(process.env.REDIS_CACHE_TTL_HOURS || '12', 10);
     }
-    /** Get trending vehicles (ordered first, then 5 per trending rule from Auto.dev). */
     getTrendingVehicles() {
         return __awaiter(this, void 0, void 0, function* () {
             return this.trendingService.getTrendingVehicles();
+        });
+    }
+    getMakeModelsReference() {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield this.autoDevService.fetchMakeModelsReference();
+        });
+    }
+    /**
+     * Debug: fetch one raw page from Auto.dev (no filters) and return make/model summary.
+     * Use to inspect what Auto.dev returns on e.g. page 4 and avoid Hummer/truck dominance.
+     */
+    getAutoDevPageSummary() {
+        return __awaiter(this, arguments, void 0, function* (page = 4, limit = 24) {
+            var _a, _b;
+            const params = { page, limit };
+            const apiListings = yield this.autoDevService.fetchListingsWithParams(params);
+            const byMake = {};
+            const byMakeModel = {};
+            const sample = [];
+            for (const listing of apiListings) {
+                const v = listing.vehicle || listing;
+                const make = (v.make || '').toString().trim() || 'Unknown';
+                const model = (v.model || '').toString().trim() || 'Unknown';
+                const year = typeof v.year === 'number' ? v.year : undefined;
+                byMake[make] = ((_a = byMake[make]) !== null && _a !== void 0 ? _a : 0) + 1;
+                if (!byMakeModel[make])
+                    byMakeModel[make] = {};
+                byMakeModel[make][model] = ((_b = byMakeModel[make][model]) !== null && _b !== void 0 ? _b : 0) + 1;
+                if (sample.length < 15)
+                    sample.push({ make, model, year });
+            }
+            return { page, limit, count: apiListings.length, byMake, byMakeModel, sample };
         });
     }
     filtersToAutoDevParams(filters, page, limit) {
@@ -199,8 +230,54 @@ let VehicleServiceDirect = class VehicleServiceDirect {
             }
         });
     }
+    sortVehiclesInPlace(vehicles, sortBy, sortOrder = 'asc', demoteHummers = false) {
+        if (!sortBy || vehicles.length === 0)
+            return;
+        let key;
+        switch (sortBy) {
+            case 'price':
+            case 'priceUsd':
+                key = 'priceUsd';
+                break;
+            case 'year':
+                key = 'year';
+                break;
+            case 'mileage':
+                key = 'mileage';
+                break;
+            case 'createdAt':
+            default:
+                key = 'createdAt';
+                break;
+        }
+        const isHummer = (v) => {
+            const make = (v.make || '').toLowerCase();
+            const model = (v.model || '').toLowerCase();
+            return make.includes('hummer') || model.includes('hummer');
+        };
+        vehicles.sort((a, b) => {
+            var _a, _b, _c, _d;
+            if (demoteHummers) {
+                const aH = isHummer(a);
+                const bH = isHummer(b);
+                if (aH !== bH) {
+                    // Non‑Hummers first, Hummers after
+                    return aH ? 1 : -1;
+                }
+            }
+            const aVal = key === 'createdAt'
+                ? ((_a = a.createdAt) !== null && _a !== void 0 ? _a : new Date(0)).getTime()
+                : ((_b = a[key]) !== null && _b !== void 0 ? _b : 0);
+            const bVal = key === 'createdAt'
+                ? ((_c = b.createdAt) !== null && _c !== void 0 ? _c : new Date(0)).getTime()
+                : ((_d = b[key]) !== null && _d !== void 0 ? _d : 0);
+            if (aVal === bVal)
+                return 0;
+            return sortOrder === 'asc' ? (aVal > bVal ? 1 : -1) : (aVal < bVal ? 1 : -1);
+        });
+    }
     getVehicles(filters_1) {
-        return __awaiter(this, arguments, void 0, function* (filters, pagination = {}, includeApiResults = true, categorySlug) {
+        return __awaiter(this, arguments, void 0, function* (filters, pagination = {}, includeApiResults = true, categorySlug, sortBy, sortOrder = 'asc') {
             var _a, _b;
             const page = pagination.page || 1;
             const limit = pagination.limit || 50;
@@ -229,7 +306,15 @@ let VehicleServiceDirect = class VehicleServiceDirect {
             let apiOnlyCount = 0;
             if (includeApiResults) {
                 try {
-                    const apiParams = this.filtersToAutoDevParams(resolvedFilters);
+                    // When browsing "all" (no filters), start from Auto.dev page 5 to avoid Hummer-heavy pages 1–4
+                    const isBrowsingAll = !resolvedFilters.make &&
+                        !resolvedFilters.model &&
+                        !resolvedFilters.search &&
+                        !resolvedFilters.vehicleType &&
+                        !categorySlug;
+                    const apiPage = isBrowsingAll ? 5 : 1;
+                    const apiLimit = 100;
+                    const apiParams = this.filtersToAutoDevParams(resolvedFilters, apiPage, apiLimit);
                     const apiListings = yield this.autoDevService.fetchListingsWithParams(apiParams);
                     // Optional search filter (API may not support free text; filter in-memory if needed)
                     let filteredListings = apiListings;
@@ -258,6 +343,8 @@ let VehicleServiceDirect = class VehicleServiceDirect {
                     const apiChunk = apiOnlyList.slice(apiOffset, apiOffset + needCount);
                     for (const listing of apiChunk) {
                         const vehicleData = vehicle_transformer_1.VehicleTransformer.fromAutoDevListing(listing, []);
+                        if (!vehicleData.priceUsd || vehicleData.priceUsd <= 0)
+                            continue;
                         vehicleData.apiData = {
                             listing,
                             raw: listing,
@@ -277,6 +364,11 @@ let VehicleServiceDirect = class VehicleServiceDirect {
             const total = dbResult.total + apiOnlyCount;
             const pages = Math.ceil(total / limit) || 1;
             const allVehicles = [...dbResult.vehicles, ...apiVehicles];
+            // Preserve new sorting behavior on top of the old merge logic
+            if (sortBy) {
+                const demoteHummers = !resolvedFilters.make && !resolvedFilters.vehicleType;
+                this.sortVehiclesInPlace(allVehicles, sortBy, sortOrder, demoteHummers);
+            }
             return {
                 vehicles: allVehicles,
                 total,

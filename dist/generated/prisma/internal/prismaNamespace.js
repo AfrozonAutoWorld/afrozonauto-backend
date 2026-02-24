@@ -554,6 +554,7 @@ exports.TrendingDefinitionScalarFieldEnum = {
     label: 'label',
     sortOrder: 'sortOrder',
     isActive: 'isActive',
+    maxFetchCount: 'maxFetchCount',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
 };

@@ -7,12 +7,15 @@ class VehicleTransformer {
      * Transform Auto.dev listing to our Vehicle model
      */
     static fromAutoDevListing(listing, photos = [], specs) {
-        var _a, _b, _c;
+        var _a, _b, _c, _d, _e;
         const vehicle = listing.vehicle || listing;
         const retailListing = listing.retailListing || {};
         // Use fetched photos when present; otherwise fall back to primaryImage from listing (e.g. from GET /listings)
         const primaryImage = retailListing.primaryImage;
         const images = photos.length > 0 ? photos : primaryImage ? [primaryImage] : [];
+        const bodyStyleSource = vehicle.bodyStyle ||
+            listing.bodyStyle ||
+            `${(_a = vehicle.make) !== null && _a !== void 0 ? _a : ''} ${(_b = vehicle.model) !== null && _b !== void 0 ? _b : ''}`;
         return {
             vin: listing.vin || vehicle.vin,
             slug: this.generateSlug(vehicle.make, vehicle.model, vehicle.year, listing.vin || vehicle.vin),
@@ -20,8 +23,8 @@ class VehicleTransformer {
             model: vehicle.model,
             year: vehicle.year,
             priceUsd: retailListing.price || listing.price || 0,
-            mileage: (_c = (_b = (_a = retailListing.miles) !== null && _a !== void 0 ? _a : retailListing.mileage) !== null && _b !== void 0 ? _b : listing.miles) !== null && _c !== void 0 ? _c : listing.mileage,
-            vehicleType: this.mapVehicleType(vehicle.bodyStyle || listing.bodyStyle || ''),
+            mileage: (_e = (_d = (_c = retailListing.miles) !== null && _c !== void 0 ? _c : retailListing.mileage) !== null && _d !== void 0 ? _d : listing.miles) !== null && _e !== void 0 ? _e : listing.mileage,
+            vehicleType: this.mapVehicleType(bodyStyleSource || ''),
             transmission: vehicle.transmission || listing.transmission,
             fuelType: vehicle.fuel || listing.fuelType,
             engineSize: vehicle.engine || listing.engineSize,
@@ -75,23 +78,39 @@ class VehicleTransformer {
      * Map body style to VehicleType enum
      */
     static mapVehicleType(bodyStyle) {
-        const style = bodyStyle.toLowerCase();
-        if (style.includes('suv'))
+        const style = (bodyStyle || '').toLowerCase();
+        if (!style)
+            return client_1.VehicleType.CAR;
+        // SUVs and crossovers
+        if (style.includes('suv') || style.includes('crossover'))
             return client_1.VehicleType.SUV;
-        if (style.includes('truck'))
+        // Trucks and pickups
+        if (style.includes('truck') || style.includes('pickup'))
             return client_1.VehicleType.TRUCK;
-        if (style.includes('van'))
+        // Vans / minivans
+        if (style.includes('van') || style.includes('minivan'))
             return client_1.VehicleType.VAN;
         if (style.includes('coupe'))
             return client_1.VehicleType.COUPE;
-        if (style.includes('sedan'))
+        // Sedans / saloons
+        if (style.includes('sedan') || style.includes('saloon'))
             return client_1.VehicleType.SEDAN;
         if (style.includes('hatchback'))
             return client_1.VehicleType.HATCHBACK;
-        if (style.includes('wagon'))
+        // Wagons / estates
+        if (style.includes('wagon') || style.includes('estate'))
             return client_1.VehicleType.WAGON;
-        if (style.includes('convertible'))
+        // Convertibles / cabriolets
+        if (style.includes('convertible') || style.includes('cabrio'))
             return client_1.VehicleType.CONVERTIBLE;
+        // Motorcycles / bikes
+        if (style.includes('motorcycle') || style.includes('motorbike') || style.includes('bike')) {
+            return client_1.VehicleType.MOTORCYCLE;
+        }
+        // Hummer (often missing bodyStyle in API) – treat as SUV
+        if (style.includes('hummer'))
+            return client_1.VehicleType.SUV;
+        // Fallback
         return client_1.VehicleType.CAR;
     }
     static vehicleTypeToBodyStyle(vehicleType) {
