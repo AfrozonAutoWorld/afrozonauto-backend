@@ -82,7 +82,18 @@ export class VehicleController {
     const includeApi = req.query.includeApi !== 'false';
     const categorySlug = str(q.category);
 
-    const result = await this.vehicleService.getVehicles(filters, pagination, includeApi, categorySlug);
+    const sortByParam = str(q.sortBy) as ('price' | 'year' | 'mileage' | 'createdAt') | undefined;
+    const sortOrderRaw = str(q.sortOrder);
+    const sortOrderParam = sortOrderRaw === 'desc' ? 'desc' : sortOrderRaw === 'asc' ? 'asc' : undefined;
+
+    const result = await this.vehicleService.getVehicles(
+      filters,
+      pagination,
+      includeApi,
+      categorySlug,
+      sortByParam,
+      sortOrderParam
+    );
 
     return res.json(
       ApiResponse.paginated(

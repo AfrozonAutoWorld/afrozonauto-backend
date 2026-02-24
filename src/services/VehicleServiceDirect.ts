@@ -182,11 +182,51 @@ export class VehicleServiceDirect {
     }
   }
 
+  private sortVehiclesInPlace(
+    vehicles: Vehicle[],
+    sortBy?: string,
+    sortOrder: 'asc' | 'desc' = 'asc'
+  ): void {
+    if (!sortBy || vehicles.length === 0) return;
+
+    let key: keyof Vehicle;
+    switch (sortBy) {
+      case 'price':
+      case 'priceUsd':
+        key = 'priceUsd';
+        break;
+      case 'year':
+        key = 'year';
+        break;
+      case 'mileage':
+        key = 'mileage';
+        break;
+      case 'createdAt':
+      default:
+        key = 'createdAt';
+        break;
+    }
+
+    vehicles.sort((a, b) => {
+      const aVal = key === 'createdAt'
+        ? ((a.createdAt as unknown as Date) ?? new Date(0)).getTime()
+        : ((a as any)[key] ?? 0);
+      const bVal = key === 'createdAt'
+        ? ((b.createdAt as unknown as Date) ?? new Date(0)).getTime()
+        : ((b as any)[key] ?? 0);
+
+      if (aVal === bVal) return 0;
+      return sortOrder === 'asc' ? (aVal > bVal ? 1 : -1) : (aVal < bVal ? 1 : -1);
+    });
+  }
+
   async getVehicles(
     filters: VehicleFilters,
     pagination: VehiclePagination = {},
     includeApiResults: boolean = true,
-    categorySlug?: string
+    categorySlug?: string,
+    sortBy?: 'price' | 'year' | 'mileage' | 'createdAt',
+    sortOrder: 'asc' | 'desc' = 'asc'
   ): Promise<{
     vehicles: Vehicle[];
     total: number;
@@ -254,6 +294,10 @@ export class VehicleServiceDirect {
           apiVehicles.push(vehicleData as Vehicle);
         }
 
+        // Apply sorting for API vehicles (per page) when requested
+        if (sortBy) {
+          this.sortVehiclesInPlace(apiVehicles, sortBy, sortOrder);
+        }
 
         const fallThroughToDb = categorySlug && apiVehicles.length === 0 && apiListings.length > 0;
         if (!fallThroughToDb) {
@@ -277,12 +321,17 @@ export class VehicleServiceDirect {
     const staleVehicles = dbResult.vehicles.filter((v) => this.isPriceStale(v));
     Promise.all(staleVehicles.map((v) => this.refreshVehiclePrice(v).catch(() => null))).catch(() => {});
 
+    const sortedDbVehicles = [...dbResult.vehicles];
+    if (sortBy) {
+      this.sortVehiclesInPlace(sortedDbVehicles, sortBy, sortOrder);
+    }
+
     const total = dbResult.total;
     const pages = Math.ceil(total / limit) || 1;
     const hasMore = page < pages;
 
     return {
-      vehicles: dbResult.vehicles,
+      vehicles: sortedDbVehicles,
       total,
       page,
       limit,
