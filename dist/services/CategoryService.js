@@ -34,9 +34,19 @@ let CategoryService = class CategoryService {
             return this.categoryRepo.findManyActive();
         });
     }
+    listAllCategories() {
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.categoryRepo.findMany();
+        });
+    }
     getBySlug(slug) {
         return __awaiter(this, void 0, void 0, function* () {
             return this.categoryRepo.findBySlug(slug);
+        });
+    }
+    getById(id) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.categoryRepo.findById(id);
         });
     }
     createCategory(body) {

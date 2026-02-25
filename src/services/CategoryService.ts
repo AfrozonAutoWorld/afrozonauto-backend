@@ -13,8 +13,15 @@ export class CategoryService {
     return this.categoryRepo.findManyActive();
   }
 
+  async listAllCategories(): Promise<VehicleCategory[]> {
+    return this.categoryRepo.findMany();
+  }
+
   async getBySlug(slug: string): Promise<VehicleCategory | null> {
     return this.categoryRepo.findBySlug(slug);
+  }
+  async getById(id: string): Promise<VehicleCategory | null> {
+    return this.categoryRepo.findById(id);
   }
   async createCategory(body: Prisma.VehicleCategoryCreateInput): Promise<VehicleCategory | null> {
     return this.categoryRepo.create(body);
