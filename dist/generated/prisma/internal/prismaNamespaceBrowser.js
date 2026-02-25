@@ -540,6 +540,7 @@ exports.VehicleCategoryScalarFieldEnum = {
     priceMin: 'priceMin',
     sortOrder: 'sortOrder',
     isActive: 'isActive',
+    isDeleted: 'isDeleted',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
 };

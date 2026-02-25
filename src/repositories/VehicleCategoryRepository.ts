@@ -36,6 +36,6 @@ export class VehicleCategoryRepository {
   }
 
   async delete(id: string): Promise<VehicleCategory> {
-    return prisma.vehicleCategory.delete({ where: { id } });
+    return prisma.vehicleCategory.update({ where: { id }, data: { isDeleted: true } });
   }
 }

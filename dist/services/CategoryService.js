@@ -39,6 +39,21 @@ let CategoryService = class CategoryService {
             return this.categoryRepo.findBySlug(slug);
         });
     }
+    createCategory(body) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.categoryRepo.create(body);
+        });
+    }
+    updateCategory(id, body) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.categoryRepo.update(id, body);
+        });
+    }
+    deleteCategory(id) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.categoryRepo.delete(id);
+        });
+    }
 };
 exports.CategoryService = CategoryService;
 exports.CategoryService = CategoryService = __decorate([

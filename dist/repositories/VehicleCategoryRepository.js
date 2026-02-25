@@ -61,7 +61,7 @@ let VehicleCategoryRepository = class VehicleCategoryRepository {
     }
     delete(id) {
         return __awaiter(this, void 0, void 0, function* () {
-            return db_1.default.vehicleCategory.delete({ where: { id } });
+            return db_1.default.vehicleCategory.update({ where: { id }, data: { isDeleted: true } });
         });
     }
 };
