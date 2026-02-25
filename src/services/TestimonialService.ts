@@ -1,5 +1,5 @@
 import { inject, injectable } from "inversify";
-import { ITestimonialRepository } from "../repositories/TestimonialRepository";
+import { ITestimonialRepository } from "../validation/interfaces/ITestimonial";
 import { TYPES } from "../config/types";
 import { ApiError } from "../utils/ApiError";
 

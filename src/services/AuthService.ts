@@ -7,7 +7,6 @@ import TokenService from './TokenService';
 import { ProfileService } from './ProfileService';
 import { ApiError } from '../utils/ApiError';
 import { TYPES } from '../config/types';
-
 import { User, UserRole, TokenType } from '../generated/prisma/client';
 
 type TokenIdentifier =

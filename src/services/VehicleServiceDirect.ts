@@ -2,7 +2,7 @@ import { inject, injectable } from 'inversify';
 import { TYPES } from '../config/types';
 import { VehicleRepository, VehiclePagination } from '../repositories/VehicleRepository';
 import { VehicleFilters } from '../validation/interfaces/IVehicle';
-import { AutoDevService, AutoDevListingsParams } from './AutoDevService';
+import { AutoDevService,  } from './AutoDevService';
 import { TrendingService } from './TrendingService';
 import { CategoryService } from './CategoryService';
 import { VehicleTransformer } from '../helpers/vehicle-transformer';
@@ -11,6 +11,7 @@ import { Vehicle, VehicleSource, VehicleType, Prisma } from '../generated/prisma
 import { CreateVehicleDto } from '../validation/dtos/vehicle.dto';
 import { ApiError } from '../utils/ApiError';
 import loggers from '../utils/loggers';
+import { AutoDevListingsParams } from '../validation/interfaces/IAutoDev';
 
 @injectable()
 export class VehicleServiceDirect {

@@ -1,38 +1,12 @@
 import { injectable } from 'inversify';
 import { AUTO_DEV_API_KEY, AUTO_DEV_BASE_URL } from '../secrets';
-import { VehicleTransformer, AutoDevListing, AutoDevVINDecode } from '../helpers/vehicle-transformer';
+import { AutoDevListing, AutoDevVINDecode } from '../helpers/vehicle-transformer';
 import loggers from '../utils/loggers';
 import { ApiError } from '../utils/ApiError';
 import {AutoDevResponse} from "../validation/interfaces/IVehicle"
+import { AutoDevListingsParams, AutoDevMakeModelsReference } from '../validation/interfaces/IAutoDev';
 
 
-export type AutoDevMakeModelsReference = Record<string, string[]>;
-
-/**
- * Params for GET /listings - pass directly to Auto.dev with dot notation.
- * See https://api.auto.dev/listings (vehicle.*, retailListing.*, etc.)
- */
-export interface AutoDevListingsParams {
-  'vehicle.make'?: string;
-  'vehicle.model'?: string;
-  'vehicle.year'?: string; // single year or range e.g. "2018-2020"
-  'vehicle.bodyStyle'?: string;
-  'vehicle.fuel'?: string; // Electric, Hybrid, Diesel, Plug-In Hybrid, etc.
-  'vehicle.trim'?: string;
-  'vehicle.transmission'?: string;
-  'vehicle.exteriorColor'?: string;
-  'vehicle.interiorColor'?: string;
-  'retailListing.price'?: string; // range e.g. "10000-30000"
-  'retailListing.miles'?: string;  // range e.g. "0-50000"
-  'retailListing.state'?: string;
-  'wholesaleListing.state'?: string;
-  'wholesaleListing.miles'?: string;
-  'wholesaleListing.buyNowPrice'?: string;
-  zip?: string;
-  distance?: number;
-  page?: number;
-  limit?: number;
-}
 
 @injectable()
 export class AutoDevService {
