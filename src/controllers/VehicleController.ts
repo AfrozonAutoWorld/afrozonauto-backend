@@ -7,8 +7,8 @@ import { AuthenticatedRequest } from '../types/customRequest';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiResponse } from '../utils/ApiResponse';
 import { ApiError } from '../utils/ApiError';
-import { VehicleFilters } from '../repositories/VehicleRepository';
 import { UserRole } from '../generated/prisma/client';
+import { VehicleFilters } from '../validation/interfaces/IVehicle';
 
 @injectable()
 export class VehicleController {

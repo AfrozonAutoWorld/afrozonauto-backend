@@ -102,6 +102,7 @@ let VehicleRepository = class VehicleRepository {
             const where = {
                 isActive: filters.isActive !== false,
                 isHidden: filters.isHidden !== true,
+                priceUsd: { gt: 0 },
             };
             if ((_a = filters.luxuryMakes) === null || _a === void 0 ? void 0 : _a.length) {
                 where.make = { in: filters.luxuryMakes };
@@ -128,12 +129,8 @@ let VehicleRepository = class VehicleRepository {
                 if (filters.yearMax)
                     where.year.lte = filters.yearMax;
             }
-            if (filters.priceMin || filters.priceMax) {
-                where.priceUsd = {};
-                if (filters.priceMin)
-                    where.priceUsd.gte = filters.priceMin;
-                if (filters.priceMax)
-                    where.priceUsd.lte = filters.priceMax;
+            if (filters.priceMin != null || filters.priceMax != null) {
+                where.priceUsd = Object.assign(Object.assign({ gt: 0 }, (filters.priceMin != null && { gte: filters.priceMin })), (filters.priceMax != null && { lte: filters.priceMax }));
             }
             if (filters.mileageMax) {
                 where.mileage = { lte: filters.mileageMax };

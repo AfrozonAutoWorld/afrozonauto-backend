@@ -554,6 +554,7 @@ exports.TrendingDefinitionScalarFieldEnum = {
     label: 'label',
     sortOrder: 'sortOrder',
     isActive: 'isActive',
+    maxFetchCount: 'maxFetchCount',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
 };
@@ -567,6 +568,7 @@ exports.VehicleCategoryScalarFieldEnum = {
     priceMin: 'priceMin',
     sortOrder: 'sortOrder',
     isActive: 'isActive',
+    isDeleted: 'isDeleted',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
 };

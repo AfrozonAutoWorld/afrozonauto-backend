@@ -1,6 +1,7 @@
 import { inject, injectable } from 'inversify';
 import { TYPES } from '../config/types';
-import { VehicleRepository, VehicleFilters, VehiclePagination } from '../repositories/VehicleRepository';
+import { VehicleRepository, VehiclePagination } from '../repositories/VehicleRepository';
+import { VehicleFilters } from '../validation/interfaces/IVehicle';
 import { AutoDevService } from './AutoDevService';
 import { RedisCacheService } from './RedisCacheService';
 import { VehicleTransformer } from '../helpers/vehicle-transformer';

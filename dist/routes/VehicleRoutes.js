@@ -20,6 +20,8 @@ class VehicleRoutes {
         this.router.get('/', this.controller.getVehicles);
         this.router.get('/trending', this.controller.getTrending);
         this.router.get('/categories', this.controller.getCategories);
+        this.router.get('/reference/models', this.controller.getMakeModelsReference);
+        this.router.get('/debug/auto-dev-page', this.controller.getAutoDevPageDebug);
         // Admin: trending definitions (CRUD) - before /:identifier
         this.router.get('/trending-definitions', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([client_1.UserRole.SUPER_ADMIN, client_1.UserRole.OPERATIONS_ADMIN]), this.trendingDefController.list);
         this.router.get('/trending-definitions/:id', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([client_1.UserRole.SUPER_ADMIN, client_1.UserRole.OPERATIONS_ADMIN]), this.trendingDefController.getById);

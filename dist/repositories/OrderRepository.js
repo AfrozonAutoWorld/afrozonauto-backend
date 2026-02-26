@@ -256,10 +256,6 @@ let OrderRepository = class OrderRepository {
             });
         });
     }
-    /**
-     * Get vehicle IDs that have been ordered, sorted by order count (most ordered first).
-     * Used for "trending" - vehicles people actually ordered.
-     */
     findOrderedVehicleIds() {
         return __awaiter(this, arguments, void 0, function* (limit = 20) {
             var _a;

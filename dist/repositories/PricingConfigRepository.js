@@ -21,21 +21,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PricingConfigRepository = exports.DEFAULT_FEE_SETTINGS = void 0;
+exports.PricingConfigRepository = void 0;
 const inversify_1 = require("inversify");
 const db_1 = __importDefault(require("../db"));
-exports.DEFAULT_FEE_SETTINGS = {
-    importDutyPercent: 35,
-    vatPercent: 7.5,
-    cissPercent: 15,
-    sourcingFee: 5, // 5% of the initial vehicle amount
-    prePurchaseInspectionUsd: 150,
-    usHandlingFeeUsd: 350,
-    shippingCostUsd: 1800,
-    clearingFeeUsd: 800,
-    portChargesUsd: 400,
-    localDeliveryUsd: 200
-};
+const IPricing_1 = require("../validation/interfaces/IPricing");
 let PricingConfigRepository = class PricingConfigRepository {
     constructor() { }
     getOrCreateSettings() {
@@ -43,7 +32,7 @@ let PricingConfigRepository = class PricingConfigRepository {
             let settings = yield db_1.default.feeSettings.findFirst();
             if (!settings) {
                 settings = yield db_1.default.feeSettings.create({
-                    data: exports.DEFAULT_FEE_SETTINGS
+                    data: IPricing_1.DEFAULT_FEE_SETTINGS
                 });
             }
             return settings;

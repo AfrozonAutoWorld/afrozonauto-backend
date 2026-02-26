@@ -7,21 +7,23 @@ import { asyncHandler } from '../utils/asyncHandler';
 import { ApiResponse } from '../utils/ApiResponse';
 import { ApiError } from '../utils/ApiError';
 import { UserRole } from '../generated/prisma/client';
+import { CategoryService } from '../services/CategoryService';
 
 @injectable()
 export class VehicleCategoryController {
   constructor(
-    @inject(TYPES.VehicleCategoryRepository) private repo: VehicleCategoryRepository
+    @inject(TYPES.VehicleCategoryRepository) private repo: VehicleCategoryRepository,
+    @inject(TYPES.CategoryService) private service: CategoryService
   ) {}
 
   list = asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
-    const list = await this.repo.findMany();
+    const list = await this.service.listAllCategories();
     return res.json(ApiResponse.success(list, 'Categories retrieved'));
   });
 
   getById = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
-    const item = await this.repo.findById(id);
+    const item = await this.service.getById(id);
     if (!item) throw ApiError.notFound('Category not found');
     return res.json(ApiResponse.success(item, 'Category retrieved'));
   });
@@ -34,7 +36,7 @@ export class VehicleCategoryController {
     if (!slug?.trim() || !label?.trim()) {
       throw ApiError.badRequest('slug and label are required');
     }
-    const item = await this.repo.create({
+    const item = await this.service.createCategory({
       slug: String(slug).toLowerCase().trim(),
       label: String(label).trim(),
       bodyStyle: bodyStyle ?? undefined,
@@ -52,10 +54,10 @@ export class VehicleCategoryController {
       throw ApiError.forbidden('Admin only');
     }
     const { id } = req.params;
-    const existing = await this.repo.findById(id);
+    const existing = await this.service.getById(id);
     if (!existing) throw ApiError.notFound('Category not found');
     const { slug, label, bodyStyle, fuel, luxuryMakes, priceMin, sortOrder, isActive } = req.body;
-    const item = await this.repo.update(id, {
+    const item = await this.service.updateCategory(id, {
       ...(slug != null && { slug: String(slug).toLowerCase().trim() }),
       ...(label != null && { label: String(label).trim() }),
       ...(bodyStyle !== undefined && { bodyStyle: bodyStyle || null }),
@@ -73,9 +75,9 @@ export class VehicleCategoryController {
       throw ApiError.forbidden('Admin only');
     }
     const { id } = req.params;
-    const existing = await this.repo.findById(id);
+    const existing = await this.service.getById(id);
     if (!existing) throw ApiError.notFound('Category not found');
-    await this.repo.delete(id);
+    await this.service.deleteCategory(id);
     return res.json(ApiResponse.success(null, 'Category deleted'));
   });
 }

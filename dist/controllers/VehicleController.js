@@ -51,11 +51,30 @@ let VehicleController = class VehicleController {
             return res.json(ApiResponse_1.ApiResponse.success(categories, 'Categories retrieved successfully'));
         }));
         /**
+         * GET /api/vehicles/reference/models
+         * Proxy Auto.dev models reference (make -> models). Cached in AutoDevService.
+         */
+        this.getMakeModelsReference = (0, asyncHandler_1.asyncHandler)((_req, res) => __awaiter(this, void 0, void 0, function* () {
+            const data = yield this.vehicleService.getMakeModelsReference();
+            return res.json(ApiResponse_1.ApiResponse.success(data, 'Make/models reference retrieved successfully'));
+        }));
+        /**
+         * GET /api/vehicles/debug/auto-dev-page?page=4&limit=24
+         * Debug: see what Auto.dev returns on a given page (no filters). Use to inspect make/model mix.
+         */
+        this.getAutoDevPageDebug = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            const page = Math.max(1, parseInt(String(req.query.page || 4), 10) || 4);
+            const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || 24), 10) || 24));
+            const data = yield this.vehicleService.getAutoDevPageSummary(page, limit);
+            return res.json(ApiResponse_1.ApiResponse.success(data, `Auto.dev page ${page} summary`));
+        }));
+        /**
          * GET /api/vehicles
          * Get list of vehicles with filters (DB first, API)
          * Query param: includeApi=true/false (default: true) - whether to include API results
          */
         this.getVehicles = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            var _a;
             const q = req.query;
             const str = (v) => {
                 const s = Array.isArray(v) ? v[0] : v;
@@ -97,13 +116,17 @@ let VehicleController = class VehicleController {
             };
             const includeApi = req.query.includeApi !== 'false';
             const categorySlug = str(q.category);
-            const result = yield this.vehicleService.getVehicles(filters, pagination, includeApi, categorySlug);
+            const sortByParam = str(q.sortBy);
+            const sortOrderRaw = str(q.sortOrder);
+            const sortOrderParam = sortOrderRaw === 'desc' ? 'desc' : sortOrderRaw === 'asc' ? 'asc' : undefined;
+            const result = yield this.vehicleService.getVehicles(filters, pagination, includeApi, categorySlug, sortByParam, sortOrderParam);
             return res.json(ApiResponse_1.ApiResponse.paginated(result.vehicles, {
                 page: result.page,
                 limit: result.limit,
                 total: result.total,
                 pages: result.pages,
                 fromApi: result.fromApi || 0,
+                hasMore: (_a = result.hasMore) !== null && _a !== void 0 ? _a : (result.vehicles.length === result.limit),
             }, 'Vehicles retrieved successfully'));
         }));
         /**

@@ -27,6 +27,8 @@ let AutoDevService = class AutoDevService {
     constructor() {
         this.baseUrl = secrets_1.AUTO_DEV_BASE_URL || 'https://api.auto.dev';
         this.apiKey = secrets_1.AUTO_DEV_API_KEY;
+        this.makeModelsCache = null;
+        this.makeModelsCacheTtlMs = 1000 * 60 * 60 * 24; // 24h
         /**
          * Fetch vehicle specifications
          */
@@ -163,22 +165,71 @@ let AutoDevService = class AutoDevService {
         });
     }
     /**
-     * Fetch all pages of listings from Auto.dev (for caching full result set in Redis).
-     * Uses limit=100 per page; stops when a page returns fewer than 100 or maxPages is reached.
+     * Reference: fetch makes -> models mapping from Auto.dev
+     * Docs: GET /api/models
      */
-    fetchAllListings(filters_1) {
-        return __awaiter(this, arguments, void 0, function* (filters, maxPages = 50) {
-            const all = [];
-            const pageSize = 100;
-            let page = 1;
-            while (page <= maxPages) {
-                const chunk = yield this.fetchListings(Object.assign(Object.assign({}, filters), { page, limit: pageSize }));
-                all.push(...chunk);
-                if (chunk.length < pageSize)
-                    break;
-                page++;
+    fetchMakeModelsReference() {
+        return __awaiter(this, arguments, void 0, function* (forceRefresh = false) {
+            var _a, _b, _c, _d, _e, _f, _g;
+            if (!this.apiKey) {
+                loggers_1.default.warn('AUTO_DEV_API_KEY is not configured. Cannot fetch models reference from Auto.dev API.');
+                throw new Error('Auto.dev API key is not configured');
             }
-            return all;
+            const now = Date.now();
+            if (!forceRefresh && this.makeModelsCache && now - this.makeModelsCache.fetchedAt < this.makeModelsCacheTtlMs) {
+                return this.makeModelsCache.data;
+            }
+            const url = `${this.baseUrl}/api/models`;
+            try {
+                const response = yield fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${this.apiKey}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+                if (!response.ok) {
+                    const errorText = yield response.text();
+                    loggers_1.default.error(`Auto.dev models reference error (${response.status}): ${response.statusText}`, {
+                        status: response.status,
+                        statusText: response.statusText,
+                        body: errorText.substring(0, 200),
+                    });
+                    throw new Error(`Auto.dev API error: ${response.statusText} (Status: ${response.status})`);
+                }
+                const json = yield response.json();
+                const payload = ((_a = json === null || json === void 0 ? void 0 : json.data) !== null && _a !== void 0 ? _a : json);
+                if (payload === null || payload === void 0 ? void 0 : payload.error) {
+                    throw new Error(((_b = payload.error) === null || _b === void 0 ? void 0 : _b.message) || 'Auto.dev API error');
+                }
+                // Normalize possible response shapes into { [make]: string[] }
+                let map = {};
+                if (Array.isArray(payload)) {
+                    for (const item of payload) {
+                        const make = (_d = (_c = item === null || item === void 0 ? void 0 : item.make) !== null && _c !== void 0 ? _c : item === null || item === void 0 ? void 0 : item.brand) !== null && _d !== void 0 ? _d : item === null || item === void 0 ? void 0 : item.name;
+                        const models = (_f = (_e = item === null || item === void 0 ? void 0 : item.models) !== null && _e !== void 0 ? _e : item === null || item === void 0 ? void 0 : item.model) !== null && _f !== void 0 ? _f : item === null || item === void 0 ? void 0 : item.values;
+                        if (typeof make === 'string' && Array.isArray(models)) {
+                            map[make] = models.filter((m) => typeof m === 'string');
+                        }
+                    }
+                }
+                else if (payload && typeof payload === 'object') {
+                    const entries = Object.entries(payload);
+                    const looksLikeMap = entries.every(([k, v]) => typeof k === 'string' && Array.isArray(v));
+                    if (looksLikeMap) {
+                        map = Object.fromEntries(entries.map(([k, v]) => [k, v.filter((m) => typeof m === 'string')]));
+                    }
+                }
+                this.makeModelsCache = { fetchedAt: now, data: map };
+                return map;
+            }
+            catch (error) {
+                if ((_g = this.makeModelsCache) === null || _g === void 0 ? void 0 : _g.data) {
+                    loggers_1.default.warn('Auto.dev fetchMakeModelsReference failed; returning cached copy:', (error === null || error === void 0 ? void 0 : error.message) || error);
+                    return this.makeModelsCache.data;
+                }
+                loggers_1.default.error('Auto.dev fetchMakeModelsReference error:', error);
+                throw error;
+            }
         });
     }
     /**
@@ -186,7 +237,7 @@ let AutoDevService = class AutoDevService {
      * Uses limit=100 per page; stops when a page returns fewer than 100 or maxPages is reached.
      */
     fetchAllListings(filters_1) {
-        return __awaiter(this, arguments, void 0, function* (filters, maxPages = 20) {
+        return __awaiter(this, arguments, void 0, function* (filters, maxPages = 50) {
             const all = [];
             const pageSize = 100;
             let page = 1;
