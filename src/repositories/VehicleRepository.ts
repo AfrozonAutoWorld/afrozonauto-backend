@@ -22,6 +22,16 @@ export interface VehicleFilters {
   bodyStyle?: string;
   fuel?: string;
   luxuryMakes?: string[];
+  // Vehicle details (DB + API)
+  transmission?: string;
+  exteriorColor?: string;
+  interiorColor?: string;
+  // Location radius (API only; passed to Auto.dev zip + distance)
+  zip?: string;
+  distance?: number;
+  // Condition (API filter; new | used | cpo) and drivetrain (DB + API)
+  condition?: 'new' | 'used' | 'cpo';
+  drivetrain?: string; // AWD, FWD, RWD, 4WD
 }
 
 export interface VehiclePagination {
@@ -136,6 +146,19 @@ export class VehicleRepository {
 
     if (filters.mileageMax) {
       where.mileage = { lte: filters.mileageMax };
+    }
+
+    if (filters.transmission) {
+      where.transmission = { equals: filters.transmission, mode: 'insensitive' };
+    }
+    if (filters.exteriorColor) {
+      where.exteriorColor = { equals: filters.exteriorColor, mode: 'insensitive' };
+    }
+    if (filters.interiorColor) {
+      where.interiorColor = { equals: filters.interiorColor, mode: 'insensitive' };
+    }
+    if (filters.drivetrain) {
+      where.drivetrain = { equals: filters.drivetrain, mode: 'insensitive' };
     }
 
     // Search filter: only search model and VIN (not make)

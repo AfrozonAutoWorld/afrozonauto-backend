@@ -22,9 +22,12 @@ export interface AutoDevListingsParams {
   'vehicle.transmission'?: string;
   'vehicle.exteriorColor'?: string;
   'vehicle.interiorColor'?: string;
+  'vehicle.drivetrain'?: string; // AWD, FWD, RWD, 4WD
   'retailListing.price'?: string; // range e.g. "10000-30000"
   'retailListing.miles'?: string;  // range e.g. "0-50000"
   'retailListing.state'?: string;
+  'retailListing.used'?: string;  // "true" | "false" – filter by used
+  'retailListing.cpo'?: string;    // "true" | "false" – filter by certified pre-owned
   'wholesaleListing.state'?: string;
   'wholesaleListing.miles'?: string;
   'wholesaleListing.buyNowPrice'?: string;
@@ -108,8 +111,8 @@ export class AutoDevService {
     const searchParams = new URLSearchParams();
     const keys: (keyof AutoDevListingsParams)[] = [
       'vehicle.make', 'vehicle.model', 'vehicle.year', 'vehicle.bodyStyle', 'vehicle.fuel', 'vehicle.trim',
-      'vehicle.transmission', 'vehicle.exteriorColor', 'vehicle.interiorColor',
-      'retailListing.price', 'retailListing.miles', 'retailListing.state',
+      'vehicle.transmission', 'vehicle.exteriorColor', 'vehicle.interiorColor', 'vehicle.drivetrain',
+      'retailListing.price', 'retailListing.miles', 'retailListing.state', 'retailListing.used', 'retailListing.cpo',
       'wholesaleListing.state', 'wholesaleListing.miles', 'wholesaleListing.buyNowPrice',
       'zip', 'page', 'limit', 'distance',
     ];

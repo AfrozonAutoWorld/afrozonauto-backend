@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "afrozon-auto-api-2025",
 		"name": "Afrozon AutoGlobal API",
-		"description": "Complete API collection for Afrozon AutoGlobal platform. Includes Authentication, Vehicles, Addresses, and User management endpoints.",
+		"description": "Complete API collection for Afrozon AutoGlobal platform. Includes Authentication, Vehicles, Addresses, Orders, Profile, Users, Testimonials, and Payments.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "afrozon-auto"
 	},
@@ -346,7 +346,7 @@
 							}
 						],
 						"url": {
-							"raw": "{{baseUrl}}/api/vehicles?make=Toyota&model=Camry&yearMin=2020&yearMax=2024&priceMin=10000&priceMax=50000&mileageMax=50000&vehicleType=CAR&status=AVAILABLE&state=CA&featured=true&search=camry&page=1&limit=50&includeApi=true&category=suv",
+							"raw": "{{baseUrl}}/api/vehicles?make=Toyota&model=Camry&yearMin=2020&yearMax=2024&priceMin=10000&priceMax=50000&mileageMax=50000&vehicleType=CAR&condition=used&drivetrain=AWD&state=CA&page=1&limit=50&includeApi=true",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "vehicles"],
 							"query": [
@@ -391,6 +391,51 @@
 									"description": "Vehicle type: CAR, SUV, TRUCK, VAN, COUPE, SEDAN, HATCHBACK, WAGON, CONVERTIBLE"
 								},
 								{
+									"key": "bodyStyle",
+									"value": "",
+									"description": "Body style (e.g., Sedan, SUV). DB + Auto.dev"
+								},
+								{
+									"key": "fuel",
+									"value": "",
+									"description": "Fuel type (e.g., Electric, Hybrid, Diesel). DB + Auto.dev"
+								},
+								{
+									"key": "transmission",
+									"value": "",
+									"description": "Transmission (e.g., Automatic, Manual, CVT). DB + Auto.dev"
+								},
+								{
+									"key": "exteriorColor",
+									"value": "",
+									"description": "Exterior color. DB + Auto.dev"
+								},
+								{
+									"key": "interiorColor",
+									"value": "",
+									"description": "Interior color. DB + Auto.dev"
+								},
+								{
+									"key": "condition",
+									"value": "used",
+									"description": "Condition: new | used | cpo. Auto.dev filter"
+								},
+								{
+									"key": "drivetrain",
+									"value": "AWD",
+									"description": "Drivetrain: AWD, FWD, RWD, 4WD. DB + Auto.dev"
+								},
+								{
+									"key": "zip",
+									"value": "",
+									"description": "ZIP code for radius search. Use with distance. Auto.dev"
+								},
+								{
+									"key": "distance",
+									"value": "",
+									"description": "Radius in miles from zip. Auto.dev"
+								},
+								{
 									"key": "status",
 									"value": "AVAILABLE",
 									"description": "Vehicle status: AVAILABLE, SOLD, PENDING, RESERVED"
@@ -398,7 +443,7 @@
 								{
 									"key": "state",
 									"value": "CA",
-									"description": "Dealer state"
+									"description": "Dealer state (US state code)"
 								},
 								{
 									"key": "featured",
@@ -408,7 +453,7 @@
 								{
 									"key": "search",
 									"value": "camry",
-									"description": "Search in make, model, or VIN"
+									"description": "Search in model or VIN"
 								},
 								{
 									"key": "page",
@@ -423,16 +468,26 @@
 								{
 									"key": "includeApi",
 									"value": "true",
-									"description": "Include API results if DB results insufficient (default: true)"
+									"description": "Include Auto.dev API results (default: true)"
 								},
 								{
 									"key": "category",
 									"value": "suv",
 									"description": "Category slug: electric, suv, sedan, pickup-truck, luxury, crossover, hybrid, diesel, coupe, hatchback, wagon, convertible, minivan, plug-in-hybrid, van"
+								},
+								{
+									"key": "sortBy",
+									"value": "",
+									"description": "Sort: price | year | mileage | createdAt"
+								},
+								{
+									"key": "sortOrder",
+									"value": "",
+									"description": "Sort order: asc | desc"
 								}
 							]
 						},
-						"description": "Get list of vehicles with filters. **Public endpoint** - no authentication required.\n\n**Hybrid Search Strategy:**\n1. First searches database (DB)\n2. If results insufficient, checks Redis cache (12hr TTL)\n3. If cache miss, fetches from Auto.dev API and caches results\n4. Combines DB + API results\n5. Background price refresh for stale DB vehicles\n\n**Query Parameters (all optional):**\n- `make`: Vehicle make (e.g., Toyota, Jeep)\n- `model`: Vehicle model\n- `yearMin`, `yearMax`: Year range\n- `priceMin`, `priceMax`: Price range in USD\n- `mileageMax`: Maximum mileage\n- `vehicleType`: CAR, SUV, TRUCK, VAN, COUPE, SEDAN, HATCHBACK, WAGON, CONVERTIBLE\n- `status`: AVAILABLE, SOLD, PENDING, RESERVED\n- `state`: Dealer state (maps to `dealerState` filter)\n- `featured`: Filter featured vehicles (true/false)\n- `search`: Search in make, model, or VIN\n- `includeApi` (default: true): Whether to include Auto.dev API results if DB results insufficient\n- `page` (default: 1): Page number\n- `limit` (default: 50, max: 100): Items per page\n\n**Response Format:**\n```json\n{\n  \"success\": true,\n  \"message\": \"Vehicles retrieved successfully\",\n  \"data\": {\n    \"data\": [/* array of vehicles */],\n    \"meta\": {\n      \"page\": 1,\n      \"limit\": 50,\n      \"total\": 100,\n      \"pages\": 2,\n      \"fromApi\": 25\n    }\n  },\n  \"timestamp\": \"2025-01-08T...\"\n}\n```\n\n**Note:** API results are cached in Redis (12-hour TTL) to handle price changes efficiently and reduce external API calls. Use **category** to filter by admin-configured category slug (e.g. suv, electric, luxury)."
+						"description": "Get list of vehicles with filters. **Public endpoint** - no authentication required.\n\n**Hybrid Search Strategy:**\n1. First searches database (DB)\n2. If results insufficient, checks Redis cache (12hr TTL)\n3. If cache miss, fetches from Auto.dev API and caches results\n4. Combines DB + API results\n5. Background price refresh for stale DB vehicles\n\n**Query Parameters (all optional):**\n- `make`, `model`: Vehicle make and model\n- `yearMin`, `yearMax`: Year range\n- `priceMin`, `priceMax`: Price range in USD\n- `mileageMax`: Maximum mileage\n- `vehicleType`: CAR, SUV, TRUCK, VAN, COUPE, SEDAN, HATCHBACK, WAGON, CONVERTIBLE\n- `bodyStyle`: Body style (e.g., Sedan, SUV). DB + Auto.dev\n- `fuel`: Fuel type (e.g., Electric, Hybrid, Diesel). DB + Auto.dev\n- `transmission`: Automatic, Manual, CVT. DB + Auto.dev\n- `exteriorColor`, `interiorColor`: Colors. DB + Auto.dev\n- `condition`: new | used | cpo. Auto.dev filter\n- `drivetrain`: AWD, FWD, RWD, 4WD. DB + Auto.dev\n- `zip`, `distance`: Location radius (ZIP + miles). Auto.dev\n- `status`: AVAILABLE, SOLD, PENDING, RESERVED\n- `state`: Dealer state (US state code)\n- `featured`: Filter featured vehicles (true/false)\n- `search`: Search in model or VIN\n- `includeApi` (default: true): Include Auto.dev API results\n- `category`: Category slug (e.g., suv, electric)\n- `sortBy`: price | year | mileage | createdAt\n- `sortOrder`: asc | desc\n- `page` (default: 1), `limit` (default: 50, max: 100): Pagination\n\n**Response Format:**\n```json\n{\n  \"success\": true,\n  \"message\": \"Vehicles retrieved successfully\",\n  \"data\": {\n    \"data\": [/* array of vehicles */],\n    \"meta\": {\n      \"page\": 1,\n      \"limit\": 50,\n      \"total\": 100,\n      \"pages\": 2,\n      \"fromApi\": 25\n    }\n  },\n  \"timestamp\": \"2025-01-08T...\"\n}\n```\n\n**Note:** API results are cached in Redis (12-hour TTL) to handle price changes efficiently and reduce external API calls. Use **category** to filter by admin-configured category slug (e.g. suv, electric, luxury)."
 					},
 					"response": []
 				},
@@ -959,118 +1014,380 @@
 			"description": "Address management endpoints for authenticated users. All endpoints require authentication via `Authorization: Bearer {accessToken}` header.\n\n**Features:**\n- Create multiple addresses per user\n- Set default address by type (NORMAL, BILLING, SHIPPING)\n- Update and delete addresses\n- Get all addresses or default address by type\n\n**Address Types:**\n- `NORMAL`: General purpose address\n- `BILLING`: Billing address for payments\n- `SHIPPING`: Shipping address for deliveries\n\n**Note:** User must have a profile before creating addresses."
 		},
 		{
+			"name": "Orders",
+			"item": [
+				{
+					"name": "Create Order",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "Authorization", "value": "Bearer {{accessToken}}"}
+						],
+						"body": {"mode": "raw", "raw": "{\n  \"vehicleId\": \"vehicle_id_here\",\n  \"shippingMethod\": \"STANDARD\",\n  \"customerNotes\": \"Optional notes\",\n  \"specialRequests\": \"\"\n}"},
+						"url": {"raw": "{{baseUrl}}/api/orders", "host": ["{{baseUrl}}"], "path": ["api", "orders"]},
+						"description": "Create a new order. Requires authentication. Body: vehicleId (optional), shippingMethod (required: STANDARD, EXPRESS, etc.), priority (optional), customerNotes, specialRequests."
+					},
+					"response": []
+				},
+				{
+					"name": "Get My Orders",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"url": {"raw": "{{baseUrl}}/api/orders/my-orders", "host": ["{{baseUrl}}"], "path": ["api", "orders", "my-orders"]},
+						"description": "Get authenticated user's orders. Requires authentication."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Order by ID",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"url": {"raw": "{{baseUrl}}/api/orders/:id", "host": ["{{baseUrl}}"], "path": ["api", "orders", ":id"], "variable": [{"key": "id", "value": "order_id_here"}]},
+						"description": "Get order by ID. Requires authentication (owner or admin)."
+					},
+					"response": []
+				},
+				{
+					"name": "Order Summary",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {"raw": "{{baseUrl}}/api/orders/order-summary/:identifier", "host": ["{{baseUrl}}"], "path": ["api", "orders", "order-summary", ":identifier"], "variable": [{"key": "identifier", "value": "id_or_slug"}]},
+						"description": "Get order summary by identifier (ID or slug). Public."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Order by Request Number",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {"raw": "{{baseUrl}}/api/orders/request/:requestNumber", "host": ["{{baseUrl}}"], "path": ["api", "orders", "request", ":requestNumber"], "variable": [{"key": "requestNumber", "value": "REQ-xxx"}]},
+						"description": "Get order by request number. Public."
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel Order",
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"body": {"mode": "raw", "raw": "{\n  \"reason\": \"Changed my mind\"\n}"},
+						"url": {"raw": "{{baseUrl}}/api/orders/:id/cancel", "host": ["{{baseUrl}}"], "path": ["api", "orders", ":id", "cancel"], "variable": [{"key": "id", "value": "order_id_here"}]},
+						"description": "Cancel an order. Requires authentication. Body: reason (required)."
+					},
+					"response": []
+				},
+				{
+					"name": "Request Refund",
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"body": {"mode": "raw", "raw": "{\n  \"reason\": \"Refund reason\"\n}"},
+						"url": {"raw": "{{baseUrl}}/api/orders/:id/request-refund", "host": ["{{baseUrl}}"], "path": ["api", "orders", ":id", "request-refund"], "variable": [{"key": "id", "value": "order_id_here"}]},
+						"description": "Request refund for an order. Requires authentication. Body: reason (required)."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Order (User)",
+					"request": {
+						"method": "PUT",
+						"header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"body": {"mode": "raw", "raw": "{\n  \"destinationCountry\": \"USA\",\n  \"destinationState\": \"CA\",\n  \"destinationCity\": \"Los Angeles\",\n  \"destinationAddress\": \"123 Main St\",\n  \"customerNotes\": \"\",\n  \"deliveryInstructions\": \"\"\n}"},
+						"url": {"raw": "{{baseUrl}}/api/orders/:id", "host": ["{{baseUrl}}"], "path": ["api", "orders", ":id"], "variable": [{"key": "id", "value": "order_id_here"}]},
+						"description": "Update order (destination, notes). Requires authentication. Admin-only fields not included."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin - Update Order Status",
+					"request": {
+						"method": "PUT",
+						"header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"body": {"mode": "raw", "raw": "{\n  \"status\": \"CONFIRMED\"\n}"},
+						"url": {"raw": "{{baseUrl}}/api/orders/:id/status", "host": ["{{baseUrl}}"], "path": ["api", "orders", ":id", "status"], "variable": [{"key": "id", "value": "order_id_here"}]},
+						"description": "Update order status. OPERATIONS_ADMIN or SUPER_ADMIN."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin - Bulk Update Status",
+					"request": {
+						"method": "PUT",
+						"header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"body": {"mode": "raw", "raw": "{\n  \"orderIds\": [\"id1\", \"id2\"],\n  \"status\": \"PROCESSING\"\n}"},
+						"url": {"raw": "{{baseUrl}}/api/orders/bulk/status", "host": ["{{baseUrl}}"], "path": ["api", "orders", "bulk", "status"]},
+						"description": "Bulk update order status. OPERATIONS_ADMIN or SUPER_ADMIN."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin - Update Priority",
+					"request": {
+						"method": "PUT",
+						"header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"body": {"mode": "raw", "raw": "{\n  \"priority\": \"HIGH\"\n}"},
+						"url": {"raw": "{{baseUrl}}/api/orders/:id/priority", "host": ["{{baseUrl}}"], "path": ["api", "orders", ":id", "priority"], "variable": [{"key": "id", "value": "order_id_here"}]},
+						"description": "Update order priority. OPERATIONS_ADMIN or SUPER_ADMIN."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin - Assign Tags",
+					"request": {
+						"method": "PUT",
+						"header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"body": {"mode": "raw", "raw": "{\n  \"tags\": [\"urgent\", \"vip\"]\n}"},
+						"url": {"raw": "{{baseUrl}}/api/orders/:id/tags", "host": ["{{baseUrl}}"], "path": ["api", "orders", ":id", "tags"], "variable": [{"key": "id", "value": "order_id_here"}]},
+						"description": "Assign tags to order. OPERATIONS_ADMIN or SUPER_ADMIN."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin - Add Note",
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"body": {"mode": "raw", "raw": "{\n  \"note\": \"Internal note text\",\n  \"isInternal\": true,\n  \"category\": \"general\"\n}"},
+						"url": {"raw": "{{baseUrl}}/api/orders/:id/notes", "host": ["{{baseUrl}}"], "path": ["api", "orders", ":id", "notes"], "variable": [{"key": "id", "value": "order_id_here"}]},
+						"description": "Add admin note to order. OPERATIONS_ADMIN or SUPER_ADMIN."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin - Get Notes",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"url": {"raw": "{{baseUrl}}/api/orders/:id/notes", "host": ["{{baseUrl}}"], "path": ["api", "orders", ":id", "notes"], "variable": [{"key": "id", "value": "order_id_here"}]},
+						"description": "Get admin notes for order. OPERATIONS_ADMIN or SUPER_ADMIN."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin - Status Counts",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"url": {"raw": "{{baseUrl}}/api/orders/stats/status-counts", "host": ["{{baseUrl}}"], "path": ["api", "orders", "stats", "status-counts"]},
+						"description": "Get order counts by status. Admin."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin - Revenue Stats",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"url": {"raw": "{{baseUrl}}/api/orders/stats/revenue", "host": ["{{baseUrl}}"], "path": ["api", "orders", "stats", "revenue"]},
+						"description": "Get revenue statistics. Admin."
+					},
+					"response": []
+				},
+				{
+					"name": "Super Admin - Delete Order",
+					"request": {
+						"method": "DELETE",
+						"header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"url": {"raw": "{{baseUrl}}/api/orders/:id", "host": ["{{baseUrl}}"], "path": ["api", "orders", ":id"], "variable": [{"key": "id", "value": "order_id_here"}]},
+						"description": "Permanently delete order. SUPER_ADMIN only."
+					},
+					"response": []
+				},
+				{
+					"name": "Super Admin - Soft Delete Order",
+					"request": {
+						"method": "DELETE",
+						"header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"url": {"raw": "{{baseUrl}}/api/orders/:id/soft", "host": ["{{baseUrl}}"], "path": ["api", "orders", ":id", "soft"], "variable": [{"key": "id", "value": "order_id_here"}]},
+						"description": "Soft delete order. SUPER_ADMIN only."
+					},
+					"response": []
+				}
+			],
+			"description": "Order management. Create order, my orders, get by ID, order summary, request number, cancel, request refund, update. Admin: status, bulk status, priority, tags, notes, stats. Super Admin: delete, soft delete."
+		},
+		{
+			"name": "Profile",
+			"item": [
+				{
+					"name": "Create Profile",
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"body": {"mode": "formdata", "description": "Use form-data with optional files (max 5) for uploads"},
+						"url": {"raw": "{{baseUrl}}/api/profile", "host": ["{{baseUrl}}"], "path": ["api", "profile"]},
+						"description": "Create profile for authenticated user. Requires auth. Use form-data; optional files for avatar."
+					},
+					"response": []
+				},
+				{
+					"name": "Get My Profile",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"url": {"raw": "{{baseUrl}}/api/profile/me-profile", "host": ["{{baseUrl}}"], "path": ["api", "profile", "me-profile"]},
+						"description": "Get current user's profile. Requires authentication."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Profile by ID",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"url": {"raw": "{{baseUrl}}/api/profile/:id", "host": ["{{baseUrl}}"], "path": ["api", "profile", ":id"], "variable": [{"key": "id", "value": "profile_id_here"}]},
+						"description": "Get profile by ID. Requires authentication."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Profile",
+					"request": {
+						"method": "PATCH",
+						"header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"body": {"mode": "raw", "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\"\n}"},
+						"url": {"raw": "{{baseUrl}}/api/profile", "host": ["{{baseUrl}}"], "path": ["api", "profile"]},
+						"description": "Update current user's profile. Requires auth. Use form-data if uploading files (max 5)."
+					},
+					"response": []
+				},
+				{
+					"name": "Reset Password (Profile)",
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"body": {"mode": "raw", "raw": "{\n  \"currentPassword\": \"old\",\n  \"newPassword\": \"newSecure123\"\n}"},
+						"url": {"raw": "{{baseUrl}}/api/profile/reset-password", "host": ["{{baseUrl}}"], "path": ["api", "profile", "reset-password"]},
+						"description": "Reset password for current user. Requires authentication."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin - List All Profiles",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"url": {"raw": "{{baseUrl}}/api/profile", "host": ["{{baseUrl}}"], "path": ["api", "profile"]},
+						"description": "List all profiles. OPERATIONS_ADMIN or SUPER_ADMIN."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin - Delete Profile",
+					"request": {
+						"method": "DELETE",
+						"header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"url": {"raw": "{{baseUrl}}/api/profile/:id", "host": ["{{baseUrl}}"], "path": ["api", "profile", ":id"], "variable": [{"key": "id", "value": "profile_id_here"}]},
+						"description": "Delete profile by ID. OPERATIONS_ADMIN or SUPER_ADMIN."
+					},
+					"response": []
+				}
+			],
+			"description": "Profile management. Create, get my profile, get by ID, update, reset password. Admin: list all, delete."
+		},
+		{
 			"name": "Users",
 			"item": [
 				{
 					"name": "Get User by Email",
 					"request": {
 						"method": "GET",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}],
 						"url": {
-							"raw": "{{baseUrl}}/api/users/email/:email",
+							"raw": "{{baseUrl}}/api/users/user-email/:email",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "users", "email", ":email"],
-							"variable": [
-								{
-									"key": "email",
-									"value": "user@example.com",
-									"description": "User email"
-								}
-							]
+							"path": ["api", "users", "user-email", ":email"],
+							"variable": [{"key": "email", "value": "user@example.com", "description": "User email"}]
 						},
-						"description": "Get user information by email address. **Public endpoint** - no authentication required.\n\n**URL Parameters:**\n- `email` (required): User email address\n\n**Response:**\n- User object (without sensitive information like password)\n- 404 if user not found\n\n**Note:** This endpoint does not require authentication. Use with caution in production."
+						"description": "Get user by email. Requires authentication."
 					},
 					"response": []
 				},
 				{
-					"name": "Verify User",
+					"name": "Get User by ID",
 					"request": {
 						"method": "GET",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}],
 						"url": {
-							"raw": "{{baseUrl}}/api/users/verify/:userId",
+							"raw": "{{baseUrl}}/api/users/user-id/:userId",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "users", "verify", ":userId"],
-							"variable": [
-								{
-									"key": "userId",
-									"value": "user_id_here",
-									"description": "User ID"
-								}
-							]
+							"path": ["api", "users", "user-id", ":userId"],
+							"variable": [{"key": "userId", "value": "user_id_here", "description": "User ID"}]
 						},
-						"description": "Verify user account by user ID. **Public endpoint** - no authentication required.\n\n**URL Parameters:**\n- `userId` (required): User ID (MongoDB ObjectId)\n\n**Response:**\n- `verified`: true if user exists and is verified\n- Error if user not found or verification fails\n\n**Note:** This endpoint does not require authentication."
+						"description": "Get user by ID. Requires authentication."
 					},
 					"response": []
 				},
 				{
-					"name": "Deactivate Account",
+					"name": "Get All Users",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"url": {"raw": "{{baseUrl}}/api/users", "host": ["{{baseUrl}}"], "path": ["api", "users"]},
+						"description": "List all users. OPERATIONS_ADMIN or SUPER_ADMIN."
+					},
+					"response": []
+				},
+				{
+					"name": "Deactivate User",
 					"request": {
 						"method": "DELETE",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}],
 						"url": {
-							"raw": "{{baseUrl}}/api/users/deactivate/:userId",
+							"raw": "{{baseUrl}}/api/users/user-deactivate/:userId",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "users", "deactivate", ":userId"],
-							"variable": [
-								{
-									"key": "userId",
-									"value": "user_id_here",
-									"description": "User ID"
-								}
-							]
+							"path": ["api", "users", "user-deactivate", ":userId"],
+							"variable": [{"key": "userId", "value": "user_id_here", "description": "User ID"}]
 						},
-						"description": "Deactivate (soft delete) a user account by user ID. **Public endpoint** - no authentication required.\n\n**URL Parameters:**\n- `userId` (required): User ID (MongoDB ObjectId)\n\n**Response:**\n- `deactivated`: true if account deactivated successfully\n- Error if deactivation fails\n\n**Note:** This is a soft delete - account is marked as inactive but not permanently deleted. This endpoint does not require authentication - consider adding authentication/authorization in production."
-					},
-					"response": []
-				},
-				{
-					"name": "Update Password",
-					"request": {
-						"method": "PUT",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"newPassword\": \"newSecurePassword123\"\n}"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/users/password/:userId",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "users", "password", ":userId"],
-							"variable": [
-								{
-									"key": "userId",
-									"value": "user_id_here",
-									"description": "User ID"
-								}
-							]
-						},
-						"description": "Update user password by user ID. **Public endpoint** - no authentication required.\n\n**URL Parameters:**\n- `userId` (required): User ID (MongoDB ObjectId)\n\n**Request Body:**\n- `newPassword` (required): New password (minimum 6 characters recommended)\n\n**Response:**\n- Success message if password updated\n- Error if update fails\n\n**Security Note:** This endpoint does not require authentication - consider adding authentication/authorization in production. User should be authenticated and only able to update their own password."
+						"description": "Deactivate (soft delete) user. OPERATIONS_ADMIN or SUPER_ADMIN."
 					},
 					"response": []
 				}
 			],
-			"description": "User management endpoints for retrieving and managing user accounts.\n\n**Available Endpoints:**\n- Get user by email\n- Verify user by ID\n- Deactivate account (soft delete)\n- Update password\n\n**Security Note:** These endpoints currently do not require authentication. Consider adding authentication/authorization middleware in production to ensure users can only access/modify their own accounts.\n\n**⚠️ IMPORTANT:** These routes are **NOT currently registered** in `app.ts` (commented out). They will return 404 until routes are enabled."
+			"description": "User management. All endpoints require authentication. Get by email, get by ID, list all (admin), deactivate (admin). Password reset is under Auth or Profile."
+		},
+		{
+			"name": "Testimonials",
+			"item": [
+				{
+					"name": "Create Testimonial",
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"body": {"mode": "formdata", "description": "Form-data with optional files (max 5). Include testimonial fields per createTestimonialSchema."},
+						"url": {"raw": "{{baseUrl}}/api/testimonials", "host": ["{{baseUrl}}"], "path": ["api", "testimonials"]},
+						"description": "Create a testimonial. Requires authentication. Use form-data for optional file uploads."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Testimonials",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"url": {"raw": "{{baseUrl}}/api/testimonials/:id", "host": ["{{baseUrl}}"], "path": ["api", "testimonials", ":id"], "variable": [{"key": "id", "value": "id_here"}]},
+						"description": "Get testimonials (by id - check controller for exact behavior). Requires authentication."
+					},
+					"response": []
+				},
+				{
+					"name": "Admin - Approve Testimonial",
+					"request": {
+						"method": "PATCH",
+						"header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"body": {"mode": "raw", "raw": "{}"},
+						"url": {"raw": "{{baseUrl}}/api/testimonials", "host": ["{{baseUrl}}"], "path": ["api", "testimonials"]},
+						"description": "Approve testimonial. OPERATIONS_ADMIN or SUPER_ADMIN."
+					},
+					"response": []
+				}
+			],
+			"description": "Testimonials. Create (auth), get (auth), approve (admin)."
 		},
 		{
 			"name": "Payments",
@@ -1099,6 +1416,49 @@
 							"path": ["api", "payments", "init"]
 						},
 						"description": "Initiate a payment for an order. **Requires authentication.**\n\n**Request Headers:**\n- `Authorization: Bearer {accessToken}` (required)\n\n**Request Body:**\n- `orderId` (required): Order ID (MongoDB ObjectId)\n- `amountUsd` (required): Payment amount in USD (positive number)\n- `provider` (required): Payment provider - \"stripe\", \"paystack\", or \"flutterwave\"\n- `paymentType` (required): Payment type - \"DEPOSIT\", \"FULL_PAYMENT\", \"BALANCE\", \"REFUND\", \"PARTIAL_REFUND\"\n\n**Response:**\n- Payment initialization result with provider-specific payment link/instructions\n\n**Note:** Payment routes are registered and active. Requires valid JWT access token."
+					},
+					"response": []
+				},
+				{
+					"name": "Verify Payment",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{"key": "Content-Type", "value": "application/json"},
+							{"key": "Authorization", "value": "Bearer {{accessToken}}"}
+						],
+						"url": {"raw": "{{baseUrl}}/api/payments/verify/:reference", "host": ["{{baseUrl}}"], "path": ["api", "payments", "verify", ":reference"], "variable": [{"key": "reference", "value": "payment_reference_here"}]},
+						"description": "Verify a payment by reference (e.g. after redirect from provider). Requires authentication."
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Payments",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"url": {"raw": "{{baseUrl}}/api/payments/all", "host": ["{{baseUrl}}"], "path": ["api", "payments", "all"]},
+						"description": "Get all payments (admin). Requires authentication."
+					},
+					"response": []
+				},
+				{
+					"name": "Get My Payments",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"url": {"raw": "{{baseUrl}}/api/payments/user-mine", "host": ["{{baseUrl}}"], "path": ["api", "payments", "user-mine"]},
+						"description": "Get current user's payments. Requires authentication."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Payment by ID",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+						"url": {"raw": "{{baseUrl}}/api/payments/payment-id/:id", "host": ["{{baseUrl}}"], "path": ["api", "payments", "payment-id", ":id"], "variable": [{"key": "id", "value": "payment_id_here"}]},
+						"description": "Get payment by ID. Requires authentication."
 					},
 					"response": []
 				},

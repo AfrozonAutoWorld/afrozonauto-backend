@@ -84,6 +84,19 @@ export class VehicleController {
     if (str(q.state)) filters.dealerState = str(q.state);
     if (q.featured !== undefined && q.featured !== '') filters.featured = q.featured === 'true';
     if (str(q.search)) filters.search = str(q.search);
+    if (str(q.bodyStyle)) filters.bodyStyle = str(q.bodyStyle);
+    if (str(q.fuel)) filters.fuel = str(q.fuel);
+    if (str(q.transmission)) filters.transmission = str(q.transmission);
+    if (str(q.exteriorColor)) filters.exteriorColor = str(q.exteriorColor);
+    if (str(q.interiorColor)) filters.interiorColor = str(q.interiorColor);
+    if (str(q.zip)) filters.zip = str(q.zip);
+    const distance = q.distance ? parseInt(q.distance as string, 10) : undefined;
+    if (Number.isFinite(distance) && distance! > 0) filters.distance = distance;
+    const conditionRaw = str(q.condition)?.toLowerCase();
+    if (conditionRaw === 'new' || conditionRaw === 'used' || conditionRaw === 'cpo') {
+      filters.condition = conditionRaw;
+    }
+    if (str(q.drivetrain)) filters.drivetrain = str(q.drivetrain);
 
     const pagination = {
       page: Math.max(1, q.page ? parseInt(q.page as string, 10) : 1),

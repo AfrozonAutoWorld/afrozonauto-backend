@@ -104,10 +104,20 @@ export class VehicleServiceDirect {
     }
     if (filters.bodyStyle) params['vehicle.bodyStyle'] = filters.bodyStyle;
     if (filters.fuel) params['vehicle.fuel'] = filters.fuel;
-    if (filters.luxuryMakes?.length) params['vehicle.make'] = filters.luxuryMakes.join(',');
-    if (filters.priceMin != null && !params['retailListing.price']) {
-      params['retailListing.price'] = `${filters.priceMin}-99999999`;
+    if (filters.transmission) params['vehicle.transmission'] = filters.transmission;
+    if (filters.exteriorColor) params['vehicle.exteriorColor'] = filters.exteriorColor;
+    if (filters.interiorColor) params['vehicle.interiorColor'] = filters.interiorColor;
+    if (filters.zip) params.zip = filters.zip;
+    if (filters.distance != null && filters.distance > 0) params.distance = filters.distance;
+    if (filters.condition === 'used') {
+      params['retailListing.used'] = 'true';
+    } else if (filters.condition === 'cpo') {
+      params['retailListing.cpo'] = 'true';
+    } else if (filters.condition === 'new') {
+      params['retailListing.used'] = 'false';
     }
+    if (filters.drivetrain) params['vehicle.drivetrain'] = filters.drivetrain;
+    if (filters.luxuryMakes?.length) params['vehicle.make'] = filters.luxuryMakes.join(',');
     return params;
   }
 
