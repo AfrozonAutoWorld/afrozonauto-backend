@@ -93,5 +93,16 @@ export class MailService {
       html,
     )
   }
-    
+
+  async sendSourcingRequestConfirmation(email: string, requestNumber: string, firstName: string): Promise<void> {
+    const html = emailTemplates.sourcingRequestConfirmation({
+      recipientName: firstName || 'Customer',
+      requestNumber,
+    });
+    await sendMail(
+      email,
+      "We've received your Find a Car request",
+      html,
+    );
+  }
 }

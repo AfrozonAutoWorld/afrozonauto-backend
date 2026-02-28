@@ -186,6 +186,23 @@ export class VehicleRepository {
   }
 
   /**
+   * Find admin-curated recommended vehicles (for "Recommended for you" section).
+   * Ordered by recommendedSortOrder asc, then createdAt desc.
+   */
+  async findRecommended(limit: number = 12): Promise<Vehicle[]> {
+    return prisma.vehicle.findMany({
+      where: {
+        recommended: true,
+        isActive: true,
+        isHidden: false,
+        priceUsd: { gt: 0 },
+      },
+      orderBy: [{ recommendedSortOrder: 'asc' }, { createdAt: 'desc' }],
+      take: limit,
+    });
+  }
+
+  /**
    * Increment view count
    */
   async incrementViewCount(id: string): Promise<void> {

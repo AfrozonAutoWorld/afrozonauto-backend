@@ -87,6 +87,64 @@ const defaultTrending = [
   },
 ];
 
+// Recommended for you: fetch from Auto.dev per definition (like Trending), with a reason per row
+const defaultRecommended = [
+  {
+    make: 'BMW',
+    model: 'X5',
+    yearStart: 2023,
+    yearEnd: 2025,
+    reason: 'Near-new, under 15k miles, exceptional condition at this price',
+    sortOrder: 0,
+    maxFetchCount: 3,
+  },
+  {
+    make: 'Toyota',
+    model: 'Highlander',
+    yearStart: 2022,
+    yearEnd: 2025,
+    reason: 'Reliable family SUV, low mileage, great resale value',
+    sortOrder: 1,
+    maxFetchCount: 3,
+  },
+  {
+    make: 'Lexus',
+    model: 'RX 350',
+    yearStart: 2022,
+    yearEnd: 2025,
+    reason: 'Luxury comfort and reliability, popular for Nigerian roads',
+    sortOrder: 2,
+    maxFetchCount: 3,
+  },
+  {
+    make: 'Honda',
+    model: 'CR-V',
+    yearStart: 2022,
+    yearEnd: 2025,
+    reason: 'Top safety ratings, fuel-efficient, holds value',
+    sortOrder: 3,
+    maxFetchCount: 3,
+  },
+  {
+    make: 'Mercedes-Benz',
+    model: 'GLE',
+    yearStart: 2022,
+    yearEnd: 2025,
+    reason: 'Premium SUV with strong demand in Africa',
+    sortOrder: 4,
+    maxFetchCount: 2,
+  },
+  {
+    make: 'Toyota',
+    model: 'Camry',
+    yearStart: 2022,
+    yearEnd: 2025,
+    reason: 'Best-selling sedan, low cost of ownership',
+    sortOrder: 5,
+    maxFetchCount: 2,
+  },
+];
+
 async function main() {
   console.log('Seeding vehicle categories...');
   for (const c of defaultCategories) {
@@ -127,6 +185,30 @@ async function main() {
         label: t.label ?? undefined,
         sortOrder: t.sortOrder,
         maxFetchCount: (t as any).maxFetchCount ?? undefined,
+        isActive: true,
+      },
+    });
+  }
+  console.log('Seeding recommended definitions...');
+  for (const r of defaultRecommended) {
+    const existing = await prisma.recommendedDefinition.findFirst({
+      where: {
+        make: r.make,
+        model: r.model ?? null,
+        yearStart: r.yearStart,
+        yearEnd: r.yearEnd,
+      },
+    });
+    if (existing) continue;
+    await prisma.recommendedDefinition.create({
+      data: {
+        make: r.make,
+        model: r.model ?? undefined,
+        yearStart: r.yearStart,
+        yearEnd: r.yearEnd,
+        reason: r.reason ?? undefined,
+        sortOrder: r.sortOrder,
+        maxFetchCount: (r as any).maxFetchCount ?? 2,
         isActive: true,
       },
     });

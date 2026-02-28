@@ -823,6 +823,7 @@ model User {
 
   adminNotes        AdminNote[] @relation("AdminNoteUser")
   createdAdminNotes AdminNote[] @relation("AdminNoteCreatedBy")
+  sourcingRequests  SourcingRequest[]
 
   @@index([role])
   @@index([isActive])
@@ -934,6 +935,11 @@ model Vehicle {
   featured      Boolean             @default(false)
   featuredUntil DateTime?
 
+  // Recommended for you (admin-curated; optional per-vehicle reason)
+  recommended           Boolean  @default(false)
+  recommendationReason  String?
+  recommendedSortOrder   Int      @default(0) // lower = higher in list
+
   // Admin Controls
   isActive   Boolean @default(true)
   isHidden   Boolean @default(false)
@@ -959,6 +965,7 @@ model Vehicle {
   @@index([source])
   @@index([apiListingId])
   @@index([featured])
+  @@index([recommended])
   @@index([isActive, isHidden])
   @@index([dealerState])
   @@map("vehicles")
@@ -1044,6 +1051,25 @@ model TrendingDefinition {
   @@map("trending_definitions")
 }
 
+// Recommended for you: (1) fetch from Auto.dev per definition , (2) optionally include DB vehicles with recommended=true
+model RecommendedDefinition {
+  id             String  @id @default(auto()) @map("_id") @db.ObjectId
+  make           String
+  model          String?
+  yearStart      Int
+  yearEnd        Int
+  reason         String? // e.g. "Near-new, under 15k miles, exceptional condition at this price"
+  sortOrder      Int     @default(0)
+  isActive       Boolean @default(true)
+  maxFetchCount  Int     @default(2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@map("recommended_definitions")
+}
+
 model VehicleCategory {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   slug        String   @unique // e.g. electric, suv, sedan
@@ -1061,6 +1087,64 @@ model VehicleCategory {
 
   @@index([isActive])
   @@map("vehicle_categories")
+}
+
+// ============================================
+// SOURCING REQUESTS (Find a Car / Find my car)
+// ============================================
+// Lead form: user describes desired vehicle + preferences + contact.
+// Admin reviews and can later convert to an Order when a vehicle is sourced.
+
+enum SourcingRequestStatus {
+  NEW           // Just submitted
+  CONTACTED     // Team has reached out
+  QUOTE_SENT    // Quote sent to customer
+  CONVERTED     // Converted to an order
+  CLOSED        // Closed without conversion
+}
+
+model SourcingRequest {
+  id            String @id @default(auto()) @map("_id") @db.ObjectId
+  requestNumber String @unique
+
+  // link to user if logged in
+  userId String? @db.ObjectId
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  status SourcingRequestStatus @default(NEW)
+
+  // ---- Step 1: Car ----
+  make      String
+  model     String
+  yearFrom  Int?
+  yearTo    Int?
+  trim      String? // optional trim/package
+  condition String  // USED | NEW | EITHER
+
+  // ---- Step 2: Preferences ----
+  budgetUsd      String?  // max budget (USD), optional "No limit"
+  exteriorColor  String?  // preferred color or "any"
+  anyColor       Boolean  @default(false)
+  shippingMethod ShippingMethod  // RORO | CONTAINER
+  timeline       String  // ASAP | 1-3 | 3-6 | FLEXIBLE
+
+  // ---- Step 3: Contact ----
+  firstName   String
+  lastName    String
+  email       String
+  phoneCode   String  @default("+234")
+  phoneNumber String
+  deliveryCity String?
+  additionalNotes String?
+  consentContact Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([userId])
+  @@map("sourcing_requests")
 }
 
 // ============================================

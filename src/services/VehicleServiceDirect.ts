@@ -1,9 +1,11 @@
 import { inject, injectable } from 'inversify';
 import { TYPES } from '../config/types';
 import { VehicleRepository, VehiclePagination } from '../repositories/VehicleRepository';
+import { SavedVehicleRepository } from '../repositories/SavedVehicleRepository';
 import { VehicleFilters } from '../validation/interfaces/IVehicle';
 import { AutoDevService,  } from './AutoDevService';
 import { TrendingService } from './TrendingService';
+import { RecommendedService } from './RecommendedService';
 import { CategoryService } from './CategoryService';
 import { VehicleTransformer } from '../helpers/vehicle-transformer';
 import { VehicleLogs } from '../helpers/vehicleLogs';
@@ -19,8 +21,10 @@ export class VehicleServiceDirect {
 
   constructor(
     @inject(TYPES.VehicleRepository) private vehicleRepo: VehicleRepository,
+    @inject(TYPES.SavedVehicleRepository) private savedVehicleRepo: SavedVehicleRepository,
     @inject(TYPES.AutoDevService) private autoDevService: AutoDevService,
     @inject(TYPES.TrendingService) private trendingService: TrendingService,
+    @inject(TYPES.RecommendedService) private recommendedService: RecommendedService,
     @inject(TYPES.CategoryService) private categoryService: CategoryService
   ) {
     this.cacheTTLHours = parseInt(process.env.REDIS_CACHE_TTL_HOURS || '12', 10);
@@ -30,12 +34,72 @@ export class VehicleServiceDirect {
     return this.trendingService.getTrendingVehicles();
   }
 
+  private static readonly DEFAULT_RECOMMENDATION_REASON =
+    'Near-new, under 15k miles, exceptional condition at this price';
+
+  /**
+   * Get vehicles for "Recommended for you":
+   * (1) If userId: prepend vehicles the user saved ("You saved this").
+   * (2) Primary: fetch from Auto.dev per RecommendedDefinition (like Trending), with reason per definition.
+   * (3) Secondary: DB vehicles with recommended=true (recommendationReason or default).
+   * Dedupe by id/VIN, slice to limit.
+   */
+  async getRecommendedVehicles(
+    limit: number = 12,
+    userId?: string
+  ): Promise<Array<{ vehicle: Vehicle; reason: string }>> {
+    const seen = new Set<string>();
+    const result: Array<{ vehicle: Vehicle; reason: string }> = [];
+
+    const keyOf = (v: Vehicle): string => v.id || (v.vin ? `vin-${v.vin}` : '');
+
+    // (1) Logged-in: prepend saved vehicles
+    if (userId) {
+      const savedIds = await this.savedVehicleRepo.findVehicleIdsByUserId(userId, 6);
+      if (savedIds.length > 0) {
+        const savedVehicles = await this.vehicleRepo.findManyByIds(savedIds);
+        for (const v of savedVehicles) {
+          const k = keyOf(v);
+          if (k && !seen.has(k)) {
+            seen.add(k);
+            result.push({ vehicle: v, reason: 'You saved this' });
+          }
+        }
+      }
+    }
+
+    // (2) Primary: from Auto.dev per RecommendedDefinition
+    const fromDefinitions = await this.recommendedService.getFromDefinitions(limit);
+    for (const { vehicle, reason } of fromDefinitions) {
+      const k = keyOf(vehicle);
+      if (k && !seen.has(k)) {
+        seen.add(k);
+        result.push({ vehicle, reason });
+      }
+      if (result.length >= limit) return result.slice(0, limit);
+    }
+
+    // (3) Secondary: DB-flagged recommended
+    const dbRecommended = await this.vehicleRepo.findRecommended(limit);
+    const getDbReason = (v: Vehicle): string =>
+      ((v as any).recommendationReason?.trim()) || VehicleServiceDirect.DEFAULT_RECOMMENDATION_REASON;
+    for (const v of dbRecommended) {
+      const k = keyOf(v);
+      if (k && !seen.has(k)) {
+        seen.add(k);
+        result.push({ vehicle: v, reason: getDbReason(v) });
+      }
+      if (result.length >= limit) return result.slice(0, limit);
+    }
+
+    return result.slice(0, limit);
+  }
+
   async getMakeModelsReference(): Promise<Record<string, string[]>> {
     return await this.autoDevService.fetchMakeModelsReference();
   }
 
   /**
-   * Debug: fetch one raw page from Auto.dev (no filters) and return make/model summary.
    * Use to inspect what Auto.dev returns on e.g. page 4 and avoid Hummer/truck dominance.
    */
   async getAutoDevPageSummary(
@@ -300,6 +364,8 @@ export class VehicleServiceDirect {
     limit: number;
     pages: number;
     fromApi?: number;
+    filteredCount?: number;
+    apiUsed?: boolean;
     hasMore?: boolean;
   }> {
     const page = pagination.page || 1;
@@ -329,24 +395,27 @@ export class VehicleServiceDirect {
     ).catch(() => {});
 
     let apiVehicles: Vehicle[] = [];
-    let fromApiCount = 0;
+    let fromApiCount = 0; // how many API listings made it into the response (after de-dup and price filter)
+    let apiRawCount = 0; // how many the API actually returned (before our filtering)
     let apiOnlyCount = 0;
 
     if (includeApiResults) {
       try {
-        // When browsing "all" (no filters), start from Auto.dev page 5 to avoid Hummer-heavy pages 1–4
+        // Where to start on Auto.dev: no filters → page 5 (avoid Hummer-heavy 1–4); with filters → page 1.
         const isBrowsingAll =
           !resolvedFilters.make &&
           !resolvedFilters.model &&
           !resolvedFilters.search &&
           !resolvedFilters.vehicleType &&
           !categorySlug;
-        const apiPage = isBrowsingAll ? 5 : 1;
-        const apiLimit = 100;
+        const apiPageBase = isBrowsingAll ? 5 : 1;
+        const apiPage = apiPageBase + (page - 1);
+        const apiLimit = limit;
+
         const apiParams = this.filtersToAutoDevParams(resolvedFilters, apiPage, apiLimit);
         const apiListings = await this.autoDevService.fetchListingsWithParams(apiParams);
+        apiRawCount = apiListings.length;
 
-        // Optional search filter (API may not support free text; filter in-memory if needed)
         let filteredListings = apiListings;
         if (filters.search?.trim()) {
           const searchTerm = filters.search.trim().toLowerCase();
@@ -370,11 +439,10 @@ export class VehicleServiceDirect {
         );
         apiOnlyCount = apiOnlyList.length;
 
-        const apiOffset = Math.max(0, (page - 1) * limit - dbResult.total);
         const needCount = limit - dbResult.vehicles.length;
-        const apiChunk = apiOnlyList.slice(apiOffset, apiOffset + needCount);
-
-        for (const listing of apiChunk) {
+        // Take first needCount valid (de-dup done above; here we skip no/zero price and stop when we have enough).
+        for (const listing of apiOnlyList) {
+          if (apiVehicles.length >= needCount) break;
           const vehicleData = VehicleTransformer.fromAutoDevListing(listing, []);
           if (!vehicleData.priceUsd || vehicleData.priceUsd <= 0) continue;
           vehicleData.apiData = {
@@ -396,15 +464,18 @@ export class VehicleServiceDirect {
       }
     }
 
-    const total = dbResult.total + apiOnlyCount;
-    const pages = Math.ceil(total / limit) || 1;
     const allVehicles: Vehicle[] = [...dbResult.vehicles, ...apiVehicles];
 
-    // Preserve new sorting behavior on top of the old merge logic
     if (sortBy) {
       const demoteHummers = !resolvedFilters.make && !resolvedFilters.vehicleType;
       this.sortVehiclesInPlace(allVehicles, sortBy, sortOrder, demoteHummers);
     }
+
+    // We don't know total from Auto.dev; only reliable signal is full page. No total/pages when API is used.
+    const usedApi = !!includeApiResults;
+    const total = usedApi ? 0 : dbResult.total + apiOnlyCount;
+    const pages = usedApi ? 0 : Math.ceil((dbResult.total + apiOnlyCount) / limit) || 1;
+    const hasMore = allVehicles.length >= limit;
 
     return {
       vehicles: allVehicles,
@@ -412,7 +483,10 @@ export class VehicleServiceDirect {
       page,
       limit,
       pages,
-      fromApi: fromApiCount,
+      fromApi: apiRawCount,
+      filteredCount: fromApiCount,
+      apiUsed: !!includeApiResults,
+      hasMore,
     };
   }
 
@@ -569,6 +643,28 @@ export class VehicleServiceDirect {
     const existing = await this.vehicleRepo.findById(id);
     if (!existing) throw ApiError.notFound('Vehicle not found');
     await this.vehicleRepo.delete(id);
+  }
+
+  /** Get current user's saved vehicles (for Saved tab). */
+  async getSavedVehicles(userId: string): Promise<Array<{ vehicle: Vehicle; savedAt: Date }>> {
+    return this.savedVehicleRepo.findSavedVehiclesByUserId(userId);
+  }
+
+  /** Add vehicle to user's saved list. Vehicle must exist in DB (use save-from-api first for API listings). */
+  async addSavedVehicle(userId: string, vehicleId: string): Promise<{ savedAt: Date }> {
+    if (!this.isMongoObjectId(vehicleId)) throw ApiError.badRequest('Invalid vehicle ID');
+    const vehicle = await this.vehicleRepo.findById(vehicleId);
+    if (!vehicle) throw ApiError.notFound('Vehicle not found');
+    const already = await this.savedVehicleRepo.exists(userId, vehicleId);
+    if (already) return { savedAt: new Date() };
+    const row = await this.savedVehicleRepo.create(userId, vehicleId);
+    return { savedAt: row.createdAt };
+  }
+
+  /** Remove vehicle from user's saved list. */
+  async removeSavedVehicle(userId: string, vehicleId: string): Promise<void> {
+    if (!this.isMongoObjectId(vehicleId)) throw ApiError.badRequest('Invalid vehicle ID');
+    await this.savedVehicleRepo.deleteByUserAndVehicle(userId, vehicleId);
   }
 
   async saveVehicleFromApiListing(listing: any, photos: string[] = [], specs?: any): Promise<Vehicle> {

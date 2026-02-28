@@ -16,6 +16,7 @@ import loggers from './utils/loggers';
 import UserRoutes from './routes/UserRoutes';
 import TestimonialRoutes from './routes/TestimonialRoutes';
 import OrderRoutes from './routes/OrderRoutes';
+import SourcingRequestRoutes from './routes/SourcingRequestRoutes';
 
 class App {
   public app: express.Application;
@@ -146,6 +147,7 @@ class App {
     this.app.use('/api/testimonials', TestimonialRoutes);
     this.app.use('/api/payments', PaymentRoutes);
     this.app.use('/api/orders', OrderRoutes);
+    this.app.use('/api/sourcing-requests', SourcingRequestRoutes);
     this.app.use('/api/users', UserRoutes);
 
     // 404 handler - catch all unmatched routes

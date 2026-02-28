@@ -52,6 +52,29 @@ export const authenticate = asyncHandler(
   }
 );
 
+/** Optional auth: set req.user if valid token present; do not reject if missing. */
+export const authenticateOptional = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const header = req.header('Authorization');
+    if (!header || !header.startsWith('Bearer ')) {
+      return next();
+    }
+    const token = header.replace('Bearer ', '').trim();
+    if (!token) return next();
+    try {
+      const payload = await jtoken.verifyToken(token);
+      if (!payload?.id) return next();
+      const user = await userRepository.findById(payload.id);
+      if (user && user.isActive && !user.isSuspended) {
+        req.user = user as any;
+      }
+    } catch {
+      // ignore invalid/expired token
+    }
+    next();
+  }
+);
+
 export const authorize = (requiredRoles: UserRole[]) =>
   asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
