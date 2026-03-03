@@ -940,6 +940,9 @@ model Vehicle {
   recommendationReason  String?
   recommendedSortOrder   Int      @default(0) // lower = higher in list
 
+  // Specialty vehicles (admin-curated rail + filter)
+  specialty Boolean @default(false)
+
   // Admin Controls
   isActive   Boolean @default(true)
   isHidden   Boolean @default(false)
@@ -966,6 +969,7 @@ model Vehicle {
   @@index([apiListingId])
   @@index([featured])
   @@index([recommended])
+   @@index([specialty])
   @@index([isActive, isHidden])
   @@index([dealerState])
   @@map("vehicles")
@@ -1051,7 +1055,8 @@ model TrendingDefinition {
   @@map("trending_definitions")
 }
 
-// Recommended for you: (1) fetch from Auto.dev per definition , (2) optionally include DB vehicles with recommended=true
+// Recommended for you / Specialty rails:
+// (1) fetch from Auto.dev per definition, (2) optionally include DB vehicles with recommended/specialty = true
 model RecommendedDefinition {
   id             String  @id @default(auto()) @map("_id") @db.ObjectId
   make           String
@@ -1062,11 +1067,15 @@ model RecommendedDefinition {
   sortOrder      Int     @default(0)
   isActive       Boolean @default(true)
   maxFetchCount  Int     @default(2)
+  forRecommended Boolean @default(true)
+  forSpecialty   Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([isActive])
+  @@index([isActive, forRecommended])
+  @@index([isActive, forSpecialty])
   @@map("recommended_definitions")
 }
 

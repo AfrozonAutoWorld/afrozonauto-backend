@@ -31,6 +31,7 @@ class VehicleRoutes {
         this.router.get('/', this.controller.getVehicles);
         this.router.get('/trending', this.controller.getTrending);
         this.router.get('/recommended', authenticateOptional, this.controller.getRecommended);
+        this.router.get('/specialty', this.controller.getSpecialty);
         this.router.get('/categories', this.controller.getCategories);
         this.router.get('/reference/models', this.controller.getMakeModelsReference);
         this.router.get('/debug/auto-dev-page', this.controller.getAutoDevPageDebug);

@@ -24,6 +24,8 @@ export interface AutoDevResponse<T> {
     isActive?: boolean;
     isHidden?: boolean;
     featured?: boolean;
+    recommended?: boolean;
+    specialty?: boolean;
     search?: string; // Search in model or VIN (make should be filtered explicitly, not searched)
     // Category-derived (from VehicleCategory: bodyStyle, fuel, luxuryMakes, priceMin)
     bodyStyle?: string;

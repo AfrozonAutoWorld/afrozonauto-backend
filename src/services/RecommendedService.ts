@@ -16,14 +16,20 @@ export class RecommendedService {
   ) {}
 
   /**
-   * Fetch recommended vehicles from Auto.dev per RecommendedDefinition (like Trending).
+   * Fetch vehicles from Auto.dev per RecommendedDefinition (like Trending).
    * Returns list with reason per vehicle (from definition or default).
+   * Section controls which definitions to use (recommended vs specialty).
    */
-  async getFromDefinitions(limit: number = 12): Promise<Array<{ vehicle: Vehicle; reason: string }>> {
+  async getFromDefinitions(
+    limit: number = 12,
+    section: 'recommended' | 'specialty' = 'recommended'
+  ): Promise<Array<{ vehicle: Vehicle; reason: string }>> {
     const result: Array<{ vehicle: Vehicle; reason: string }> = [];
     const seenVins = new Set<string>();
 
-    const definitions = await this.recommendedRepo.findManyActive();
+    const definitions = section === 'recommended'
+      ? await this.recommendedRepo.findManyActiveForRecommended()
+      : await this.recommendedRepo.findManyActiveForSpecialty();
     for (const def of definitions) {
       if (result.length >= limit) break;
       try {

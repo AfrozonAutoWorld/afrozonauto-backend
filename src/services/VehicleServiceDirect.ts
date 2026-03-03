@@ -68,8 +68,8 @@ export class VehicleServiceDirect {
       }
     }
 
-    // (2) Primary: from Auto.dev per RecommendedDefinition
-    const fromDefinitions = await this.recommendedService.getFromDefinitions(limit);
+    // (2) Primary: from Auto.dev per RecommendedDefinition (recommended rail)
+    const fromDefinitions = await this.recommendedService.getFromDefinitions(limit, 'recommended');
     for (const { vehicle, reason } of fromDefinitions) {
       const k = keyOf(vehicle);
       if (k && !seen.has(k)) {
@@ -88,6 +88,45 @@ export class VehicleServiceDirect {
       if (k && !seen.has(k)) {
         seen.add(k);
         result.push({ vehicle: v, reason: getDbReason(v) });
+      }
+      if (result.length >= limit) return result.slice(0, limit);
+    }
+
+    return result.slice(0, limit);
+  }
+
+  /**
+   * Get vehicles for "Specialty Vehicles" rail:
+   * (1) Primary: from Auto.dev per RecommendedDefinition with forSpecialty=true.
+   * (2) Secondary: DB vehicles with specialty=true.
+   * Dedupe by id/VIN, slice to limit.
+   */
+  async getSpecialtyVehicles(
+    limit: number = 12
+  ): Promise<Array<{ vehicle: Vehicle; reason: string }>> {
+    const seen = new Set<string>();
+    const result: Array<{ vehicle: Vehicle; reason: string }> = [];
+
+    const keyOf = (v: Vehicle): string => v.id || (v.vin ? `vin-${v.vin}` : '');
+
+    // (1) From Auto.dev definitions tagged for specialty
+    const fromDefinitions = await this.recommendedService.getFromDefinitions(limit, 'specialty');
+    for (const { vehicle, reason } of fromDefinitions) {
+      const k = keyOf(vehicle);
+      if (k && !seen.has(k)) {
+        seen.add(k);
+        result.push({ vehicle, reason });
+      }
+      if (result.length >= limit) return result.slice(0, limit);
+    }
+
+    // (2) DB-flagged specialty
+    const dbSpecialty = await this.vehicleRepo.findSpecialty(limit);
+    for (const v of dbSpecialty) {
+      const k = keyOf(v);
+      if (k && !seen.has(k)) {
+        seen.add(k);
+        result.push({ vehicle: v, reason: 'Specialty vehicle' });
       }
       if (result.length >= limit) return result.slice(0, limit);
     }

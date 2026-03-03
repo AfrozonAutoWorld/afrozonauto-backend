@@ -11,6 +11,20 @@ export class RecommendedDefinitionRepository {
     });
   }
 
+  async findManyActiveForRecommended(): Promise<RecommendedDefinition[]> {
+    return prisma.recommendedDefinition.findMany({
+      where: { isActive: true, forRecommended: true },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  async findManyActiveForSpecialty(): Promise<RecommendedDefinition[]> {
+    return prisma.recommendedDefinition.findMany({
+      where: { isActive: true, forSpecialty: true },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+  }
+
   async findMany(): Promise<RecommendedDefinition[]> {
     return prisma.recommendedDefinition.findMany({
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],

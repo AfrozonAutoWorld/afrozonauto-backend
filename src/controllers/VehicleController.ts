@@ -39,6 +39,16 @@ export class VehicleController {
   });
 
   /**
+   * GET /api/vehicles/specialty
+   * Specialty Vehicles rail: mix of rule-driven (RecommendedDefinition.forSpecialty) and DB specialty=true.
+   */
+  getSpecialty = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const limit = Math.min(24, Math.max(1, parseInt(String(req.query.limit || 12), 10) || 12));
+    const list = await this.vehicleService.getSpecialtyVehicles(limit);
+    return res.json(ApiResponse.success(list, 'Specialty vehicles retrieved successfully'));
+  });
+
+  /**
    * GET /api/vehicles/categories
    * List active categories for filtering (Electric, SUV, Sedan, etc.)
    */
@@ -109,6 +119,13 @@ export class VehicleController {
       filters.condition = conditionRaw;
     }
     if (str(q.drivetrain)) filters.drivetrain = str(q.drivetrain);
+
+    const section = str(q.section);
+    if (section === 'recommended') {
+      (filters as any).recommended = true;
+    } else if (section === 'specialty') {
+      (filters as any).specialty = true;
+    }
 
     const pagination = {
       page: Math.max(1, q.page ? parseInt(q.page as string, 10) : 1),
