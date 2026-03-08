@@ -9,7 +9,7 @@
 * 🟢 You can import this file directly.
 */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VehicleAvailability = exports.VehicleStatus = exports.ApiSyncStatus = exports.VehicleSource = exports.VehicleType = exports.UserRole = exports.TokenType = exports.ShipmentStatus = exports.EscrowStatus = exports.PaymentStatus = exports.PaymentMethod = exports.PaymentType = exports.OrderPriority = exports.ShippingMethod = exports.OrderStatus = exports.OrderVehicleSource = exports.ContentType = exports.NotificationType = exports.InspectionCondition = exports.DocumentName = exports.AddressType = void 0;
+exports.VehicleListingCondition = exports.SellerVerificationStatus = exports.VehicleAvailability = exports.VehicleStatus = exports.ApiSyncStatus = exports.VehicleSource = exports.VehicleType = exports.UserRole = exports.TokenType = exports.ShipmentStatus = exports.EscrowStatus = exports.PaymentStatus = exports.PaymentMethod = exports.PaymentType = exports.OrderPriority = exports.ShippingMethod = exports.OrderStatus = exports.OrderVehicleSource = exports.ContentType = exports.NotificationType = exports.InspectionCondition = exports.DocumentName = exports.AddressType = void 0;
 exports.AddressType = {
     NORMAL: 'NORMAL',
     BILLING: 'BILLING',
@@ -153,6 +153,7 @@ exports.TokenType = {
 };
 exports.UserRole = {
     BUYER: 'BUYER',
+    SELLER: 'SELLER',
     OPERATIONS_ADMIN: 'OPERATIONS_ADMIN',
     SUPER_ADMIN: 'SUPER_ADMIN'
 };
@@ -172,7 +173,8 @@ exports.VehicleType = {
 exports.VehicleSource = {
     API: 'API',
     MANUAL: 'MANUAL',
-    IMPORTED: 'IMPORTED'
+    IMPORTED: 'IMPORTED',
+    SELLER: 'SELLER'
 };
 exports.ApiSyncStatus = {
     PENDING: 'PENDING',
@@ -185,7 +187,10 @@ exports.VehicleStatus = {
     PENDING: 'PENDING',
     SOLD: 'SOLD',
     UNAVAILABLE: 'UNAVAILABLE',
-    RESERVED: 'RESERVED'
+    RESERVED: 'RESERVED',
+    PENDING_REVIEW: 'PENDING_REVIEW',
+    REVIEWING: 'REVIEWING',
+    REJECTED: 'REJECTED'
 };
 exports.VehicleAvailability = {
     IN_STOCK: 'IN_STOCK',
@@ -193,4 +198,16 @@ exports.VehicleAvailability = {
     AT_PORT: 'AT_PORT',
     READY_FOR_PICKUP: 'READY_FOR_PICKUP',
     OUT_OF_STOCK: 'OUT_OF_STOCK'
+};
+exports.SellerVerificationStatus = {
+    NOT_APPLIED: 'NOT_APPLIED',
+    PENDING: 'PENDING',
+    APPROVED: 'APPROVED',
+    REJECTED: 'REJECTED'
+};
+exports.VehicleListingCondition = {
+    EXCELLENT: 'EXCELLENT',
+    GOOD: 'GOOD',
+    FAIR: 'FAIR',
+    BAD: 'BAD'
 };

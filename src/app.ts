@@ -16,6 +16,8 @@ import loggers from './utils/loggers';
 import UserRoutes from './routes/UserRoutes';
 import TestimonialRoutes from './routes/TestimonialRoutes';
 import OrderRoutes from './routes/OrderRoutes';
+import SellerVehicleRoutes from './routes/SellerVehicleRoutes';
+import SellerRoutes from './routes/SellerRoutes';
 
 class App {
   public app: express.Application;
@@ -31,7 +33,7 @@ class App {
   private config(): void {
     this.app.set('trust proxy', 1);
     const isProd = NODE_ENV === 'production';
-    
+
     // Security headers
     this.app.use(
       helmet({
@@ -39,7 +41,7 @@ class App {
         crossOriginEmbedderPolicy: false,
       })
     );
-    
+
     // Rate limiting
     const limiter = rateLimit({
       windowMs: 15 * 60 * 1000,
@@ -51,28 +53,28 @@ class App {
         message: 'Too many requests, please try again later.',
       },
     });
-    
+
     this.app.use('/api', limiter);
-    
+
     // Body parsers
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(cookieParser());
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-  
+
     // Parse and clean origins
     const allowedOrigins = CORS_ORIGINS
       ? CORS_ORIGINS.split(',')
-          .map(origin => origin.trim())
-          .filter(origin => origin.length > 0)
+        .map(origin => origin.trim())
+        .filter(origin => origin.length > 0)
       : [];
-    
+
     // Log configuration on startup
     loggers.info('CORS Configuration', {
       isProd,
       allowedOrigins,
       raw: CORS_ORIGINS,
     });
-  
+
     // CORS configuration - SIMPLIFIED VERSION
     const corsOptions = {
       origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
@@ -118,7 +120,7 @@ class App {
 
     // Apply CORS middleware
     this.app.use(cors(corsOptions));
-    
+
     // Handle preflight requests manually (REMOVED WILDCARD ISSUE)
     this.app.use((req, res, next) => {
       if (req.method === 'OPTIONS') {
@@ -129,7 +131,7 @@ class App {
       }
       next();
     });
-    
+
     // Celebrate errors
     this.app.use(celebrateErrors());
   }
@@ -147,13 +149,15 @@ class App {
     this.app.use('/api/payments', PaymentRoutes);
     this.app.use('/api/orders', OrderRoutes);
     this.app.use('/api/users', UserRoutes);
+    this.app.use('/api/seller-vehicles', SellerVehicleRoutes);
+    this.app.use('/api/sellers', SellerRoutes);
 
     // 404 handler - catch all unmatched routes
     this.app.use((req: Request, res: Response) => {
-      res.status(404).json({ 
+      res.status(404).json({
         success: false,
         error: 'Route not found',
-        path: req.path 
+        path: req.path
       });
     });
   }

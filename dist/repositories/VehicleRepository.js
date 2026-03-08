@@ -135,6 +135,18 @@ let VehicleRepository = class VehicleRepository {
             if (filters.mileageMax) {
                 where.mileage = { lte: filters.mileageMax };
             }
+            if (filters.transmission) {
+                where.transmission = { equals: filters.transmission, mode: 'insensitive' };
+            }
+            if (filters.exteriorColor) {
+                where.exteriorColor = { equals: filters.exteriorColor, mode: 'insensitive' };
+            }
+            if (filters.interiorColor) {
+                where.interiorColor = { equals: filters.interiorColor, mode: 'insensitive' };
+            }
+            if (filters.drivetrain) {
+                where.drivetrain = { equals: filters.drivetrain, mode: 'insensitive' };
+            }
             // Search filter: only search model and VIN (not make)
             // Make should be filtered explicitly, not searched
             if (filters.search) {

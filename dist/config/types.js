@@ -46,5 +46,10 @@ exports.TYPES = {
     OrderService: Symbol.for('OrderService'),
     OrderController: Symbol.for('OrderController'),
     PricingConfigRepository: Symbol.for('PricingConfigRepository'),
-    PricingConfigService: Symbol.for('PricingConfigService')
+    PricingConfigService: Symbol.for('PricingConfigService'),
+    SellerVehicleRepository: Symbol.for('SellerVehicleRepository'),
+    SellerVehicleService: Symbol.for('SellerVehicleService'),
+    SellerVehicleController: Symbol.for('SellerVehicleController'),
+    SellerService: Symbol.for('SellerService'),
+    SellerController: Symbol.for('SellerController'),
 };

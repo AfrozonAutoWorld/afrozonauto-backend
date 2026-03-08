@@ -31,15 +31,15 @@ export const TYPES = {
     CategoryService: Symbol.for('CategoryService'),
     TrendingDefinitionController: Symbol.for('TrendingDefinitionController'),
     VehicleCategoryController: Symbol.for('VehicleCategoryController'),
-   
+
     PaymentRepository: Symbol.for('PaymentRepository'),
     PaymentService: Symbol.for('PaymentService'),
     PaymentController: Symbol.for('PaymentController'),
-    
+
     ExchangeRateService: Symbol.for('ExchangeRateService'),
     StripeProvider: Symbol.for('StripeProvider'),
     PaystackProvider: Symbol.for('PaystackProvider'),
-    
+
     TestimonialService: Symbol.for('TestimonialService'),
     TestimonialController: Symbol.for('TestimonialController'),
     TestimonialRepository: Symbol.for('TestimonialRepository'),
@@ -47,7 +47,14 @@ export const TYPES = {
     OrderRepository: Symbol.for('OrderRepository'),
     OrderService: Symbol.for('OrderService'),
     OrderController: Symbol.for('OrderController'),
-    
+
     PricingConfigRepository: Symbol.for('PricingConfigRepository'),
-    PricingConfigService: Symbol.for('PricingConfigService')
+    PricingConfigService: Symbol.for('PricingConfigService'),
+
+    SellerVehicleRepository: Symbol.for('SellerVehicleRepository'),
+    SellerVehicleService: Symbol.for('SellerVehicleService'),
+    SellerVehicleController: Symbol.for('SellerVehicleController'),
+
+    SellerService: Symbol.for('SellerService'),
+    SellerController: Symbol.for('SellerController'),
 };

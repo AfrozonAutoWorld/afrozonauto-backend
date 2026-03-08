@@ -74,7 +74,7 @@ let VehicleController = class VehicleController {
          * Query param: includeApi=true/false (default: true) - whether to include API results
          */
         this.getVehicles = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
-            var _a;
+            var _a, _b;
             const q = req.query;
             const str = (v) => {
                 const s = Array.isArray(v) ? v[0] : v;
@@ -110,6 +110,27 @@ let VehicleController = class VehicleController {
                 filters.featured = q.featured === 'true';
             if (str(q.search))
                 filters.search = str(q.search);
+            if (str(q.bodyStyle))
+                filters.bodyStyle = str(q.bodyStyle);
+            if (str(q.fuel))
+                filters.fuel = str(q.fuel);
+            if (str(q.transmission))
+                filters.transmission = str(q.transmission);
+            if (str(q.exteriorColor))
+                filters.exteriorColor = str(q.exteriorColor);
+            if (str(q.interiorColor))
+                filters.interiorColor = str(q.interiorColor);
+            if (str(q.zip))
+                filters.zip = str(q.zip);
+            const distance = q.distance ? parseInt(q.distance, 10) : undefined;
+            if (Number.isFinite(distance) && distance > 0)
+                filters.distance = distance;
+            const conditionRaw = (_a = str(q.condition)) === null || _a === void 0 ? void 0 : _a.toLowerCase();
+            if (conditionRaw === 'new' || conditionRaw === 'used' || conditionRaw === 'cpo') {
+                filters.condition = conditionRaw;
+            }
+            if (str(q.drivetrain))
+                filters.drivetrain = str(q.drivetrain);
             const pagination = {
                 page: Math.max(1, q.page ? parseInt(q.page, 10) : 1),
                 limit: Math.min(100, Math.max(1, q.limit ? parseInt(q.limit, 10) : 50)),
@@ -126,7 +147,7 @@ let VehicleController = class VehicleController {
                 total: result.total,
                 pages: result.pages,
                 fromApi: result.fromApi || 0,
-                hasMore: (_a = result.hasMore) !== null && _a !== void 0 ? _a : (result.vehicles.length === result.limit),
+                hasMore: (_b = result.hasMore) !== null && _b !== void 0 ? _b : (result.vehicles.length === result.limit),
             }, 'Vehicles retrieved successfully'));
         }));
         /**

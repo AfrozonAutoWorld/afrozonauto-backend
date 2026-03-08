@@ -1,6 +1,6 @@
 import { injectable } from 'inversify';
 import prisma from '../db';
-import { Vehicle, VehicleType, VehicleStatus, VehicleSource, Prisma } from '../generated/prisma/client';
+import { Vehicle, Prisma } from '../generated/prisma/client';
 import { VehicleFilters } from '../validation/interfaces/IVehicle';
 
 export interface VehiclePagination {

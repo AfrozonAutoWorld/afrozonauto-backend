@@ -15,7 +15,7 @@ import { ProfileService } from '../services/ProfileService';
 import { AddressService } from '../services/AddressService';
 import TokenService from '../services/TokenService';
 import { MailService } from '../services/MailService';
-import {AppleAuthService} from '../services/AppleAuthService';
+import { AppleAuthService } from '../services/AppleAuthService';
 import { GoogleAuthService } from '../services/GoogleAuthService';
 import Jtoken from '../middleware/Jtoken';
 
@@ -46,6 +46,11 @@ import { OrderController } from '../controllers/OrderController';
 import { ExchangeRateService } from '../services/ExchangeRateService';
 import { PricingConfigRepository } from '../repositories/PricingConfigRepository';
 import { PricingConfigService } from '../services/PricingConfigService';
+import { SellerVehicleRepository } from '../repositories/SellerVehicleRepository';
+import { SellerVehicleService } from '../services/SellerVehicleService';
+import { SellerVehicleController } from '../controllers/SellerVehicleController';
+import { SellerService } from '../services/SellerService';
+import { SellerController } from '../controllers/SellerController';
 
 
 
@@ -100,6 +105,15 @@ container.bind<TestimonialController>(TYPES.TestimonialController).to(Testimonia
 container.bind<OrderRepository>(TYPES.OrderRepository).to(OrderRepository);
 container.bind<OrderService>(TYPES.OrderService).to(OrderService);
 container.bind<OrderController>(TYPES.OrderController).to(OrderController);
+
+// Seller Vehicle bindings
+container.bind<SellerVehicleRepository>(TYPES.SellerVehicleRepository).to(SellerVehicleRepository);
+container.bind<SellerVehicleService>(TYPES.SellerVehicleService).to(SellerVehicleService);
+container.bind<SellerVehicleController>(TYPES.SellerVehicleController).to(SellerVehicleController);
+
+// Seller Management bindings
+container.bind<SellerService>(TYPES.SellerService).to(SellerService);
+container.bind<SellerController>(TYPES.SellerController).to(SellerController);
 
 
 export { container };

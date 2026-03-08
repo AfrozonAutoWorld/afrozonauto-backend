@@ -21,6 +21,8 @@ const loggers_1 = __importDefault(require("./utils/loggers"));
 const UserRoutes_1 = __importDefault(require("./routes/UserRoutes"));
 const TestimonialRoutes_1 = __importDefault(require("./routes/TestimonialRoutes"));
 const OrderRoutes_1 = __importDefault(require("./routes/OrderRoutes"));
+const SellerVehicleRoutes_1 = __importDefault(require("./routes/SellerVehicleRoutes"));
+const SellerRoutes_1 = __importDefault(require("./routes/SellerRoutes"));
 class App {
     constructor() {
         this.app = (0, express_1.default)();
@@ -128,6 +130,8 @@ class App {
         this.app.use('/api/payments', PaymentRoutes_1.default);
         this.app.use('/api/orders', OrderRoutes_1.default);
         this.app.use('/api/users', UserRoutes_1.default);
+        this.app.use('/api/seller-vehicles', SellerVehicleRoutes_1.default);
+        this.app.use('/api/sellers', SellerRoutes_1.default);
         // 404 handler - catch all unmatched routes
         this.app.use((req, res) => {
             res.status(404).json({

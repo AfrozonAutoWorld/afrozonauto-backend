@@ -78,3 +78,33 @@ export const requireAdmin = authorize([
 export const requireCustomer = authorize([UserRole.BUYER]);
 
 export const requireSuperAdmin = authorize([UserRole.SUPER_ADMIN]);
+
+export const optionalAuthenticate = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const header = req.header('Authorization');
+    if (!header || !header.startsWith('Bearer ')) {
+      return next();
+    }
+
+    const token = header.replace('Bearer ', '').trim();
+    if (!token) {
+      return next();
+    }
+
+    try {
+      const payload = await jtoken.verifyToken(token);
+      if (!payload || !payload.id) {
+        return next();
+      }
+
+      const user = await userRepository.findById(payload.id);
+      if (user && user.isActive && !user.isSuspended) {
+        req.user = user as any;
+      }
+    } catch (ignore) {
+      // Invalid token, treat as guest
+    }
+
+    next();
+  }
+);

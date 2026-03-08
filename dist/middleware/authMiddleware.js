@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.requireSuperAdmin = exports.requireCustomer = exports.requireAdmin = exports.requireRoles = exports.authorize = exports.authenticate = void 0;
+exports.optionalAuthenticate = exports.requireSuperAdmin = exports.requireCustomer = exports.requireAdmin = exports.requireRoles = exports.authorize = exports.authenticate = void 0;
 const UserRepository_1 = require("../repositories/UserRepository");
 const client_1 = require("../generated/prisma/client");
 const ApiError_1 = require("../utils/ApiError");
@@ -64,3 +64,27 @@ exports.requireAdmin = (0, exports.authorize)([
 ]);
 exports.requireCustomer = (0, exports.authorize)([client_1.UserRole.BUYER]);
 exports.requireSuperAdmin = (0, exports.authorize)([client_1.UserRole.SUPER_ADMIN]);
+exports.optionalAuthenticate = (0, asyncHandler_1.asyncHandler)((req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    const header = req.header('Authorization');
+    if (!header || !header.startsWith('Bearer ')) {
+        return next();
+    }
+    const token = header.replace('Bearer ', '').trim();
+    if (!token) {
+        return next();
+    }
+    try {
+        const payload = yield jtoken.verifyToken(token);
+        if (!payload || !payload.id) {
+            return next();
+        }
+        const user = yield userRepository.findById(payload.id);
+        if (user && user.isActive && !user.isSuspended) {
+            req.user = user;
+        }
+    }
+    catch (ignore) {
+        // Invalid token, treat as guest
+    }
+    next();
+}));

@@ -114,8 +114,8 @@ let AutoDevService = class AutoDevService {
             const searchParams = new URLSearchParams();
             const keys = [
                 'vehicle.make', 'vehicle.model', 'vehicle.year', 'vehicle.bodyStyle', 'vehicle.fuel', 'vehicle.trim',
-                'vehicle.transmission', 'vehicle.exteriorColor', 'vehicle.interiorColor',
-                'retailListing.price', 'retailListing.miles', 'retailListing.state',
+                'vehicle.transmission', 'vehicle.exteriorColor', 'vehicle.interiorColor', 'vehicle.drivetrain',
+                'retailListing.price', 'retailListing.miles', 'retailListing.state', 'retailListing.used', 'retailListing.cpo',
                 'wholesaleListing.state', 'wholesaleListing.miles', 'wholesaleListing.buyNowPrice',
                 'zip', 'page', 'limit', 'distance',
             ];

@@ -818,6 +818,7 @@ model User {
   messages         Message[]      @relation("SentMessages")
   receivedMessages Message[]      @relation("ReceivedMessages")
   activityLogs     ActivityLog[]
+  sellerListings   Vehicle[]      @relation("UserListings")
 
   tokens Token[]
 
@@ -831,6 +832,7 @@ model User {
 
 enum UserRole {
   BUYER
+  SELLER
   OPERATIONS_ADMIN
   SUPER_ADMIN
 }
@@ -855,8 +857,12 @@ model Profile {
   taxId        String?
 
   // Verification
-  isVerified Boolean   @default(false)
-  verifiedAt DateTime?
+  isVerified           Boolean                   @default(false)
+  verifiedAt           DateTime?
+  isSeller             Boolean                   @default(false)
+  sellerStatus         SellerVerificationStatus? @default(NOT_APPLIED)
+  sellerVerifiedAt     DateTime?
+  sellerRejectedReason String?
 
   firstName String?
   lastName  String?
@@ -934,10 +940,38 @@ model Vehicle {
   featured      Boolean             @default(false)
   featuredUntil DateTime?
 
+  // Seller Specific Fields (Step 2 & 3 from application)
+  condition           VehicleListingCondition?
+  titleStatus         String[] @default([]) // Clean title, Salvage title, etc.
+  accidentHistory     String? // No accidents, Minor accident, etc.
+  knownIssues         String[] @default([]) // Engine issues, etc.
+  keys                Int?
+  highlights          String[] @default([]) // Major highlights/repairs
+  modifications       String?
+  showAskingPrice     Boolean  @default(true)
+  allowOffers         Boolean  @default(true)
+  cylinders           Int?
+  trim                String?
+
+  // Contact Details (From Step 4 or User Profile)
+  contactFirstName    String?
+  contactLastName     String?
+  contactEmail        String?
+  contactPhone        String?
+  city                String?
+  zipCode             String?
+  preferredContact    String? // Email, Phone, SMS
+  bestTimeToReach     String? // Morning, Afternoon, Evening
+
   // Admin Controls
   isActive   Boolean @default(true)
   isHidden   Boolean @default(false)
   hideReason String?
+
+  // Admin Review (For SELLER source)
+  adminNotes          String?
+  reviewedBy          String? @db.ObjectId
+  reviewedAt          DateTime?
 
   // Metadata
   viewCount    Int @default(0)
@@ -948,6 +982,8 @@ model Vehicle {
   updatedAt DateTime @updatedAt
 
   // Relations
+  userId        String?  @db.ObjectId
+  user          User?    @relation("UserListings", fields: [userId], references: [id])
   orders        Order[]
   savedVehicles SavedVehicle[]
 
@@ -982,6 +1018,7 @@ enum VehicleSource {
   API
   MANUAL
   IMPORTED
+  SELLER
 }
 
 enum ApiSyncStatus {
@@ -993,10 +1030,15 @@ enum ApiSyncStatus {
 
 enum VehicleStatus {
   AVAILABLE
-  PENDING
+  PENDING         // Quote/Inspection stage
   SOLD
   UNAVAILABLE
   RESERVED
+  
+  // Seller Listing Workflow
+  PENDING_REVIEW
+  REVIEWING
+  REJECTED
 }
 
 enum VehicleAvailability {
@@ -1121,3 +1163,23 @@ model Testimonial {
   @@index([rating])
   @@map("testimonials")
 }
+
+// ============================================
+// VEHICLE ENUMS
+// ============================================
+
+enum SellerVerificationStatus {
+  NOT_APPLIED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum VehicleListingCondition {
+  EXCELLENT
+  GOOD
+  FAIR
+  BAD
+}
+
+// SellerVehicleListing is now merged into Vehicle
