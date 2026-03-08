@@ -137,6 +137,26 @@ const welcomeTemplate = ({ recipientName, ctaText, ctaUrl, }) => baseLayout(`
         <span style="word-break:break-all;">${ctaUrl}</span>
       </p>
     `);
+const sourcingRequestConfirmationTemplate = ({ recipientName, requestNumber, }) => baseLayout(`
+      <h2 style="margin-top:0;">We've received your Find a Car request</h2>
+
+      <p>Hello <strong>${recipientName}</strong>,</p>
+
+      <p>
+        Thank you for submitting your vehicle sourcing request. Our team will review your
+        requirements and get back to you within 48 hours (weekdays; weekend requests by Monday)
+        with options and a full landed cost to Nigeria.
+      </p>
+
+      <p><strong>Your reference number:</strong> <code style="background:#e8e8e8;padding:4px 8px;border-radius:4px;">${requestNumber}</code></p>
+      <p style="font-size:13px;color:#666;">Please keep this number for your records and when contacting us.</p>
+
+      <p style="margin-top:24px;">
+        If you have any questions in the meantime, reply to this email or contact our support team.
+      </p>
+
+      <p>— The Afrozon AutoGlobal Team</p>
+    `);
 /* ---------------------------------------------------
    Exported Templates
 --------------------------------------------------- */
@@ -145,4 +165,5 @@ exports.emailTemplates = {
     accountRecovery: (props) => otpTemplate(props),
     welcomeVendor: (props) => welcomeTemplate(props),
     welcomeBuyer: (props) => welcomeTemplate(props),
+    sourcingRequestConfirmation: (props) => sourcingRequestConfirmationTemplate(props),
 };

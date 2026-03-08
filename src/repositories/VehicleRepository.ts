@@ -98,6 +98,8 @@ export class VehicleRepository {
     if (filters.source) where.source = filters.source;
     if (filters.dealerState) where.dealerState = filters.dealerState;
     if (filters.featured !== undefined) where.featured = filters.featured;
+    if (filters.recommended !== undefined) (where as any).recommended = filters.recommended;
+    if (filters.specialty !== undefined) (where as any).specialty = filters.specialty;
 
     if (filters.yearMin || filters.yearMax) {
       where.year = {};
@@ -182,6 +184,39 @@ export class VehicleRepository {
     return prisma.vehicle.update({
       where: { id },
       data,
+    });
+  }
+
+  /**
+   * Find admin-curated recommended vehicles (for "Recommended for you" section).
+   * Ordered by recommendedSortOrder asc, then createdAt desc.
+   */
+  async findRecommended(limit: number = 12): Promise<Vehicle[]> {
+    return prisma.vehicle.findMany({
+      where: {
+        recommended: true,
+        isActive: true,
+        isHidden: false,
+        priceUsd: { gt: 0 },
+      },
+      orderBy: [{ recommendedSortOrder: 'asc' }, { createdAt: 'desc' }],
+      take: limit,
+    });
+  }
+
+  /**
+   * Find admin-curated specialty vehicles (for "Specialty Vehicles" section).
+   */
+  async findSpecialty(limit: number = 12): Promise<Vehicle[]> {
+    return prisma.vehicle.findMany({
+      where: {
+        specialty: true,
+        isActive: true,
+        isHidden: false,
+        priceUsd: { gt: 0 },
+      } as any,
+      orderBy: [{ createdAt: 'desc' }],
+      take: limit,
     });
   }
 

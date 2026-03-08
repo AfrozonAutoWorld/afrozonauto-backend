@@ -9,7 +9,7 @@
 * 🟢 You can import this file directly.
 */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VehicleListingCondition = exports.SellerVerificationStatus = exports.VehicleAvailability = exports.VehicleStatus = exports.ApiSyncStatus = exports.VehicleSource = exports.VehicleType = exports.UserRole = exports.TokenType = exports.ShipmentStatus = exports.EscrowStatus = exports.PaymentStatus = exports.PaymentMethod = exports.PaymentType = exports.OrderPriority = exports.ShippingMethod = exports.OrderStatus = exports.OrderVehicleSource = exports.ContentType = exports.NotificationType = exports.InspectionCondition = exports.DocumentName = exports.AddressType = void 0;
+exports.VehicleListingCondition = exports.SellerVerificationStatus = exports.SourcingRequestStatus = exports.VehicleAvailability = exports.VehicleStatus = exports.ApiSyncStatus = exports.VehicleSource = exports.VehicleType = exports.UserRole = exports.TokenType = exports.ShipmentStatus = exports.EscrowStatus = exports.PaymentStatus = exports.PaymentMethod = exports.PaymentType = exports.OrderPriority = exports.ShippingMethod = exports.OrderStatus = exports.OrderVehicleSource = exports.ContentType = exports.NotificationType = exports.InspectionCondition = exports.DocumentName = exports.AddressType = void 0;
 exports.AddressType = {
     NORMAL: 'NORMAL',
     BILLING: 'BILLING',
@@ -198,6 +198,13 @@ exports.VehicleAvailability = {
     AT_PORT: 'AT_PORT',
     READY_FOR_PICKUP: 'READY_FOR_PICKUP',
     OUT_OF_STOCK: 'OUT_OF_STOCK'
+};
+exports.SourcingRequestStatus = {
+    NEW: 'NEW',
+    CONTACTED: 'CONTACTED',
+    QUOTE_SENT: 'QUOTE_SENT',
+    CONVERTED: 'CONVERTED',
+    CLOSED: 'CLOSED'
 };
 exports.SellerVerificationStatus = {
     NOT_APPLIED: 'NOT_APPLIED',

@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.optionalAuthenticate = exports.requireSuperAdmin = exports.requireCustomer = exports.requireAdmin = exports.requireRoles = exports.authorize = exports.authenticate = void 0;
+exports.optionalAuthenticate = exports.requireSuperAdmin = exports.requireCustomer = exports.requireAdmin = exports.requireRoles = exports.authorize = exports.authenticateOptional = exports.authenticate = void 0;
 const UserRepository_1 = require("../repositories/UserRepository");
 const client_1 = require("../generated/prisma/client");
 const ApiError_1 = require("../utils/ApiError");
@@ -44,6 +44,29 @@ exports.authenticate = (0, asyncHandler_1.asyncHandler)((req, res, next) => __aw
         throw ApiError_1.ApiError.forbidden(user.suspensionReason || 'Account is suspended');
     }
     req.user = user;
+    next();
+}));
+/** Optional auth: set req.user if valid token present; do not reject if missing. */
+exports.authenticateOptional = (0, asyncHandler_1.asyncHandler)((req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    const header = req.header('Authorization');
+    if (!header || !header.startsWith('Bearer ')) {
+        return next();
+    }
+    const token = header.replace('Bearer ', '').trim();
+    if (!token)
+        return next();
+    try {
+        const payload = yield jtoken.verifyToken(token);
+        if (!(payload === null || payload === void 0 ? void 0 : payload.id))
+            return next();
+        const user = yield userRepository.findById(payload.id);
+        if (user && user.isActive && !user.isSuspended) {
+            req.user = user;
+        }
+    }
+    catch (_a) {
+        // ignore invalid/expired token
+    }
     next();
 }));
 const authorize = (requiredRoles) => (0, asyncHandler_1.asyncHandler)((req, res, next) => __awaiter(void 0, void 0, void 0, function* () {

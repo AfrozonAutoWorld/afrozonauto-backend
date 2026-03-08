@@ -23,6 +23,7 @@ const TestimonialRoutes_1 = __importDefault(require("./routes/TestimonialRoutes"
 const OrderRoutes_1 = __importDefault(require("./routes/OrderRoutes"));
 const SellerVehicleRoutes_1 = __importDefault(require("./routes/SellerVehicleRoutes"));
 const SellerRoutes_1 = __importDefault(require("./routes/SellerRoutes"));
+const SourcingRequestRoutes_1 = __importDefault(require("./routes/SourcingRequestRoutes"));
 class App {
     constructor() {
         this.app = (0, express_1.default)();
@@ -129,6 +130,7 @@ class App {
         this.app.use('/api/testimonials', TestimonialRoutes_1.default);
         this.app.use('/api/payments', PaymentRoutes_1.default);
         this.app.use('/api/orders', OrderRoutes_1.default);
+        this.app.use('/api/sourcing-requests', SourcingRequestRoutes_1.default);
         this.app.use('/api/users', UserRoutes_1.default);
         this.app.use('/api/seller-vehicles', SellerVehicleRoutes_1.default);
         this.app.use('/api/sellers', SellerRoutes_1.default);

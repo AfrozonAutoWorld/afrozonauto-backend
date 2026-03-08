@@ -87,6 +87,15 @@ let MailService = class MailService {
             yield (0, mailer_1.default)(email, 'Account Recovery', html);
         });
     }
+    sendSourcingRequestConfirmation(email, requestNumber, firstName) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const html = mailer_templates_1.emailTemplates.sourcingRequestConfirmation({
+                recipientName: firstName || 'Customer',
+                requestNumber,
+            });
+            yield (0, mailer_1.default)(email, "We've received your Find a Car request", html);
+        });
+    }
 };
 exports.MailService = MailService;
 exports.MailService = MailService = __decorate([

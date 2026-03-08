@@ -43,6 +43,27 @@ let VehicleController = class VehicleController {
             return res.json(ApiResponse_1.ApiResponse.success(vehicles, 'Trending vehicles retrieved successfully'));
         }));
         /**
+         * GET /api/vehicles/recommended
+         * Recommended for you: admin-curated list; if authenticated, prepend saved vehicles with "You saved this".
+         * Optional auth: use authenticateOptional so logged-in users get personalized blend.
+         */
+        this.getRecommended = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            const limit = Math.min(24, Math.max(1, parseInt(String(req.query.limit || 12), 10) || 12));
+            const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+            const list = yield this.vehicleService.getRecommendedVehicles(limit, userId);
+            return res.json(ApiResponse_1.ApiResponse.success(list, 'Recommended vehicles retrieved successfully'));
+        }));
+        /**
+         * GET /api/vehicles/specialty
+         * Specialty Vehicles rail: mix of rule-driven (RecommendedDefinition.forSpecialty) and DB specialty=true.
+         */
+        this.getSpecialty = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            const limit = Math.min(24, Math.max(1, parseInt(String(req.query.limit || 12), 10) || 12));
+            const list = yield this.vehicleService.getSpecialtyVehicles(limit);
+            return res.json(ApiResponse_1.ApiResponse.success(list, 'Specialty vehicles retrieved successfully'));
+        }));
+        /**
          * GET /api/vehicles/categories
          * List active categories for filtering (Electric, SUV, Sedan, etc.)
          */
@@ -131,6 +152,13 @@ let VehicleController = class VehicleController {
             }
             if (str(q.drivetrain))
                 filters.drivetrain = str(q.drivetrain);
+            const section = str(q.section);
+            if (section === 'recommended') {
+                filters.recommended = true;
+            }
+            else if (section === 'specialty') {
+                filters.specialty = true;
+            }
             const pagination = {
                 page: Math.max(1, q.page ? parseInt(q.page, 10) : 1),
                 limit: Math.min(100, Math.max(1, q.limit ? parseInt(q.limit, 10) : 50)),
@@ -141,13 +169,21 @@ let VehicleController = class VehicleController {
             const sortOrderRaw = str(q.sortOrder);
             const sortOrderParam = sortOrderRaw === 'desc' ? 'desc' : sortOrderRaw === 'asc' ? 'asc' : undefined;
             const result = yield this.vehicleService.getVehicles(filters, pagination, includeApi, categorySlug, sortByParam, sortOrderParam);
+            // Prefer service's hasMore (full-page signal); when API is used, pages may be 0 so don't use page < pages.
+            const hasMore = result.hasMore != null
+                ? result.hasMore
+                : result.pages != null && result.pages > 0
+                    ? result.page < result.pages
+                    : result.vehicles.length >= result.limit;
             return res.json(ApiResponse_1.ApiResponse.paginated(result.vehicles, {
                 page: result.page,
                 limit: result.limit,
                 total: result.total,
                 pages: result.pages,
-                fromApi: result.fromApi || 0,
-                hasMore: (_b = result.hasMore) !== null && _b !== void 0 ? _b : (result.vehicles.length === result.limit),
+                fromApi: (_b = result.fromApi) !== null && _b !== void 0 ? _b : 0,
+                filteredCount: result.filteredCount,
+                apiUsed: result.apiUsed,
+                hasMore,
             }, 'Vehicles retrieved successfully'));
         }));
         /**
@@ -197,6 +233,48 @@ let VehicleController = class VehicleController {
             }
             const vehicle = yield this.vehicleService.syncFromAutoDev(vin);
             return res.json(ApiResponse_1.ApiResponse.success(vehicle, 'Vehicle synced successfully'));
+        }));
+        /**
+         * GET /api/vehicles/saved
+         * List current user's saved vehicles (auth required).
+         */
+        this.getSavedVehicles = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+            if (!userId)
+                throw ApiError_1.ApiError.unauthorized('Authentication required');
+            const list = yield this.vehicleService.getSavedVehicles(userId);
+            return res.json(ApiResponse_1.ApiResponse.success(list, 'Saved vehicles retrieved successfully'));
+        }));
+        /**
+         * POST /api/vehicles/saved
+         * Add a vehicle to current user's saved list. Body: { vehicleId }. Vehicle must exist in DB.
+         */
+        this.addSavedVehicle = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            var _a, _b, _c, _d;
+            const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+            if (!userId)
+                throw ApiError_1.ApiError.unauthorized('Authentication required');
+            const vehicleId = (_c = (_b = req.body) === null || _b === void 0 ? void 0 : _b.vehicleId) !== null && _c !== void 0 ? _c : (_d = req.body) === null || _d === void 0 ? void 0 : _d.vehicle_id;
+            if (!vehicleId || typeof vehicleId !== 'string')
+                throw ApiError_1.ApiError.badRequest('vehicleId is required');
+            const result = yield this.vehicleService.addSavedVehicle(userId, vehicleId.trim());
+            return res.status(201).json(ApiResponse_1.ApiResponse.success(result, 'Vehicle saved successfully'));
+        }));
+        /**
+         * DELETE /api/vehicles/saved/:vehicleId
+         * Remove a vehicle from current user's saved list.
+         */
+        this.removeSavedVehicle = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+            if (!userId)
+                throw ApiError_1.ApiError.unauthorized('Authentication required');
+            const { vehicleId } = req.params;
+            if (!vehicleId)
+                throw ApiError_1.ApiError.badRequest('vehicleId is required');
+            yield this.vehicleService.removeSavedVehicle(userId, vehicleId);
+            return res.json(ApiResponse_1.ApiResponse.success(null, 'Vehicle removed from saved list'));
         }));
         /**
          * PUT /api/vehicles/:id

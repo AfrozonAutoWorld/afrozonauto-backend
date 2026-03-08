@@ -18,6 +18,7 @@ import TestimonialRoutes from './routes/TestimonialRoutes';
 import OrderRoutes from './routes/OrderRoutes';
 import SellerVehicleRoutes from './routes/SellerVehicleRoutes';
 import SellerRoutes from './routes/SellerRoutes';
+import SourcingRequestRoutes from './routes/SourcingRequestRoutes';
 
 class App {
   public app: express.Application;
@@ -148,6 +149,7 @@ class App {
     this.app.use('/api/testimonials', TestimonialRoutes);
     this.app.use('/api/payments', PaymentRoutes);
     this.app.use('/api/orders', OrderRoutes);
+    this.app.use('/api/sourcing-requests', SourcingRequestRoutes);
     this.app.use('/api/users', UserRoutes);
     this.app.use('/api/seller-vehicles', SellerVehicleRoutes);
     this.app.use('/api/sellers', SellerRoutes);

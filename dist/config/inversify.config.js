@@ -24,13 +24,17 @@ const GoogleAuthService_1 = require("../services/GoogleAuthService");
 const Jtoken_1 = __importDefault(require("../middleware/Jtoken"));
 // Vehicle dependencies
 const VehicleRepository_1 = require("../repositories/VehicleRepository");
+const SavedVehicleRepository_1 = require("../repositories/SavedVehicleRepository");
 const TrendingDefinitionRepository_1 = require("../repositories/TrendingDefinitionRepository");
+const RecommendedDefinitionRepository_1 = require("../repositories/RecommendedDefinitionRepository");
 const VehicleCategoryRepository_1 = require("../repositories/VehicleCategoryRepository");
 const VehicleServiceDirect_1 = require("../services/VehicleServiceDirect");
 const TrendingService_1 = require("../services/TrendingService");
+const RecommendedService_1 = require("../services/RecommendedService");
 const CategoryService_1 = require("../services/CategoryService");
 const VehicleController_1 = require("../controllers/VehicleController");
 const TrendingDefinitionController_1 = require("../controllers/TrendingDefinitionController");
+const RecommendedDefinitionController_1 = require("../controllers/RecommendedDefinitionController");
 const VehicleCategoryController_1 = require("../controllers/VehicleCategoryController");
 const AutoDevService_1 = require("../services/AutoDevService");
 const RedisCacheService_1 = require("../services/RedisCacheService");
@@ -53,6 +57,9 @@ const SellerVehicleRepository_1 = require("../repositories/SellerVehicleReposito
 const SellerVehicleService_1 = require("../services/SellerVehicleService");
 const SellerVehicleController_1 = require("../controllers/SellerVehicleController");
 const SellerService_1 = require("../services/SellerService");
+const SourcingRequestRepository_1 = require("../repositories/SourcingRequestRepository");
+const SourcingRequestService_1 = require("../services/SourcingRequestService");
+const SourcingRequestController_1 = require("../controllers/SourcingRequestController");
 const SellerController_1 = require("../controllers/SellerController");
 const container = new inversify_1.Container();
 exports.container = container;
@@ -86,13 +93,17 @@ container.bind(types_1.TYPES.PaystackProvider)
     .inSingletonScope();
 // Vehicle bindings
 container.bind(types_1.TYPES.VehicleRepository).to(VehicleRepository_1.VehicleRepository);
+container.bind(types_1.TYPES.SavedVehicleRepository).to(SavedVehicleRepository_1.SavedVehicleRepository);
 container.bind(types_1.TYPES.TrendingDefinitionRepository).to(TrendingDefinitionRepository_1.TrendingDefinitionRepository);
+container.bind(types_1.TYPES.RecommendedDefinitionRepository).to(RecommendedDefinitionRepository_1.RecommendedDefinitionRepository);
 container.bind(types_1.TYPES.VehicleCategoryRepository).to(VehicleCategoryRepository_1.VehicleCategoryRepository);
 container.bind(types_1.TYPES.VehicleService).to(VehicleServiceDirect_1.VehicleServiceDirect);
 container.bind(types_1.TYPES.TrendingService).to(TrendingService_1.TrendingService);
+container.bind(types_1.TYPES.RecommendedService).to(RecommendedService_1.RecommendedService);
 container.bind(types_1.TYPES.CategoryService).to(CategoryService_1.CategoryService);
 container.bind(types_1.TYPES.VehicleController).to(VehicleController_1.VehicleController);
 container.bind(types_1.TYPES.TrendingDefinitionController).to(TrendingDefinitionController_1.TrendingDefinitionController);
+container.bind(types_1.TYPES.RecommendedDefinitionController).to(RecommendedDefinitionController_1.RecommendedDefinitionController);
 container.bind(types_1.TYPES.VehicleCategoryController).to(VehicleCategoryController_1.VehicleCategoryController);
 container.bind(types_1.TYPES.AutoDevService).to(AutoDevService_1.AutoDevService);
 container.bind(types_1.TYPES.RedisCacheService).to(RedisCacheService_1.RedisCacheService).inSingletonScope();
@@ -111,3 +122,6 @@ container.bind(types_1.TYPES.SellerVehicleController).to(SellerVehicleController
 // Seller Management bindings
 container.bind(types_1.TYPES.SellerService).to(SellerService_1.SellerService);
 container.bind(types_1.TYPES.SellerController).to(SellerController_1.SellerController);
+container.bind(types_1.TYPES.SourcingRequestRepository).to(SourcingRequestRepository_1.SourcingRequestRepository);
+container.bind(types_1.TYPES.SourcingRequestService).to(SourcingRequestService_1.SourcingRequestService);
+container.bind(types_1.TYPES.SourcingRequestController).to(SourcingRequestController_1.SourcingRequestController);

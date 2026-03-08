@@ -68,9 +68,11 @@ class VehicleTransformer {
      * Generate SEO-friendly slug
      */
     static generateSlug(make, model, year, vin) {
-        const makeSlug = (make || 'unknown').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-        const modelSlug = (model || 'unknown').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-        const yearStr = year || 'unknown';
+        const makeStr = typeof make === 'string' ? make : String(make !== null && make !== void 0 ? make : 'unknown');
+        const modelStr = typeof model === 'string' ? model : String(model !== null && model !== void 0 ? model : 'unknown');
+        const makeSlug = makeStr.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        const modelSlug = modelStr.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        const yearStr = year != null ? String(year) : 'unknown';
         const vinSuffix = (vin || 'unknown').slice(-6).toLowerCase();
         return `${yearStr}-${makeSlug}-${modelSlug}-${vinSuffix}`;
     }

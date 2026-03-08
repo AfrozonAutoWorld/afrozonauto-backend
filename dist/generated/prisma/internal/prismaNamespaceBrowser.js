@@ -48,7 +48,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.QueryMode = exports.SortOrder = exports.TestimonialScalarFieldEnum = exports.VehicleCategoryScalarFieldEnum = exports.TrendingDefinitionScalarFieldEnum = exports.SavedVehicleScalarFieldEnum = exports.VehicleScalarFieldEnum = exports.ProfileScalarFieldEnum = exports.UserScalarFieldEnum = exports.TokenScalarFieldEnum = exports.ShipmentScalarFieldEnum = exports.PaymentScalarFieldEnum = exports.OrderScalarFieldEnum = exports.ContentScalarFieldEnum = exports.NotificationScalarFieldEnum = exports.MessageScalarFieldEnum = exports.InspectionScalarFieldEnum = exports.FileInfoScalarFieldEnum = exports.ApiRequestLogScalarFieldEnum = exports.ApiIntegrationScalarFieldEnum = exports.FeeSettingsScalarFieldEnum = exports.SystemSettingScalarFieldEnum = exports.PricingConfigScalarFieldEnum = exports.ActivityLogScalarFieldEnum = exports.AdminNoteScalarFieldEnum = exports.AddressScalarFieldEnum = exports.ModelName = exports.AnyNull = exports.JsonNull = exports.DbNull = exports.NullTypes = exports.Decimal = void 0;
+exports.QueryMode = exports.SortOrder = exports.TestimonialScalarFieldEnum = exports.SourcingRequestScalarFieldEnum = exports.VehicleCategoryScalarFieldEnum = exports.RecommendedDefinitionScalarFieldEnum = exports.TrendingDefinitionScalarFieldEnum = exports.SavedVehicleScalarFieldEnum = exports.VehicleScalarFieldEnum = exports.ProfileScalarFieldEnum = exports.UserScalarFieldEnum = exports.TokenScalarFieldEnum = exports.ShipmentScalarFieldEnum = exports.PaymentScalarFieldEnum = exports.OrderScalarFieldEnum = exports.ContentScalarFieldEnum = exports.NotificationScalarFieldEnum = exports.MessageScalarFieldEnum = exports.InspectionScalarFieldEnum = exports.FileInfoScalarFieldEnum = exports.ApiRequestLogScalarFieldEnum = exports.ApiIntegrationScalarFieldEnum = exports.FeeSettingsScalarFieldEnum = exports.SystemSettingScalarFieldEnum = exports.PricingConfigScalarFieldEnum = exports.ActivityLogScalarFieldEnum = exports.AdminNoteScalarFieldEnum = exports.AddressScalarFieldEnum = exports.ModelName = exports.AnyNull = exports.JsonNull = exports.DbNull = exports.NullTypes = exports.Decimal = void 0;
 const runtime = __importStar(require("@prisma/client/runtime/index-browser"));
 exports.Decimal = runtime.Decimal;
 exports.NullTypes = {
@@ -97,7 +97,9 @@ exports.ModelName = {
     Vehicle: 'Vehicle',
     SavedVehicle: 'SavedVehicle',
     TrendingDefinition: 'TrendingDefinition',
+    RecommendedDefinition: 'RecommendedDefinition',
     VehicleCategory: 'VehicleCategory',
+    SourcingRequest: 'SourcingRequest',
     Testimonial: 'Testimonial'
 };
 /*
@@ -506,6 +508,12 @@ exports.VehicleScalarFieldEnum = {
     availability: 'availability',
     featured: 'featured',
     featuredUntil: 'featuredUntil',
+    isActive: 'isActive',
+    isHidden: 'isHidden',
+    hideReason: 'hideReason',
+    adminNotes: 'adminNotes',
+    reviewedBy: 'reviewedBy',
+    reviewedAt: 'reviewedAt',
     condition: 'condition',
     titleStatus: 'titleStatus',
     accidentHistory: 'accidentHistory',
@@ -525,12 +533,9 @@ exports.VehicleScalarFieldEnum = {
     zipCode: 'zipCode',
     preferredContact: 'preferredContact',
     bestTimeToReach: 'bestTimeToReach',
-    isActive: 'isActive',
-    isHidden: 'isHidden',
-    hideReason: 'hideReason',
-    adminNotes: 'adminNotes',
-    reviewedBy: 'reviewedBy',
-    reviewedAt: 'reviewedAt',
+    recommended: 'recommended',
+    recommendedSortOrder: 'recommendedSortOrder',
+    specialty: 'specialty',
     viewCount: 'viewCount',
     saveCount: 'saveCount',
     requestCount: 'requestCount',
@@ -557,6 +562,21 @@ exports.TrendingDefinitionScalarFieldEnum = {
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
 };
+exports.RecommendedDefinitionScalarFieldEnum = {
+    id: 'id',
+    make: 'make',
+    model: 'model',
+    yearStart: 'yearStart',
+    yearEnd: 'yearEnd',
+    reason: 'reason',
+    sortOrder: 'sortOrder',
+    isActive: 'isActive',
+    maxFetchCount: 'maxFetchCount',
+    forRecommended: 'forRecommended',
+    forSpecialty: 'forSpecialty',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+};
 exports.VehicleCategoryScalarFieldEnum = {
     id: 'id',
     slug: 'slug',
@@ -568,6 +588,33 @@ exports.VehicleCategoryScalarFieldEnum = {
     sortOrder: 'sortOrder',
     isActive: 'isActive',
     isDeleted: 'isDeleted',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+};
+exports.SourcingRequestScalarFieldEnum = {
+    id: 'id',
+    requestNumber: 'requestNumber',
+    userId: 'userId',
+    status: 'status',
+    make: 'make',
+    model: 'model',
+    yearFrom: 'yearFrom',
+    yearTo: 'yearTo',
+    trim: 'trim',
+    condition: 'condition',
+    budgetUsd: 'budgetUsd',
+    exteriorColor: 'exteriorColor',
+    anyColor: 'anyColor',
+    shippingMethod: 'shippingMethod',
+    timeline: 'timeline',
+    firstName: 'firstName',
+    lastName: 'lastName',
+    email: 'email',
+    phoneCode: 'phoneCode',
+    phoneNumber: 'phoneNumber',
+    deliveryCity: 'deliveryCity',
+    additionalNotes: 'additionalNotes',
+    consentContact: 'consentContact',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
 };

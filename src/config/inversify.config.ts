@@ -21,13 +21,17 @@ import Jtoken from '../middleware/Jtoken';
 
 // Vehicle dependencies
 import { VehicleRepository } from '../repositories/VehicleRepository';
+import { SavedVehicleRepository } from '../repositories/SavedVehicleRepository';
 import { TrendingDefinitionRepository } from '../repositories/TrendingDefinitionRepository';
+import { RecommendedDefinitionRepository } from '../repositories/RecommendedDefinitionRepository';
 import { VehicleCategoryRepository } from '../repositories/VehicleCategoryRepository';
 import { VehicleServiceDirect } from '../services/VehicleServiceDirect';
 import { TrendingService } from '../services/TrendingService';
+import { RecommendedService } from '../services/RecommendedService';
 import { CategoryService } from '../services/CategoryService';
 import { VehicleController } from '../controllers/VehicleController';
 import { TrendingDefinitionController } from '../controllers/TrendingDefinitionController';
+import { RecommendedDefinitionController } from '../controllers/RecommendedDefinitionController';
 import { VehicleCategoryController } from '../controllers/VehicleCategoryController';
 import { AutoDevService } from '../services/AutoDevService';
 import { RedisCacheService } from '../services/RedisCacheService';
@@ -50,6 +54,9 @@ import { SellerVehicleRepository } from '../repositories/SellerVehicleRepository
 import { SellerVehicleService } from '../services/SellerVehicleService';
 import { SellerVehicleController } from '../controllers/SellerVehicleController';
 import { SellerService } from '../services/SellerService';
+import { SourcingRequestRepository } from '../repositories/SourcingRequestRepository';
+import { SourcingRequestService } from '../services/SourcingRequestService';
+import { SourcingRequestController } from '../controllers/SourcingRequestController';
 import { SellerController } from '../controllers/SellerController';
 
 
@@ -87,13 +94,17 @@ container.bind<PaystackProvider>(TYPES.PaystackProvider)
   .inSingletonScope();
 // Vehicle bindings
 container.bind<VehicleRepository>(TYPES.VehicleRepository).to(VehicleRepository);
+container.bind<SavedVehicleRepository>(TYPES.SavedVehicleRepository).to(SavedVehicleRepository);
 container.bind<TrendingDefinitionRepository>(TYPES.TrendingDefinitionRepository).to(TrendingDefinitionRepository);
+container.bind<RecommendedDefinitionRepository>(TYPES.RecommendedDefinitionRepository).to(RecommendedDefinitionRepository);
 container.bind<VehicleCategoryRepository>(TYPES.VehicleCategoryRepository).to(VehicleCategoryRepository);
 container.bind<VehicleServiceDirect>(TYPES.VehicleService).to(VehicleServiceDirect);
 container.bind<TrendingService>(TYPES.TrendingService).to(TrendingService);
+container.bind<RecommendedService>(TYPES.RecommendedService).to(RecommendedService);
 container.bind<CategoryService>(TYPES.CategoryService).to(CategoryService);
 container.bind<VehicleController>(TYPES.VehicleController).to(VehicleController);
 container.bind<TrendingDefinitionController>(TYPES.TrendingDefinitionController).to(TrendingDefinitionController);
+container.bind<RecommendedDefinitionController>(TYPES.RecommendedDefinitionController).to(RecommendedDefinitionController);
 container.bind<VehicleCategoryController>(TYPES.VehicleCategoryController).to(VehicleCategoryController);
 container.bind<AutoDevService>(TYPES.AutoDevService).to(AutoDevService);
 container.bind<RedisCacheService>(TYPES.RedisCacheService).to(RedisCacheService).inSingletonScope();
@@ -115,5 +126,8 @@ container.bind<SellerVehicleController>(TYPES.SellerVehicleController).to(Seller
 container.bind<SellerService>(TYPES.SellerService).to(SellerService);
 container.bind<SellerController>(TYPES.SellerController).to(SellerController);
 
+container.bind<SourcingRequestRepository>(TYPES.SourcingRequestRepository).to(SourcingRequestRepository);
+container.bind<SourcingRequestService>(TYPES.SourcingRequestService).to(SourcingRequestService);
+container.bind<SourcingRequestController>(TYPES.SourcingRequestController).to(SourcingRequestController);
 
 export { container };

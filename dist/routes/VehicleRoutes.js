@@ -12,6 +12,7 @@ class VehicleRoutes {
         this.router = (0, express_1.Router)();
         this.controller = inversify_config_1.container.get(types_1.TYPES.VehicleController);
         this.trendingDefController = inversify_config_1.container.get(types_1.TYPES.TrendingDefinitionController);
+        this.recommendedDefController = inversify_config_1.container.get(types_1.TYPES.RecommendedDefinitionController);
         this.categoryController = inversify_config_1.container.get(types_1.TYPES.VehicleCategoryController);
         this.initializeRoutes();
     }
@@ -19,15 +20,27 @@ class VehicleRoutes {
         // Public routes (order matters: specific paths before /:identifier)
         this.router.get('/', this.controller.getVehicles);
         this.router.get('/trending', this.controller.getTrending);
+        this.router.get('/recommended', authMiddleware_1.authenticateOptional, this.controller.getRecommended);
+        this.router.get('/specialty', this.controller.getSpecialty);
         this.router.get('/categories', this.controller.getCategories);
         this.router.get('/reference/models', this.controller.getMakeModelsReference);
         this.router.get('/debug/auto-dev-page', this.controller.getAutoDevPageDebug);
+        // Saved vehicles (auth required; before /:identifier)
+        this.router.get('/saved', authMiddleware_1.authenticate, this.controller.getSavedVehicles);
+        this.router.post('/saved', authMiddleware_1.authenticate, this.controller.addSavedVehicle);
+        this.router.delete('/saved/:vehicleId', authMiddleware_1.authenticate, this.controller.removeSavedVehicle);
         // Admin: trending definitions (CRUD) - before /:identifier
         this.router.get('/trending-definitions', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([client_1.UserRole.SUPER_ADMIN, client_1.UserRole.OPERATIONS_ADMIN]), this.trendingDefController.list);
         this.router.get('/trending-definitions/:id', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([client_1.UserRole.SUPER_ADMIN, client_1.UserRole.OPERATIONS_ADMIN]), this.trendingDefController.getById);
         this.router.post('/trending-definitions', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([client_1.UserRole.SUPER_ADMIN, client_1.UserRole.OPERATIONS_ADMIN]), this.trendingDefController.create);
         this.router.put('/trending-definitions/:id', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([client_1.UserRole.SUPER_ADMIN, client_1.UserRole.OPERATIONS_ADMIN]), this.trendingDefController.update);
         this.router.delete('/trending-definitions/:id', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([client_1.UserRole.SUPER_ADMIN, client_1.UserRole.OPERATIONS_ADMIN]), this.trendingDefController.delete);
+        // Admin: recommended definitions (CRUD)
+        this.router.get('/recommended-definitions', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([client_1.UserRole.SUPER_ADMIN, client_1.UserRole.OPERATIONS_ADMIN]), this.recommendedDefController.list);
+        this.router.get('/recommended-definitions/:id', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([client_1.UserRole.SUPER_ADMIN, client_1.UserRole.OPERATIONS_ADMIN]), this.recommendedDefController.getById);
+        this.router.post('/recommended-definitions', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([client_1.UserRole.SUPER_ADMIN, client_1.UserRole.OPERATIONS_ADMIN]), this.recommendedDefController.create);
+        this.router.put('/recommended-definitions/:id', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([client_1.UserRole.SUPER_ADMIN, client_1.UserRole.OPERATIONS_ADMIN]), this.recommendedDefController.update);
+        this.router.delete('/recommended-definitions/:id', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([client_1.UserRole.SUPER_ADMIN, client_1.UserRole.OPERATIONS_ADMIN]), this.recommendedDefController.delete);
         // Admin: vehicle categories (CRUD)
         this.router.get('/admin/categories', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([client_1.UserRole.SUPER_ADMIN, client_1.UserRole.OPERATIONS_ADMIN]), this.categoryController.list);
         this.router.get('/admin/categories/:id', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([client_1.UserRole.SUPER_ADMIN, client_1.UserRole.OPERATIONS_ADMIN]), this.categoryController.getById);

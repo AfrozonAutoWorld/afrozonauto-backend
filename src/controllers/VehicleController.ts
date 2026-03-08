@@ -27,6 +27,28 @@ export class VehicleController {
   });
 
   /**
+   * GET /api/vehicles/recommended
+   * Recommended for you: admin-curated list; if authenticated, prepend saved vehicles with "You saved this".
+   * Optional auth: use authenticateOptional so logged-in users get personalized blend.
+   */
+  getRecommended = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const limit = Math.min(24, Math.max(1, parseInt(String(req.query.limit || 12), 10) || 12));
+    const userId = req.user?.id;
+    const list = await this.vehicleService.getRecommendedVehicles(limit, userId);
+    return res.json(ApiResponse.success(list, 'Recommended vehicles retrieved successfully'));
+  });
+
+  /**
+   * GET /api/vehicles/specialty
+   * Specialty Vehicles rail: mix of rule-driven (RecommendedDefinition.forSpecialty) and DB specialty=true.
+   */
+  getSpecialty = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const limit = Math.min(24, Math.max(1, parseInt(String(req.query.limit || 12), 10) || 12));
+    const list = await this.vehicleService.getSpecialtyVehicles(limit);
+    return res.json(ApiResponse.success(list, 'Specialty vehicles retrieved successfully'));
+  });
+
+  /**
    * GET /api/vehicles/categories
    * List active categories for filtering (Electric, SUV, Sedan, etc.)
    */
@@ -98,6 +120,13 @@ export class VehicleController {
     }
     if (str(q.drivetrain)) filters.drivetrain = str(q.drivetrain);
 
+    const section = str(q.section);
+    if (section === 'recommended') {
+      (filters as any).recommended = true;
+    } else if (section === 'specialty') {
+      (filters as any).specialty = true;
+    }
+
     const pagination = {
       page: Math.max(1, q.page ? parseInt(q.page as string, 10) : 1),
       limit: Math.min(100, Math.max(1, q.limit ? parseInt(q.limit as string, 10) : 50)),
@@ -119,6 +148,14 @@ export class VehicleController {
       sortOrderParam
     );
 
+    // Prefer service's hasMore (full-page signal); when API is used, pages may be 0 so don't use page < pages.
+    const hasMore =
+      result.hasMore != null
+        ? result.hasMore
+        : result.pages != null && result.pages > 0
+          ? result.page < result.pages
+          : result.vehicles.length >= result.limit;
+
     return res.json(
       ApiResponse.paginated(
         result.vehicles,
@@ -127,8 +164,10 @@ export class VehicleController {
           limit: result.limit,
           total: result.total,
           pages: result.pages,
-          fromApi: result.fromApi || 0,
-          hasMore: result.hasMore ?? (result.vehicles.length === result.limit),
+          fromApi: result.fromApi ?? 0,
+          filteredCount: result.filteredCount,
+          apiUsed: result.apiUsed,
+          hasMore,
         },
         'Vehicles retrieved successfully'
       )
@@ -194,6 +233,43 @@ export class VehicleController {
 
     const vehicle = await this.vehicleService.syncFromAutoDev(vin);
     return res.json(ApiResponse.success(vehicle, 'Vehicle synced successfully'));
+  });
+
+  /**
+   * GET /api/vehicles/saved
+   * List current user's saved vehicles (auth required).
+   */
+  getSavedVehicles = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user?.id;
+    if (!userId) throw ApiError.unauthorized('Authentication required');
+    const list = await this.vehicleService.getSavedVehicles(userId);
+    return res.json(ApiResponse.success(list, 'Saved vehicles retrieved successfully'));
+  });
+
+  /**
+   * POST /api/vehicles/saved
+   * Add a vehicle to current user's saved list. Body: { vehicleId }. Vehicle must exist in DB.
+   */
+  addSavedVehicle = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user?.id;
+    if (!userId) throw ApiError.unauthorized('Authentication required');
+    const vehicleId = req.body?.vehicleId ?? req.body?.vehicle_id;
+    if (!vehicleId || typeof vehicleId !== 'string') throw ApiError.badRequest('vehicleId is required');
+    const result = await this.vehicleService.addSavedVehicle(userId, vehicleId.trim());
+    return res.status(201).json(ApiResponse.success(result, 'Vehicle saved successfully'));
+  });
+
+  /**
+   * DELETE /api/vehicles/saved/:vehicleId
+   * Remove a vehicle from current user's saved list.
+   */
+  removeSavedVehicle = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user?.id;
+    if (!userId) throw ApiError.unauthorized('Authentication required');
+    const { vehicleId } = req.params;
+    if (!vehicleId) throw ApiError.badRequest('vehicleId is required');
+    await this.vehicleService.removeSavedVehicle(userId, vehicleId);
+    return res.json(ApiResponse.success(null, 'Vehicle removed from saved list'));
   });
 
   /**

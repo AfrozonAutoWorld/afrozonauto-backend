@@ -23,24 +23,29 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
+var VehicleServiceDirect_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VehicleServiceDirect = void 0;
 const inversify_1 = require("inversify");
 const types_1 = require("../config/types");
 const VehicleRepository_1 = require("../repositories/VehicleRepository");
+const SavedVehicleRepository_1 = require("../repositories/SavedVehicleRepository");
 const AutoDevService_1 = require("./AutoDevService");
 const TrendingService_1 = require("./TrendingService");
+const RecommendedService_1 = require("./RecommendedService");
 const CategoryService_1 = require("./CategoryService");
 const vehicle_transformer_1 = require("../helpers/vehicle-transformer");
 const vehicleLogs_1 = require("../helpers/vehicleLogs");
 const client_1 = require("../generated/prisma/client");
 const ApiError_1 = require("../utils/ApiError");
 const loggers_1 = __importDefault(require("../utils/loggers"));
-let VehicleServiceDirect = class VehicleServiceDirect {
-    constructor(vehicleRepo, autoDevService, trendingService, categoryService) {
+let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
+    constructor(vehicleRepo, savedVehicleRepo, autoDevService, trendingService, recommendedService, categoryService) {
         this.vehicleRepo = vehicleRepo;
+        this.savedVehicleRepo = savedVehicleRepo;
         this.autoDevService = autoDevService;
         this.trendingService = trendingService;
+        this.recommendedService = recommendedService;
         this.categoryService = categoryService;
         this.cacheTTLHours = parseInt(process.env.REDIS_CACHE_TTL_HOURS || '12', 10);
     }
@@ -49,13 +54,100 @@ let VehicleServiceDirect = class VehicleServiceDirect {
             return this.trendingService.getTrendingVehicles();
         });
     }
+    /**
+     * Get vehicles for "Recommended for you":
+     * (1) If userId: prepend vehicles the user saved ("You saved this").
+     * (2) Primary: fetch from Auto.dev per RecommendedDefinition (like Trending), with reason per definition.
+     * (3) Secondary: DB vehicles with recommended=true (recommendationReason or default).
+     * Dedupe by id/VIN, slice to limit.
+     */
+    getRecommendedVehicles() {
+        return __awaiter(this, arguments, void 0, function* (limit = 12, userId) {
+            const seen = new Set();
+            const result = [];
+            const keyOf = (v) => v.id || (v.vin ? `vin-${v.vin}` : '');
+            // (1) Logged-in: prepend saved vehicles
+            if (userId) {
+                const savedIds = yield this.savedVehicleRepo.findVehicleIdsByUserId(userId, 6);
+                if (savedIds.length > 0) {
+                    const savedVehicles = yield this.vehicleRepo.findManyByIds(savedIds);
+                    for (const v of savedVehicles) {
+                        const k = keyOf(v);
+                        if (k && !seen.has(k)) {
+                            seen.add(k);
+                            result.push({ vehicle: v, reason: 'You saved this' });
+                        }
+                    }
+                }
+            }
+            // (2) Primary: from Auto.dev per RecommendedDefinition (recommended rail)
+            const fromDefinitions = yield this.recommendedService.getFromDefinitions(limit, 'recommended');
+            for (const { vehicle, reason } of fromDefinitions) {
+                const k = keyOf(vehicle);
+                if (k && !seen.has(k)) {
+                    seen.add(k);
+                    result.push({ vehicle, reason });
+                }
+                if (result.length >= limit)
+                    return result.slice(0, limit);
+            }
+            // (3) Secondary: DB-flagged recommended
+            const dbRecommended = yield this.vehicleRepo.findRecommended(limit);
+            const getDbReason = (v) => { var _a; return ((_a = v.recommendationReason) === null || _a === void 0 ? void 0 : _a.trim()) || VehicleServiceDirect_1.DEFAULT_RECOMMENDATION_REASON; };
+            for (const v of dbRecommended) {
+                const k = keyOf(v);
+                if (k && !seen.has(k)) {
+                    seen.add(k);
+                    result.push({ vehicle: v, reason: getDbReason(v) });
+                }
+                if (result.length >= limit)
+                    return result.slice(0, limit);
+            }
+            return result.slice(0, limit);
+        });
+    }
+    /**
+     * Get vehicles for "Specialty Vehicles" rail:
+     * (1) Primary: from Auto.dev per RecommendedDefinition with forSpecialty=true.
+     * (2) Secondary: DB vehicles with specialty=true.
+     * Dedupe by id/VIN, slice to limit.
+     */
+    getSpecialtyVehicles() {
+        return __awaiter(this, arguments, void 0, function* (limit = 12) {
+            const seen = new Set();
+            const result = [];
+            const keyOf = (v) => v.id || (v.vin ? `vin-${v.vin}` : '');
+            // (1) From Auto.dev definitions tagged for specialty
+            const fromDefinitions = yield this.recommendedService.getFromDefinitions(limit, 'specialty');
+            for (const { vehicle, reason } of fromDefinitions) {
+                const k = keyOf(vehicle);
+                if (k && !seen.has(k)) {
+                    seen.add(k);
+                    result.push({ vehicle, reason });
+                }
+                if (result.length >= limit)
+                    return result.slice(0, limit);
+            }
+            // (2) DB-flagged specialty
+            const dbSpecialty = yield this.vehicleRepo.findSpecialty(limit);
+            for (const v of dbSpecialty) {
+                const k = keyOf(v);
+                if (k && !seen.has(k)) {
+                    seen.add(k);
+                    result.push({ vehicle: v, reason: 'Specialty vehicle' });
+                }
+                if (result.length >= limit)
+                    return result.slice(0, limit);
+            }
+            return result.slice(0, limit);
+        });
+    }
     getMakeModelsReference() {
         return __awaiter(this, void 0, void 0, function* () {
             return yield this.autoDevService.fetchMakeModelsReference();
         });
     }
     /**
-     * Debug: fetch one raw page from Auto.dev (no filters) and return make/model summary.
      * Use to inspect what Auto.dev returns on e.g. page 4 and avoid Hummer/truck dominance.
      */
     getAutoDevPageSummary() {
@@ -320,21 +412,23 @@ let VehicleServiceDirect = class VehicleServiceDirect {
             const staleVehicles = dbResult.vehicles.filter((v) => this.isPriceStale(v));
             Promise.all(staleVehicles.map((v) => this.refreshVehiclePrice(v).catch(() => null))).catch(() => { });
             let apiVehicles = [];
-            let fromApiCount = 0;
+            let fromApiCount = 0; // how many API listings made it into the response (after de-dup and price filter)
+            let apiRawCount = 0; // how many the API actually returned (before our filtering)
             let apiOnlyCount = 0;
             if (includeApiResults) {
                 try {
-                    // When browsing "all" (no filters), start from Auto.dev page 5 to avoid Hummer-heavy pages 1–4
+                    // Where to start on Auto.dev: no filters → page 5 (avoid Hummer-heavy 1–4); with filters → page 1.
                     const isBrowsingAll = !resolvedFilters.make &&
                         !resolvedFilters.model &&
                         !resolvedFilters.search &&
                         !resolvedFilters.vehicleType &&
                         !categorySlug;
-                    const apiPage = isBrowsingAll ? 5 : 1;
-                    const apiLimit = 100;
+                    const apiPageBase = isBrowsingAll ? 5 : 1;
+                    const apiPage = apiPageBase + (page - 1);
+                    const apiLimit = limit;
                     const apiParams = this.filtersToAutoDevParams(resolvedFilters, apiPage, apiLimit);
                     const apiListings = yield this.autoDevService.fetchListingsWithParams(apiParams);
-                    // Optional search filter (API may not support free text; filter in-memory if needed)
+                    apiRawCount = apiListings.length;
                     let filteredListings = apiListings;
                     if ((_b = filters.search) === null || _b === void 0 ? void 0 : _b.trim()) {
                         const searchTerm = filters.search.trim().toLowerCase();
@@ -356,10 +450,11 @@ let VehicleServiceDirect = class VehicleServiceDirect {
                     const existingVins = yield this.vehicleRepo.findExistingVINs(vinsToCheck);
                     const apiOnlyList = filteredListings.filter((l) => l.vin && !existingVins.has(l.vin));
                     apiOnlyCount = apiOnlyList.length;
-                    const apiOffset = Math.max(0, (page - 1) * limit - dbResult.total);
                     const needCount = limit - dbResult.vehicles.length;
-                    const apiChunk = apiOnlyList.slice(apiOffset, apiOffset + needCount);
-                    for (const listing of apiChunk) {
+                    // Take first needCount valid (de-dup done above; here we skip no/zero price and stop when we have enough).
+                    for (const listing of apiOnlyList) {
+                        if (apiVehicles.length >= needCount)
+                            break;
                         const vehicleData = vehicle_transformer_1.VehicleTransformer.fromAutoDevListing(listing, []);
                         if (!vehicleData.priceUsd || vehicleData.priceUsd <= 0)
                             continue;
@@ -379,21 +474,26 @@ let VehicleServiceDirect = class VehicleServiceDirect {
                     loggers_1.default.warn('Failed to fetch from Auto.dev API (direct), returning DB results only:', error);
                 }
             }
-            const total = dbResult.total + apiOnlyCount;
-            const pages = Math.ceil(total / limit) || 1;
             const allVehicles = [...dbResult.vehicles, ...apiVehicles];
-            // Preserve new sorting behavior on top of the old merge logic
             if (sortBy) {
                 const demoteHummers = !resolvedFilters.make && !resolvedFilters.vehicleType;
                 this.sortVehiclesInPlace(allVehicles, sortBy, sortOrder, demoteHummers);
             }
+            // We don't know total from Auto.dev; only reliable signal is full page. No total/pages when API is used.
+            const usedApi = !!includeApiResults;
+            const total = usedApi ? 0 : dbResult.total + apiOnlyCount;
+            const pages = usedApi ? 0 : Math.ceil((dbResult.total + apiOnlyCount) / limit) || 1;
+            const hasMore = allVehicles.length >= limit;
             return {
                 vehicles: allVehicles,
                 total,
                 page,
                 limit,
                 pages,
-                fromApi: fromApiCount,
+                fromApi: apiRawCount,
+                filteredCount: fromApiCount,
+                apiUsed: !!includeApiResults,
+                hasMore,
             };
         });
     }
@@ -556,6 +656,35 @@ let VehicleServiceDirect = class VehicleServiceDirect {
             yield this.vehicleRepo.delete(id);
         });
     }
+    /** Get current user's saved vehicles (for Saved tab). */
+    getSavedVehicles(userId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.savedVehicleRepo.findSavedVehiclesByUserId(userId);
+        });
+    }
+    /** Add vehicle to user's saved list. Vehicle must exist in DB (use save-from-api first for API listings). */
+    addSavedVehicle(userId, vehicleId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!this.isMongoObjectId(vehicleId))
+                throw ApiError_1.ApiError.badRequest('Invalid vehicle ID');
+            const vehicle = yield this.vehicleRepo.findById(vehicleId);
+            if (!vehicle)
+                throw ApiError_1.ApiError.notFound('Vehicle not found');
+            const already = yield this.savedVehicleRepo.exists(userId, vehicleId);
+            if (already)
+                return { savedAt: new Date() };
+            const row = yield this.savedVehicleRepo.create(userId, vehicleId);
+            return { savedAt: row.createdAt };
+        });
+    }
+    /** Remove vehicle from user's saved list. */
+    removeSavedVehicle(userId, vehicleId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!this.isMongoObjectId(vehicleId))
+                throw ApiError_1.ApiError.badRequest('Invalid vehicle ID');
+            yield this.savedVehicleRepo.deleteByUserAndVehicle(userId, vehicleId);
+        });
+    }
     saveVehicleFromApiListing(listing_1) {
         return __awaiter(this, arguments, void 0, function* (listing, photos = [], specs) {
             const vin = listing.vin;
@@ -602,14 +731,19 @@ let VehicleServiceDirect = class VehicleServiceDirect {
     }
 };
 exports.VehicleServiceDirect = VehicleServiceDirect;
-exports.VehicleServiceDirect = VehicleServiceDirect = __decorate([
+VehicleServiceDirect.DEFAULT_RECOMMENDATION_REASON = 'Near-new, under 15k miles, exceptional condition at this price';
+exports.VehicleServiceDirect = VehicleServiceDirect = VehicleServiceDirect_1 = __decorate([
     (0, inversify_1.injectable)(),
     __param(0, (0, inversify_1.inject)(types_1.TYPES.VehicleRepository)),
-    __param(1, (0, inversify_1.inject)(types_1.TYPES.AutoDevService)),
-    __param(2, (0, inversify_1.inject)(types_1.TYPES.TrendingService)),
-    __param(3, (0, inversify_1.inject)(types_1.TYPES.CategoryService)),
+    __param(1, (0, inversify_1.inject)(types_1.TYPES.SavedVehicleRepository)),
+    __param(2, (0, inversify_1.inject)(types_1.TYPES.AutoDevService)),
+    __param(3, (0, inversify_1.inject)(types_1.TYPES.TrendingService)),
+    __param(4, (0, inversify_1.inject)(types_1.TYPES.RecommendedService)),
+    __param(5, (0, inversify_1.inject)(types_1.TYPES.CategoryService)),
     __metadata("design:paramtypes", [VehicleRepository_1.VehicleRepository,
+        SavedVehicleRepository_1.SavedVehicleRepository,
         AutoDevService_1.AutoDevService,
         TrendingService_1.TrendingService,
+        RecommendedService_1.RecommendedService,
         CategoryService_1.CategoryService])
 ], VehicleServiceDirect);

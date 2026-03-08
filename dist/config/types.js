@@ -23,15 +23,19 @@ exports.TYPES = {
     AddressController: Symbol.for('AddressController'),
     // vehicle types
     VehicleRepository: Symbol.for('VehicleRepository'),
+    SavedVehicleRepository: Symbol.for('SavedVehicleRepository'),
     VehicleService: Symbol.for('VehicleService'),
     VehicleController: Symbol.for('VehicleController'),
     AutoDevService: Symbol.for('AutoDevService'),
     RedisCacheService: Symbol.for('RedisCacheService'),
     TrendingDefinitionRepository: Symbol.for('TrendingDefinitionRepository'),
+    RecommendedDefinitionRepository: Symbol.for('RecommendedDefinitionRepository'),
     VehicleCategoryRepository: Symbol.for('VehicleCategoryRepository'),
     TrendingService: Symbol.for('TrendingService'),
+    RecommendedService: Symbol.for('RecommendedService'),
     CategoryService: Symbol.for('CategoryService'),
     TrendingDefinitionController: Symbol.for('TrendingDefinitionController'),
+    RecommendedDefinitionController: Symbol.for('RecommendedDefinitionController'),
     VehicleCategoryController: Symbol.for('VehicleCategoryController'),
     PaymentRepository: Symbol.for('PaymentRepository'),
     PaymentService: Symbol.for('PaymentService'),
@@ -52,4 +56,7 @@ exports.TYPES = {
     SellerVehicleController: Symbol.for('SellerVehicleController'),
     SellerService: Symbol.for('SellerService'),
     SellerController: Symbol.for('SellerController'),
+    SourcingRequestRepository: Symbol.for('SourcingRequestRepository'),
+    SourcingRequestService: Symbol.for('SourcingRequestService'),
+    SourcingRequestController: Symbol.for('SourcingRequestController')
 };

@@ -122,6 +122,10 @@ let VehicleRepository = class VehicleRepository {
                 where.dealerState = filters.dealerState;
             if (filters.featured !== undefined)
                 where.featured = filters.featured;
+            if (filters.recommended !== undefined)
+                where.recommended = filters.recommended;
+            if (filters.specialty !== undefined)
+                where.specialty = filters.specialty;
             if (filters.yearMin || filters.yearMax) {
                 where.year = {};
                 if (filters.yearMin)
@@ -193,6 +197,41 @@ let VehicleRepository = class VehicleRepository {
             return db_1.default.vehicle.update({
                 where: { id },
                 data,
+            });
+        });
+    }
+    /**
+     * Find admin-curated recommended vehicles (for "Recommended for you" section).
+     * Ordered by recommendedSortOrder asc, then createdAt desc.
+     */
+    findRecommended() {
+        return __awaiter(this, arguments, void 0, function* (limit = 12) {
+            return db_1.default.vehicle.findMany({
+                where: {
+                    recommended: true,
+                    isActive: true,
+                    isHidden: false,
+                    priceUsd: { gt: 0 },
+                },
+                orderBy: [{ recommendedSortOrder: 'asc' }, { createdAt: 'desc' }],
+                take: limit,
+            });
+        });
+    }
+    /**
+     * Find admin-curated specialty vehicles (for "Specialty Vehicles" section).
+     */
+    findSpecialty() {
+        return __awaiter(this, arguments, void 0, function* (limit = 12) {
+            return db_1.default.vehicle.findMany({
+                where: {
+                    specialty: true,
+                    isActive: true,
+                    isHidden: false,
+                    priceUsd: { gt: 0 },
+                },
+                orderBy: [{ createdAt: 'desc' }],
+                take: limit,
             });
         });
     }
