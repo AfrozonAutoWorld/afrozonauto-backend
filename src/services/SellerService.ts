@@ -46,7 +46,7 @@ export class SellerService {
                 passwordHash,
                 phone: data.phone,
                 role: UserRole.SELLER,
-                emailVerified: false, // Must verify email still
+                emailVerified: true, // Verification just completed via token
                 googleId: uniqueGoogleId,
                 appleId: uniqueAppleId,
             },
@@ -78,8 +78,6 @@ export class SellerService {
                 } : undefined
             }
         });
-
-        await this.tokenService.sendVerificationToken(user.id, user.email);
 
         return { user, profile };
     }

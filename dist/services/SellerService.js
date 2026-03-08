@@ -59,7 +59,7 @@ let SellerService = class SellerService {
                     passwordHash,
                     phone: data.phone,
                     role: client_1.UserRole.SELLER,
-                    emailVerified: false, // Must verify email still
+                    emailVerified: true, // Verification just completed via token
                     googleId: uniqueGoogleId,
                     appleId: uniqueAppleId,
                 },
@@ -90,7 +90,6 @@ let SellerService = class SellerService {
                     } : undefined
                 }
             });
-            yield this.tokenService.sendVerificationToken(user.id, user.email);
             return { user, profile };
         });
     }

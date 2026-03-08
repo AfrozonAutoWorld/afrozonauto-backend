@@ -20,6 +20,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SellerController = void 0;
 const inversify_1 = require("inversify");
@@ -29,15 +32,54 @@ const asyncHandler_1 = require("../utils/asyncHandler");
 const ApiResponse_1 = require("../utils/ApiResponse");
 const ApiError_1 = require("../utils/ApiError");
 const client_1 = require("../generated/prisma/client");
+const TokenService_1 = __importDefault(require("../services/TokenService"));
+const UserService_1 = require("../services/UserService");
+const AuthService_1 = require("../services/AuthService");
 let SellerController = class SellerController {
-    constructor(service) {
+    constructor(service, tokenService, userService, authService) {
         this.service = service;
+        this.tokenService = tokenService;
+        this.userService = userService;
+        this.authService = authService;
         /**
-         * specialized registration for sellers (guest -> pending seller)
+         * Part 1: Check email and send verification token for new seller
+         */
+        this.checkSellerEmail = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            const { email } = req.body;
+            if (!email)
+                throw ApiError_1.ApiError.badRequest('Email is required');
+            const user = yield this.userService.getUserByEmail(email);
+            if (user)
+                throw ApiError_1.ApiError.badRequest('User already exists');
+            yield this.tokenService.sendVerificationToken(undefined, email);
+            return res.json(ApiResponse_1.ApiResponse.success({ email }, 'Verification token sent to email'));
+        }));
+        /**
+         * Part 2: Verify the token sent to the email
+         */
+        this.verifySellerEmail = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            const { email, token } = req.body;
+            if (!email || !token)
+                throw ApiError_1.ApiError.badRequest('Email and token are required');
+            const tokenNumber = typeof token === 'string' ? parseInt(token, 10) : Number(token);
+            yield this.authService.verifyUser(email, tokenNumber);
+            return res.json(ApiResponse_1.ApiResponse.success(null, 'Email verified successfully'));
+        }));
+        /**
+         * Part 3: specialized registration for sellers (guest -> pending seller)
+         * This requires the email to have been verified in Parts 1 & 2.
          */
         this.registerSeller = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            const { email } = req.body;
+            // Validate that email has been verified via token
+            const usedToken = yield this.tokenService.getUsedTokenForUser({ email });
+            if (!usedToken) {
+                throw ApiError_1.ApiError.badRequest('Please verify your email before registering');
+            }
             const { user, profile } = yield this.service.registerSeller(req.body);
-            return res.status(201).json(ApiResponse_1.ApiResponse.created({ user, profile }, 'Seller registered. An email verification code has been sent. Account pending verification.'));
+            // Clean up the used token record
+            yield this.tokenService.deleteToken({ email });
+            return res.status(201).json(ApiResponse_1.ApiResponse.created({ user, profile }, 'Seller registered successfully. Account pending administrative verification.'));
         }));
         /**
          * applying as seller (authenticated user -> pending seller)
@@ -80,5 +122,11 @@ exports.SellerController = SellerController;
 exports.SellerController = SellerController = __decorate([
     (0, inversify_1.injectable)(),
     __param(0, (0, inversify_1.inject)(types_1.TYPES.SellerService)),
-    __metadata("design:paramtypes", [SellerService_1.SellerService])
+    __param(1, (0, inversify_1.inject)(types_1.TYPES.TokenService)),
+    __param(2, (0, inversify_1.inject)(types_1.TYPES.UserService)),
+    __param(3, (0, inversify_1.inject)(types_1.TYPES.AuthService)),
+    __metadata("design:paramtypes", [SellerService_1.SellerService,
+        TokenService_1.default,
+        UserService_1.UserService,
+        AuthService_1.AuthService])
 ], SellerController);

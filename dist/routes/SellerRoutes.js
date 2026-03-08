@@ -13,8 +13,11 @@ class SellerRoutes {
         this.initializeRoutes();
     }
     initializeRoutes() {
-        // Public/User endpoints
+        // Guest flow: verify email then register
+        this.router.post('/check-email', (0, bodyValidate_1.validateBody)(seller_validation_1.checkEmailSchema), this.controller.checkSellerEmail);
+        this.router.post('/verify-token', (0, bodyValidate_1.validateBody)(seller_validation_1.verifyTokenSchema), this.controller.verifySellerEmail);
         this.router.post('/register', (0, bodyValidate_1.validateBody)(seller_validation_1.registerSellerSchema), this.controller.registerSeller);
+        // Existing user flow: authenticated application
         this.router.post('/apply', authMiddleware_1.authenticate, (0, bodyValidate_1.validateBody)(seller_validation_1.applyAsSellerSchema), this.controller.applyAsSeller);
         // Admin endpoints
         this.router.get('/applications', authMiddleware_1.authenticate, this.controller.getApplications);

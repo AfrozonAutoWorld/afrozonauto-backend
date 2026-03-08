@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { container } from '../config/inversify.config';
 import { TYPES } from '../config/types';
 import { SellerController } from '../controllers/SellerController';
-import { registerSellerSchema, applyAsSellerSchema, verifySellerSchema } from "../validation/schema/seller.validation";
+import { registerSellerSchema, applyAsSellerSchema, verifySellerSchema, checkEmailSchema, verifyTokenSchema } from "../validation/schema/seller.validation";
 import { validateBody } from '../middleware/bodyValidate';
 import { authenticate } from '../middleware/authMiddleware';
 
@@ -17,8 +17,12 @@ class SellerRoutes {
     }
 
     private initializeRoutes(): void {
-        // Public/User endpoints
+        // Guest flow: verify email then register
+        this.router.post('/check-email', validateBody(checkEmailSchema), this.controller.checkSellerEmail);
+        this.router.post('/verify-token', validateBody(verifyTokenSchema), this.controller.verifySellerEmail);
         this.router.post('/register', validateBody(registerSellerSchema), this.controller.registerSeller);
+
+        // Existing user flow: authenticated application
         this.router.post('/apply', authenticate, validateBody(applyAsSellerSchema), this.controller.applyAsSeller);
 
         // Admin endpoints

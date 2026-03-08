@@ -1,6 +1,15 @@
 import Joi from 'joi';
 import { SellerVerificationStatus } from '../../generated/prisma/client';
 
+export const checkEmailSchema = Joi.object({
+    email: Joi.string().email().required(),
+});
+
+export const verifyTokenSchema = Joi.object({
+    email: Joi.string().email().required(),
+    token: Joi.number().required(),
+});
+
 export const registerSellerSchema = Joi.object({
     email: Joi.string().email().required(),
     password: Joi.string().min(6).required(),
