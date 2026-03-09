@@ -5,6 +5,8 @@ import { SellerController } from '../controllers/SellerController';
 import { registerSellerSchema, applyAsSellerSchema, verifySellerSchema, checkEmailSchema, verifyTokenSchema } from "../validation/schema/seller.validation";
 import { validateBody } from '../middleware/bodyValidate';
 import { authenticate } from '../middleware/authMiddleware';
+import { uploadToCloudinary } from '../middleware/cloudinaryUploads';
+import { upload } from '../config/multer.config';
 
 class SellerRoutes {
     private router: Router;
@@ -20,10 +22,10 @@ class SellerRoutes {
         // Guest flow: verify email then register
         this.router.post('/check-email', validateBody(checkEmailSchema), this.controller.checkSellerEmail);
         this.router.post('/verify-token', validateBody(verifyTokenSchema), this.controller.verifySellerEmail);
-        this.router.post('/register', validateBody(registerSellerSchema), this.controller.registerSeller);
+        this.router.post('/register', upload.array('files', 5), uploadToCloudinary, validateBody(registerSellerSchema), this.controller.registerSeller);
 
         // Existing user flow: authenticated application
-        this.router.post('/apply', authenticate, validateBody(applyAsSellerSchema), this.controller.applyAsSeller);
+        this.router.post('/apply', authenticate, upload.array('files', 5), uploadToCloudinary, validateBody(applyAsSellerSchema), this.controller.applyAsSeller);
 
         // Admin endpoints
         this.router.get('/applications', authenticate, this.controller.getApplications);

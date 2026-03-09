@@ -102,7 +102,7 @@ let UserRepository = class UserRepository {
     }
     findByEmail(email) {
         return __awaiter(this, void 0, void 0, function* () {
-            return this.prisma.user.findUnique({
+            return this.prisma.user.findFirst({
                 where: { email },
                 include: {
                     profile: {

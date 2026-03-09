@@ -19,6 +19,8 @@ import OrderRoutes from './routes/OrderRoutes';
 import SellerVehicleRoutes from './routes/SellerVehicleRoutes';
 import SellerRoutes from './routes/SellerRoutes';
 import SourcingRequestRoutes from './routes/SourcingRequestRoutes';
+import swaggerUi from 'swagger-ui-express';
+import swaggerSpec from './config/swagger';
 
 class App {
   public app: express.Application;
@@ -41,6 +43,10 @@ class App {
         crossOriginResourcePolicy: { policy: 'cross-origin' },
         crossOriginEmbedderPolicy: false,
       })
+    );
+    this.app.use(
+      '/api/payments/webhooks/paystack',
+      express.raw({ type: 'application/json' })
     );
 
     // Rate limiting
@@ -141,6 +147,8 @@ class App {
     this.app.get('/', (_, res) => {
       return res.send("welcome to Afrozon AutoGlobal");
     });
+
+    this.app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
     this.app.use('/api/profile', ProfileRoutes);
     this.app.use('/api/auth', AuthRoutes);

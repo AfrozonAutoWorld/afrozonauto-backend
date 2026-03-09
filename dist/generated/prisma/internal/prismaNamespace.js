@@ -48,7 +48,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.defineExtension = exports.QueryMode = exports.SortOrder = exports.TestimonialScalarFieldEnum = exports.SourcingRequestScalarFieldEnum = exports.VehicleCategoryScalarFieldEnum = exports.RecommendedDefinitionScalarFieldEnum = exports.TrendingDefinitionScalarFieldEnum = exports.SavedVehicleScalarFieldEnum = exports.VehicleScalarFieldEnum = exports.ProfileScalarFieldEnum = exports.UserScalarFieldEnum = exports.TokenScalarFieldEnum = exports.ShipmentScalarFieldEnum = exports.PaymentScalarFieldEnum = exports.OrderScalarFieldEnum = exports.ContentScalarFieldEnum = exports.NotificationScalarFieldEnum = exports.MessageScalarFieldEnum = exports.InspectionScalarFieldEnum = exports.FileInfoScalarFieldEnum = exports.ApiRequestLogScalarFieldEnum = exports.ApiIntegrationScalarFieldEnum = exports.FeeSettingsScalarFieldEnum = exports.SystemSettingScalarFieldEnum = exports.PricingConfigScalarFieldEnum = exports.ActivityLogScalarFieldEnum = exports.AdminNoteScalarFieldEnum = exports.AddressScalarFieldEnum = exports.ModelName = exports.AnyNull = exports.JsonNull = exports.DbNull = exports.NullTypes = exports.prismaVersion = exports.getExtensionContext = exports.Decimal = exports.Sql = exports.raw = exports.join = exports.empty = exports.sql = exports.PrismaClientValidationError = exports.PrismaClientInitializationError = exports.PrismaClientRustPanicError = exports.PrismaClientUnknownRequestError = exports.PrismaClientKnownRequestError = void 0;
+exports.defineExtension = exports.QueryMode = exports.SortOrder = exports.TestimonialScalarFieldEnum = exports.SourcingRequestScalarFieldEnum = exports.VehicleCategoryScalarFieldEnum = exports.MediaFileScalarFieldEnum = exports.RecommendedDefinitionScalarFieldEnum = exports.TrendingDefinitionScalarFieldEnum = exports.SavedVehicleScalarFieldEnum = exports.VehicleScalarFieldEnum = exports.ProfileScalarFieldEnum = exports.UserScalarFieldEnum = exports.TokenScalarFieldEnum = exports.ShipmentScalarFieldEnum = exports.PaymentScalarFieldEnum = exports.OrderScalarFieldEnum = exports.ContentScalarFieldEnum = exports.NotificationScalarFieldEnum = exports.MessageScalarFieldEnum = exports.InspectionScalarFieldEnum = exports.FileInfoScalarFieldEnum = exports.ApiRequestLogScalarFieldEnum = exports.ApiIntegrationScalarFieldEnum = exports.FeeSettingsScalarFieldEnum = exports.SystemSettingScalarFieldEnum = exports.PricingConfigScalarFieldEnum = exports.ActivityLogScalarFieldEnum = exports.AdminNoteScalarFieldEnum = exports.AddressScalarFieldEnum = exports.ModelName = exports.AnyNull = exports.JsonNull = exports.DbNull = exports.NullTypes = exports.prismaVersion = exports.getExtensionContext = exports.Decimal = exports.Sql = exports.raw = exports.join = exports.empty = exports.sql = exports.PrismaClientValidationError = exports.PrismaClientInitializationError = exports.PrismaClientRustPanicError = exports.PrismaClientUnknownRequestError = exports.PrismaClientKnownRequestError = void 0;
 const runtime = __importStar(require("@prisma/client/runtime/library"));
 /**
  * Prisma Errors
@@ -126,6 +126,7 @@ exports.ModelName = {
     SavedVehicle: 'SavedVehicle',
     TrendingDefinition: 'TrendingDefinition',
     RecommendedDefinition: 'RecommendedDefinition',
+    MediaFile: 'MediaFile',
     VehicleCategory: 'VehicleCategory',
     SourcingRequest: 'SourcingRequest',
     Testimonial: 'Testimonial'
@@ -604,6 +605,18 @@ exports.RecommendedDefinitionScalarFieldEnum = {
     forSpecialty: 'forSpecialty',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
+};
+exports.MediaFileScalarFieldEnum = {
+    id: 'id',
+    publicId: 'publicId',
+    originalName: 'originalName',
+    documentName: 'documentName',
+    url: 'url',
+    fileType: 'fileType',
+    format: 'format',
+    sizeKB: 'sizeKB',
+    width: 'width',
+    height: 'height'
 };
 exports.VehicleCategoryScalarFieldEnum = {
     id: 'id',

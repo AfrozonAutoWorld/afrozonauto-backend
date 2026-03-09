@@ -24,6 +24,8 @@ const OrderRoutes_1 = __importDefault(require("./routes/OrderRoutes"));
 const SellerVehicleRoutes_1 = __importDefault(require("./routes/SellerVehicleRoutes"));
 const SellerRoutes_1 = __importDefault(require("./routes/SellerRoutes"));
 const SourcingRequestRoutes_1 = __importDefault(require("./routes/SourcingRequestRoutes"));
+const swagger_ui_express_1 = __importDefault(require("swagger-ui-express"));
+const swagger_1 = __importDefault(require("./config/swagger"));
 class App {
     constructor() {
         this.app = (0, express_1.default)();
@@ -40,6 +42,7 @@ class App {
             crossOriginResourcePolicy: { policy: 'cross-origin' },
             crossOriginEmbedderPolicy: false,
         }));
+        this.app.use('/api/payments/webhooks/paystack', express_1.default.raw({ type: 'application/json' }));
         // Rate limiting
         const limiter = (0, express_rate_limit_1.default)({
             windowMs: 15 * 60 * 1000,
@@ -123,6 +126,7 @@ class App {
         this.app.get('/', (_, res) => {
             return res.send("welcome to Afrozon AutoGlobal");
         });
+        this.app.use('/docs', swagger_ui_express_1.default.serve, swagger_ui_express_1.default.setup(swagger_1.default));
         this.app.use('/api/profile', ProfileRoutes_1.default);
         this.app.use('/api/auth', AuthRoutes_1.default);
         this.app.use('/api/vehicles', VehicleRoutes_1.default);

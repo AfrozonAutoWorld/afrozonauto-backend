@@ -59,35 +59,67 @@ let SellerService = class SellerService {
                     passwordHash,
                     phone: data.phone,
                     role: client_1.UserRole.SELLER,
-                    emailVerified: true, // Verification just completed via token
+                    emailVerified: true,
                     googleId: uniqueGoogleId,
                     appleId: uniqueAppleId,
                 },
             });
+            // Helper function to map document names
+            const mapDocumentName = (name) => {
+                if (!name)
+                    return null;
+                const upperName = name.toUpperCase().replace(/[\s_-]+/g, '_');
+                const mapping = {
+                    'NIN': client_1.DocumentName.NIN,
+                    'NATIONAL_ID': client_1.DocumentName.NIN,
+                    'VENDOR_NIN': client_1.DocumentName.vendorNIN,
+                    'BVN': client_1.DocumentName.BVN,
+                    'DRIVERS_LICENSE': client_1.DocumentName.driversLicense,
+                    'PASSPORT': client_1.DocumentName.passport,
+                    'VOTERS_CARD': client_1.DocumentName.votersCard,
+                    'TAX_ID': client_1.DocumentName.taxId,
+                    'BUSINESS_CERT': client_1.DocumentName.businessCertificate,
+                    'BUSINESS_REGISTRATION': client_1.DocumentName.businessRegistration,
+                    'CAC': client_1.DocumentName.cac,
+                    'STORE_LOGO': client_1.DocumentName.storeLogo,
+                    'PICTURE': client_1.DocumentName.picture,
+                    'OTHER': client_1.DocumentName.others,
+                };
+                return mapping[upperName] || client_1.DocumentName.others;
+            };
+            const buildFileData = (f) => {
+                const fileData = {
+                    url: f.url,
+                    fileSize: f.fileSize || 0,
+                    fileType: f.fileType || 'unknown',
+                    format: f.format || 'unknown',
+                    publicId: f.publicId || '',
+                };
+                // Add imageName if available (NOT originalName)
+                const imageName = f.imageName || f.originalName;
+                if (imageName) {
+                    fileData.imageName = imageName;
+                }
+                // Map and add documentName if available
+                const mappedDocName = mapDocumentName(f.documentName);
+                if (mappedDocName) {
+                    fileData.documentName = mappedDocName;
+                }
+                return fileData;
+            };
             // 2. Create Profile with Seller fields
             const profile = yield db_1.default.profile.create({
-                data: {
-                    userId: user.id,
-                    firstName: data.firstName,
-                    lastName: data.lastName,
-                    businessName: data.businessName,
-                    taxId: data.taxId,
-                    identificationNumber: data.identificationNumber,
-                    identificationType: data.identificationType,
-                    sellerStatus: client_1.SellerVerificationStatus.PENDING,
-                    isSeller: false, // Not active yet
-                    files: data.uploadedFiles ? {
+                data: Object.assign({ userId: user.id, firstName: data.firstName, lastName: data.lastName, businessName: data.businessName, taxId: data.taxId, identificationNumber: data.identificationNumber, identificationType: data.identificationType, sellerStatus: client_1.SellerVerificationStatus.PENDING, isSeller: false }, (data.uploadedFiles && data.uploadedFiles.length > 0 && {
+                    files: {
                         createMany: {
-                            data: data.uploadedFiles.map(f => ({
-                                url: f.url,
-                                fileSize: f.fileSize || 0,
-                                fileType: f.fileType || 'unknown',
-                                format: f.format || 'unknown',
-                                publicId: f.publicId || 'unknown',
-                                documentName: f.documentName,
-                            }))
+                            data: data.uploadedFiles
+                                .filter(f => f && f.url) // Filter out invalid entries
+                                .map(buildFileData)
                         }
-                    } : undefined
+                    }
+                })),
+                include: {
+                    files: true
                 }
             });
             return { user, profile };

@@ -41,7 +41,7 @@
     "dist"
   ],
   "ts-node": {
-    "esm": false,  // Changed from true to false
+    "esm": false, // Changed from true to false
     "transpileOnly": true,
     "files": true
   }

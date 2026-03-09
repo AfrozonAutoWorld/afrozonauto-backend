@@ -19,7 +19,16 @@ exports.DocumentName = {
     businessRegistration: 'businessRegistration',
     vendorNIN: 'vendorNIN',
     storeLogo: 'storeLogo',
-    picture: 'picture'
+    picture: 'picture',
+    NIN: 'NIN',
+    BVN: 'BVN',
+    others: 'others',
+    taxId: 'taxId',
+    driversLicense: 'driversLicense',
+    passport: 'passport',
+    votersCard: 'votersCard',
+    businessCertificate: 'businessCertificate',
+    cac: 'cac'
 };
 exports.InspectionCondition = {
     EXCELLENT: 'EXCELLENT',

@@ -102,7 +102,7 @@ export class UserRepository {
 
 
   async findByEmail(email: string) {
-    return this.prisma.user.findUnique({
+    return this.prisma.user.findFirst({
       where: { email },
       include: {
         profile: {

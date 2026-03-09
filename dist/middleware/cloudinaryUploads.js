@@ -21,6 +21,8 @@ cloudinary_1.v2.config({
     secure: true
 });
 exports.uploadToCloudinary = (0, asyncHandler_1.asyncHandler)((req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    console.log('--- Cloudinary Upload Middleware Started ---');
+    console.log('Files to upload:', Array.isArray(req.files) ? req.files.length : (req.files ? Object.keys(req.files).length : 0));
     if (typeof req.body.variants === 'string') {
         try {
             req.body.variants = JSON.parse(req.body.variants);
@@ -34,9 +36,19 @@ exports.uploadToCloudinary = (0, asyncHandler_1.asyncHandler)((req, res, next) =
         catch (_b) { }
     }
     if (typeof req.body.variantImageIndexes === 'string') {
-        req.body.variantImageIndexes = JSON.parse(req.body.variantImageIndexes);
+        try {
+            req.body.variantImageIndexes = JSON.parse(req.body.variantImageIndexes);
+        }
+        catch (_c) { }
     }
-    const documentNames = req.body.documentName || [];
+    // Handle documentName which might be a comma-separated string or an array
+    let documentNames = [];
+    if (typeof req.body.documentName === 'string') {
+        documentNames = req.body.documentName.split(',').map((s) => s.trim());
+    }
+    else if (Array.isArray(req.body.documentName)) {
+        documentNames = req.body.documentName;
+    }
     let files = [];
     if (Array.isArray(req.files)) {
         files = req.files;
@@ -57,12 +69,14 @@ exports.uploadToCloudinary = (0, asyncHandler_1.asyncHandler)((req, res, next) =
                 resource_type: 'auto',
                 folder: secrets_1.CLOUDINARY_FOLDER,
             }, (err, result) => {
-                if (err || !result)
-                    return reject(ApiError_1.ApiError.badRequest(`Upload failed for ${file.originalname}`));
+                if (err || !result) {
+                    console.error('Cloudinary Upload Error:', err);
+                    return reject(ApiError_1.ApiError.badRequest(`Upload failed for ${file.originalname}: ${(err === null || err === void 0 ? void 0 : err.message) || 'Unknown error'}`));
+                }
                 const fileInfo = {
                     publicId: result.public_id,
                     imageName: file.originalname,
-                    documentName: documentNames === null || documentNames === void 0 ? void 0 : documentNames[index],
+                    documentName: (documentNames === null || documentNames === void 0 ? void 0 : documentNames[index]) || null,
                     url: result.secure_url,
                     fileType: result.resource_type,
                     format: result.format,

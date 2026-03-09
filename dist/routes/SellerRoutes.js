@@ -6,6 +6,8 @@ const types_1 = require("../config/types");
 const seller_validation_1 = require("../validation/schema/seller.validation");
 const bodyValidate_1 = require("../middleware/bodyValidate");
 const authMiddleware_1 = require("../middleware/authMiddleware");
+const cloudinaryUploads_1 = require("../middleware/cloudinaryUploads");
+const multer_config_1 = require("../config/multer.config");
 class SellerRoutes {
     constructor() {
         this.router = (0, express_1.Router)();
@@ -16,9 +18,9 @@ class SellerRoutes {
         // Guest flow: verify email then register
         this.router.post('/check-email', (0, bodyValidate_1.validateBody)(seller_validation_1.checkEmailSchema), this.controller.checkSellerEmail);
         this.router.post('/verify-token', (0, bodyValidate_1.validateBody)(seller_validation_1.verifyTokenSchema), this.controller.verifySellerEmail);
-        this.router.post('/register', (0, bodyValidate_1.validateBody)(seller_validation_1.registerSellerSchema), this.controller.registerSeller);
+        this.router.post('/register', multer_config_1.upload.array('files', 5), cloudinaryUploads_1.uploadToCloudinary, (0, bodyValidate_1.validateBody)(seller_validation_1.registerSellerSchema), this.controller.registerSeller);
         // Existing user flow: authenticated application
-        this.router.post('/apply', authMiddleware_1.authenticate, (0, bodyValidate_1.validateBody)(seller_validation_1.applyAsSellerSchema), this.controller.applyAsSeller);
+        this.router.post('/apply', authMiddleware_1.authenticate, multer_config_1.upload.array('files', 5), cloudinaryUploads_1.uploadToCloudinary, (0, bodyValidate_1.validateBody)(seller_validation_1.applyAsSellerSchema), this.controller.applyAsSeller);
         // Admin endpoints
         this.router.get('/applications', authMiddleware_1.authenticate, this.controller.getApplications);
         this.router.patch('/applications/:id/verify', authMiddleware_1.authenticate, (0, bodyValidate_1.validateBody)(seller_validation_1.verifySellerSchema), this.controller.verifySeller);

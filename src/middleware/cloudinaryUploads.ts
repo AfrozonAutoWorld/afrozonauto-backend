@@ -15,6 +15,9 @@ cloudinary.config({
 });
 
 export const uploadToCloudinary = asyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  console.log('--- Cloudinary Upload Middleware Started ---');
+  console.log('Files to upload:', Array.isArray(req.files) ? req.files.length : (req.files ? Object.keys(req.files).length : 0));
+
   if (typeof req.body.variants === 'string') {
     try { req.body.variants = JSON.parse(req.body.variants); } catch { }
   }
@@ -23,11 +26,16 @@ export const uploadToCloudinary = asyncHandler(async (req: AuthenticatedRequest,
   }
 
   if (typeof req.body.variantImageIndexes === 'string') {
-    req.body.variantImageIndexes = JSON.parse(req.body.variantImageIndexes);
+    try { req.body.variantImageIndexes = JSON.parse(req.body.variantImageIndexes); } catch { }
   }
-  const documentNames: string[] = req.body.documentName || [];
 
-
+  // Handle documentName which might be a comma-separated string or an array
+  let documentNames: string[] = [];
+  if (typeof req.body.documentName === 'string') {
+    documentNames = req.body.documentName.split(',').map((s: string) => s.trim());
+  } else if (Array.isArray(req.body.documentName)) {
+    documentNames = req.body.documentName;
+  }
 
   let files: CloudinaryFile[] = [];
 
@@ -36,13 +44,13 @@ export const uploadToCloudinary = asyncHandler(async (req: AuthenticatedRequest,
   } else if (req.files && typeof req.files === 'object') {
     files = Object.values(req.files).flat() as CloudinaryFile[];
   }
-  
+
   // If no files were uploaded, skip upload logic
   if (!files.length) {
     req.body.uploadedFiles = [];
     return next();
   }
-  
+
 
   const variantImageIndexes: Record<string, number[]> = req.body.variantImageIndexes || {};
 
@@ -54,13 +62,16 @@ export const uploadToCloudinary = asyncHandler(async (req: AuthenticatedRequest,
           resource_type: 'auto',
           folder: CLOUDINARY_FOLDER,
         },
-        (err: any, result:any) => {
-          if (err || !result) return reject(ApiError.badRequest(`Upload failed for ${file.originalname}`));
+        (err: any, result: any) => {
+          if (err || !result) {
+            console.error('Cloudinary Upload Error:', err);
+            return reject(ApiError.badRequest(`Upload failed for ${file.originalname}: ${err?.message || 'Unknown error'}`));
+          }
 
           const fileInfo = {
             publicId: result.public_id,
             imageName: file.originalname,
-            documentName: documentNames?.[index],
+            documentName: documentNames?.[index] || null,
             url: result.secure_url,
             fileType: result.resource_type,
             format: result.format,
