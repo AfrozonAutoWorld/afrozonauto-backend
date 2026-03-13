@@ -1,5 +1,6 @@
 import Joi from 'joi';
 import { VehicleStatus, VehicleListingCondition } from '../../generated/prisma/client';
+import { fileInfoSchema } from './files.validation';
 
 export const createSellerVehicleSchema = Joi.object({
     // Step 1: Vehicle Details
@@ -29,7 +30,10 @@ export const createSellerVehicleSchema = Joi.object({
     modifications: Joi.string().allow('', null).optional(),
 
     // Step 3: Photos & Price
-    images: Joi.array().items(Joi.string().uri()).min(1).required(),
+    // images: Joi.array().items(Joi.string().uri()).min(1).required(),
+    uploadedFiles: Joi.array()
+    .items(fileInfoSchema)
+    .optional(),
     askingPrice: Joi.number().positive().required(),
     showAskingPrice: Joi.boolean().default(true),
     allowOffers: Joi.boolean().default(true),
@@ -44,6 +48,47 @@ export const createSellerVehicleSchema = Joi.object({
     zipCode: Joi.string().required(),
     preferredContact: Joi.string().valid('Email', 'Phone', 'SMS').optional(),
     bestTimeToReach: Joi.string().optional(),
+
+    variants: Joi.alternatives().try(
+        Joi.string(),
+        Joi.array().items(
+          Joi.object({
+            name: Joi.string(),
+            options: Joi.array().items(
+              Joi.object({
+                name: Joi.string(),
+                price: Joi.number(),
+                // Add other option fields as needed
+              })
+            )
+          })
+        )
+      ).optional(),
+      
+      address: Joi.alternatives().try(
+        Joi.string(),
+        Joi.object({
+          street: Joi.string(),
+          city: Joi.string(),
+          state: Joi.string(),
+          zipCode: Joi.string(),
+          country: Joi.string()
+        })
+      ).optional(),
+      
+      variantImageIndexes: Joi.alternatives().try(
+        Joi.string(),
+        Joi.object().pattern(
+          Joi.string(), 
+          Joi.array().items(Joi.number().min(1))
+        )
+      ).optional(),
+      
+      documentName: Joi.alternatives().try(
+        Joi.string(),
+        Joi.array().items(Joi.string())
+      ).optional(),
+      
 });
 
 export const updateSellerVehicleStatusSchema = Joi.object({

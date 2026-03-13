@@ -47,8 +47,6 @@ export const updateProfileSchema = Joi.object({
   uploadedFiles: Joi.array()
     .items(fileInfoSchema)
     .optional(),
-
-
   // =========================
   // Personal Information
   // =========================

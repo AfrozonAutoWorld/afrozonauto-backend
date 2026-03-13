@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateSellerVehicleStatusSchema = exports.createSellerVehicleSchema = void 0;
 const joi_1 = __importDefault(require("joi"));
 const client_1 = require("../../generated/prisma/client");
+const files_validation_1 = require("./files.validation");
 exports.createSellerVehicleSchema = joi_1.default.object({
     // Step 1: Vehicle Details
     year: joi_1.default.number().integer().min(1900).max(new Date().getFullYear() + 1).required(),
@@ -32,7 +33,10 @@ exports.createSellerVehicleSchema = joi_1.default.object({
     highlights: joi_1.default.array().items(joi_1.default.string()).optional(),
     modifications: joi_1.default.string().allow('', null).optional(),
     // Step 3: Photos & Price
-    images: joi_1.default.array().items(joi_1.default.string().uri()).min(1).required(),
+    // images: Joi.array().items(Joi.string().uri()).min(1).required(),
+    uploadedFiles: joi_1.default.array()
+        .items(files_validation_1.fileInfoSchema)
+        .optional(),
     askingPrice: joi_1.default.number().positive().required(),
     showAskingPrice: joi_1.default.boolean().default(true),
     allowOffers: joi_1.default.boolean().default(true),
@@ -46,6 +50,23 @@ exports.createSellerVehicleSchema = joi_1.default.object({
     zipCode: joi_1.default.string().required(),
     preferredContact: joi_1.default.string().valid('Email', 'Phone', 'SMS').optional(),
     bestTimeToReach: joi_1.default.string().optional(),
+    variants: joi_1.default.alternatives().try(joi_1.default.string(), joi_1.default.array().items(joi_1.default.object({
+        name: joi_1.default.string(),
+        options: joi_1.default.array().items(joi_1.default.object({
+            name: joi_1.default.string(),
+            price: joi_1.default.number(),
+            // Add other option fields as needed
+        }))
+    }))).optional(),
+    address: joi_1.default.alternatives().try(joi_1.default.string(), joi_1.default.object({
+        street: joi_1.default.string(),
+        city: joi_1.default.string(),
+        state: joi_1.default.string(),
+        zipCode: joi_1.default.string(),
+        country: joi_1.default.string()
+    })).optional(),
+    variantImageIndexes: joi_1.default.alternatives().try(joi_1.default.string(), joi_1.default.object().pattern(joi_1.default.string(), joi_1.default.array().items(joi_1.default.number().min(1)))).optional(),
+    documentName: joi_1.default.alternatives().try(joi_1.default.string(), joi_1.default.array().items(joi_1.default.string())).optional(),
 });
 exports.updateSellerVehicleStatusSchema = joi_1.default.object({
     status: joi_1.default.string()

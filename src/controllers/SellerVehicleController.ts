@@ -19,10 +19,26 @@ export class SellerVehicleController {
      */
     submitListing = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
         // Map any old field names if necessary, but validation schema is already updated
+        const { uploadedFiles, ...data } = req.body;
+        // Extract just the URLs from uploadedFiles
+        // Extract URLs by file type
+        const imageUrls = uploadedFiles
+            ?.filter((file: any) => file.fileType === 'image')
+            .map((file: any) => file.url) || [];
+
+        const videoUrls = uploadedFiles
+            ?.filter((file: any) => file.fileType === 'video')
+            .map((file: any) => file.url) || [];
+
+        // Get all URLs regardless of type
+        const allUrls = uploadedFiles?.map((file: any) => file.url) || [];
+
         const listing = await this.service.submitListing({
-            ...req.body,
-            userId: req.user?.id || null, // Optional authenticated user
-            priceUsd: req.body.askingPrice, // Map askingPrice to priceUsd
+            ...data,
+            images: imageUrls,
+            videos: videoUrls,
+                userId: req.user?.id || null,
+            priceUsd: req.body.askingPrice,
         });
 
         return res.status(201).json(ApiResponse.created(listing, 'Vehicle listing submitted for review'));

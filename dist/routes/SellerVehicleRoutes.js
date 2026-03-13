@@ -6,6 +6,8 @@ const types_1 = require("../config/types");
 const seller_vehicle_validation_1 = require("../validation/schema/seller-vehicle.validation");
 const bodyValidate_1 = require("../middleware/bodyValidate");
 const authMiddleware_1 = require("../middleware/authMiddleware");
+const multer_config_1 = require("../config/multer.config");
+const cloudinaryUploads_1 = require("../middleware/cloudinaryUploads");
 class SellerVehicleRoutes {
     constructor() {
         this.router = (0, express_1.Router)();
@@ -14,7 +16,7 @@ class SellerVehicleRoutes {
     }
     initializeRoutes() {
         // Public/User endpoints
-        this.router.post('/submit', authMiddleware_1.optionalAuthenticate, (0, bodyValidate_1.validateBody)(seller_vehicle_validation_1.createSellerVehicleSchema), this.controller.submitListing);
+        this.router.post('/submit', authMiddleware_1.optionalAuthenticate, multer_config_1.upload.array('files', 10), cloudinaryUploads_1.uploadToCloudinary, (0, bodyValidate_1.validateBody)(seller_vehicle_validation_1.createSellerVehicleSchema), this.controller.submitListing);
         this.router.get('/:id', authMiddleware_1.authenticate, this.controller.getListing);
         this.router.delete('/:id', authMiddleware_1.authenticate, this.controller.deleteListing);
         // Admin endpoints

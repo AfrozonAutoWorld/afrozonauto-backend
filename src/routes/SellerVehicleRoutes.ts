@@ -5,6 +5,8 @@ import { SellerVehicleController } from '../controllers/SellerVehicleController'
 import { createSellerVehicleSchema, updateSellerVehicleStatusSchema } from "../validation/schema/seller-vehicle.validation";
 import { validateBody } from '../middleware/bodyValidate';
 import { authenticate, optionalAuthenticate } from '../middleware/authMiddleware';
+import { upload } from '../config/multer.config';
+import { uploadToCloudinary } from '../middleware/cloudinaryUploads';
 
 class SellerVehicleRoutes {
     private router: Router;
@@ -18,7 +20,12 @@ class SellerVehicleRoutes {
 
     private initializeRoutes(): void {
         // Public/User endpoints
-        this.router.post('/submit', optionalAuthenticate, validateBody(createSellerVehicleSchema), this.controller.submitListing);
+        this.router.post('/submit', 
+            optionalAuthenticate,
+            upload.array('files', 10),
+            uploadToCloudinary, 
+            validateBody(createSellerVehicleSchema),
+            this.controller.submitListing);
         this.router.get('/:id', authenticate, this.controller.getListing);
         this.router.delete('/:id', authenticate, this.controller.deleteListing);
 

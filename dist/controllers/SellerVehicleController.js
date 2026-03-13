@@ -20,6 +20,17 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __rest = (this && this.__rest) || function (s, e) {
+    var t = {};
+    for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
+        t[p] = s[p];
+    if (s != null && typeof Object.getOwnPropertySymbols === "function")
+        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
+            if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
+                t[p[i]] = s[p[i]];
+        }
+    return t;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SellerVehicleController = void 0;
 const inversify_1 = require("inversify");
@@ -38,7 +49,14 @@ let SellerVehicleController = class SellerVehicleController {
         this.submitListing = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             var _a;
             // Map any old field names if necessary, but validation schema is already updated
-            const listing = yield this.service.submitListing(Object.assign(Object.assign({}, req.body), { userId: ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || null, priceUsd: req.body.askingPrice }));
+            const _b = req.body, { uploadedFiles } = _b, data = __rest(_b, ["uploadedFiles"]);
+            // Extract just the URLs from uploadedFiles
+            // Extract URLs by file type
+            const imageUrls = (uploadedFiles === null || uploadedFiles === void 0 ? void 0 : uploadedFiles.filter((file) => file.fileType === 'image').map((file) => file.url)) || [];
+            const videoUrls = (uploadedFiles === null || uploadedFiles === void 0 ? void 0 : uploadedFiles.filter((file) => file.fileType === 'video').map((file) => file.url)) || [];
+            // Get all URLs regardless of type
+            const allUrls = (uploadedFiles === null || uploadedFiles === void 0 ? void 0 : uploadedFiles.map((file) => file.url)) || [];
+            const listing = yield this.service.submitListing(Object.assign(Object.assign({}, data), { images: imageUrls, videos: videoUrls, userId: ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || null, priceUsd: req.body.askingPrice }));
             return res.status(201).json(ApiResponse_1.ApiResponse.created(listing, 'Vehicle listing submitted for review'));
         }));
         /**
