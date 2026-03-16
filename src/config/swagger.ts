@@ -10,6 +10,10 @@ const swaggerSpec = {
       url: "http://localhost:2026",
       description: "Development server",
     },
+    {
+      url: "https://api.afrozonauto.com",
+      description: "Production server",
+    },
   ],
   components: {
     securitySchemes: {
