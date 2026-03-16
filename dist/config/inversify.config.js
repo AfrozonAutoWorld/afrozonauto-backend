@@ -61,6 +61,12 @@ const SourcingRequestRepository_1 = require("../repositories/SourcingRequestRepo
 const SourcingRequestService_1 = require("../services/SourcingRequestService");
 const SourcingRequestController_1 = require("../controllers/SourcingRequestController");
 const SellerController_1 = require("../controllers/SellerController");
+const AdminDashboardRepository_1 = require("../repositories/AdminDashboardRepository");
+const AdminDashboardService_1 = require("../services/AdminDashboardService");
+const AdminDashboardController_1 = require("../controllers/AdminDashboardController");
+const NotificationRepository_1 = require("../repositories/NotificationRepository");
+const NotificationService_1 = require("../services/NotificationService");
+const NotificationController_1 = require("../controllers/NotificationController");
 const container = new inversify_1.Container();
 exports.container = container;
 container.bind(types_1.TYPES.UserRepository).to(UserRepository_1.UserRepository);
@@ -125,3 +131,11 @@ container.bind(types_1.TYPES.SellerController).to(SellerController_1.SellerContr
 container.bind(types_1.TYPES.SourcingRequestRepository).to(SourcingRequestRepository_1.SourcingRequestRepository);
 container.bind(types_1.TYPES.SourcingRequestService).to(SourcingRequestService_1.SourcingRequestService);
 container.bind(types_1.TYPES.SourcingRequestController).to(SourcingRequestController_1.SourcingRequestController);
+// Admin Dashboard bindings
+container.bind(types_1.TYPES.AdminDashboardRepository).to(AdminDashboardRepository_1.AdminDashboardRepository);
+container.bind(types_1.TYPES.AdminDashboardService).to(AdminDashboardService_1.AdminDashboardService);
+container.bind(types_1.TYPES.AdminDashboardController).to(AdminDashboardController_1.AdminDashboardController);
+// Notification bindings
+container.bind(types_1.TYPES.NotificationRepository).to(NotificationRepository_1.NotificationRepository);
+container.bind(types_1.TYPES.NotificationService).to(NotificationService_1.NotificationService);
+container.bind(types_1.TYPES.NotificationController).to(NotificationController_1.NotificationController);

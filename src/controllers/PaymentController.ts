@@ -8,6 +8,7 @@ import { ApiError } from '../utils/ApiError';
 import { ApiResponse } from '../utils/ApiResponse';
 import { OrderService } from '../services/OrderService';
 import { Prisma } from '../generated/prisma/client';
+import { PaymentStatus } from '../generated/prisma/enums';
 
 
 @injectable()
@@ -47,8 +48,6 @@ export class PaymentController {
         //         ApiError.badRequest("Invalid vehicle snapshot data")
         //     );
         // }
-       console.log("============payments-=============") 
-       console.log(req.body) 
         const result = await this.paymentService.initiatePayment({
             orderId: req.body.orderId,
             userId: req.user.id,
@@ -148,5 +147,30 @@ export class PaymentController {
                 payment
             )
         );
+    });
+
+    getAdminPayments = asyncHandler(async (req: Request, res: Response) => {
+        const page  = Math.max(1, parseInt(req.query.page as string) || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 10));
+        const search = (req.query.search as string)?.trim() || undefined;
+        const statusParam = (req.query.status as string)?.toUpperCase();
+        const status = statusParam && statusParam !== 'ALL' && Object.values(PaymentStatus).includes(statusParam as PaymentStatus)
+            ? (statusParam as PaymentStatus)
+            : undefined;
+
+        const result = await this.paymentService.getAdminPayments({ status, search, page, limit });
+
+        return res.status(200).json(
+            ApiResponse.paginated(
+                result.payments,
+                { page: result.page, limit: result.limit, total: result.total, pages: result.pages },
+                'Payments retrieved successfully'
+            )
+        );
+    });
+
+    getPaymentStats = asyncHandler(async (_req: Request, res: Response) => {
+        const stats = await this.paymentService.getPaymentStats();
+        return res.status(200).json(ApiResponse.success(stats, 'Payment statistics retrieved'));
     });
 }

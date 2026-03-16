@@ -34,14 +34,17 @@ var __rest = (this && this.__rest) || function (s, e) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserController = void 0;
 const UserService_1 = require("../services/UserService");
+const MailService_1 = require("../services/MailService");
 const inversify_1 = require("inversify");
 const types_1 = require("../config/types");
 const asyncHandler_1 = require("../utils/asyncHandler");
 const ApiResponse_1 = require("../utils/ApiResponse");
 const ApiError_1 = require("../utils/ApiError");
+const secrets_1 = require("../secrets");
 let UserController = class UserController {
-    constructor(userService) {
+    constructor(userService, mailService) {
         this.userService = userService;
+        this.mailService = mailService;
         this.getUserByEmail = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             const { email } = req.params;
             if (!email) {
@@ -99,11 +102,31 @@ let UserController = class UserController {
             }
             return res.json(new ApiResponse_1.ApiResponse(200, { updated: true }, 'Password updated successfully'));
         }));
+        this.adminCreateUser = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            const { firstName, lastName, email, phone, role } = req.body;
+            if (!firstName || !lastName || !email) {
+                return res.status(400).json(ApiError_1.ApiError.badRequest('firstName, lastName, and email are required'));
+            }
+            const { user, password, resetToken } = yield this.userService.adminCreateUser({
+                firstName,
+                lastName,
+                email,
+                phone,
+                role,
+            });
+            const loginUrl = `${secrets_1.ADMIN_DASH || secrets_1.FRONTEND_URL}/login`;
+            const resetUrl = `${secrets_1.ADMIN_DASH || secrets_1.FRONTEND_URL}/reset-password?email=${encodeURIComponent(email)}`;
+            yield this.mailService.sendAdminCreatedUserEmail(email, `${firstName} ${lastName}`, password, resetToken.toString(), loginUrl, resetUrl);
+            const _a = user, { passwordHash } = _a, safeUser = __rest(_a, ["passwordHash"]);
+            return res.status(201).json(ApiResponse_1.ApiResponse.created({ user: safeUser }, 'User account created and credentials sent to email'));
+        }));
     }
 };
 exports.UserController = UserController;
 exports.UserController = UserController = __decorate([
     (0, inversify_1.injectable)(),
     __param(0, (0, inversify_1.inject)(types_1.TYPES.UserService)),
-    __metadata("design:paramtypes", [UserService_1.UserService])
+    __param(1, (0, inversify_1.inject)(types_1.TYPES.MailService)),
+    __metadata("design:paramtypes", [UserService_1.UserService,
+        MailService_1.MailService])
 ], UserController);

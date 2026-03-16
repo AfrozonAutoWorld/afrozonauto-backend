@@ -7,6 +7,7 @@ import prisma from '../db';
 import { date } from 'joi/lib';
 import { PricingConfigService } from './PricingConfigService';
 import { OrderStatus, PaymentStatus, PaymentType } from '../generated/prisma/enums';
+import { NotificationService } from './NotificationService';
 
 @injectable()
 export class PaymentService {
@@ -25,7 +26,10 @@ export class PaymentService {
     private stripe: IPaymentProvider,
 
     @inject(TYPES.PaystackProvider)
-    private paystack: IPaymentProvider
+    private paystack: IPaymentProvider,
+
+    @inject(TYPES.NotificationService)
+    private notificationService: NotificationService,
   ) { }
 
   async initiatePayment(payload: {
@@ -106,7 +110,7 @@ export class PaymentService {
         completedAt: new Date(),
         escrowStatus: 'HELD'
       }),
-    
+
       this.orderRepo.updateOrderStatus(
         payment.orderId,
         payment.paymentType === PaymentType.DEPOSIT
@@ -114,7 +118,14 @@ export class PaymentService {
           : OrderStatus.BALANCE_PAID
       )
     ]);
-    
+
+    // Fire-and-forget admin notification
+    this.notificationService.notifyAdminsPaymentReceived({
+      orderId: payment.orderId,
+      orderRef: payment.orderId,
+      customerName: payment.userId,
+      amountUsd: payment.amountUsd,
+    }).catch(() => {/* silent */});
   }
 
   /**
@@ -184,5 +195,28 @@ export class PaymentService {
     return this.paymentRepo.findById(id)
   }
 
+  async getAdminPayments(filters: {
+    status?: PaymentStatus;
+    search?: string;
+    page: number;
+    limit: number;
+  }) {
+    const skip = (filters.page - 1) * filters.limit;
+    const { payments, total } = await this.paymentRepo.findAdminPaginated(
+      { status: filters.status, search: filters.search },
+      { skip, take: filters.limit }
+    );
 
+    return {
+      payments,
+      total,
+      page: filters.page,
+      limit: filters.limit,
+      pages: Math.ceil(total / filters.limit),
+    };
+  }
+
+  getPaymentStats() {
+    return this.paymentRepo.getStats();
+  }
 }

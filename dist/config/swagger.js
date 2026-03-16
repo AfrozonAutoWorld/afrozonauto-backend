@@ -672,6 +672,366 @@ const swaggerSpec = {
                 responses: { 200: { description: "List of testimonials" } }
             }
         },
+        // ── ADMIN MODULE (/api/admin) ──────────────────────────────────────────
+        // Admin – Dashboard
+        "/api/admin/dashboard/stats": {
+            get: {
+                summary: "Admin dashboard statistics",
+                description: "Returns Total Users, Total Cars (API vs Manual), Total Orders (with pending count), and Total Revenue with month-over-month change.",
+                tags: ["Admin – Dashboard"],
+                security: [{ bearerAuth: [] }],
+                responses: {
+                    200: {
+                        description: "Dashboard stats",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        totalUsers: { type: "integer" },
+                                        totalCars: { type: "integer" },
+                                        carBreakdown: {
+                                            type: "object",
+                                            properties: {
+                                                api: { type: "integer" },
+                                                manual: { type: "integer" }
+                                            }
+                                        },
+                                        totalOrders: { type: "integer" },
+                                        pendingOrdersCount: { type: "integer" },
+                                        totalRevenue: { type: "number" },
+                                        revenueThisMonth: { type: "number" },
+                                        revenueLastMonth: { type: "number" },
+                                        revenueChangePercent: { type: "number", nullable: true }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    401: { description: "Unauthorized" },
+                    403: { description: "Forbidden – admin only" }
+                }
+            }
+        },
+        "/api/admin/dashboard/pending-orders": {
+            get: {
+                summary: "Paginated list of pending orders",
+                tags: ["Admin – Dashboard"],
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+                    { name: "limit", in: "query", schema: { type: "integer", default: 10, maximum: 50 } }
+                ],
+                responses: {
+                    200: { description: "Paginated pending orders with user and vehicle details" },
+                    401: { description: "Unauthorized" },
+                    403: { description: "Forbidden – admin only" }
+                }
+            }
+        },
+        "/api/admin/dashboard/recent-activity": {
+            get: {
+                summary: "Recent system activity feed",
+                tags: ["Admin – Dashboard"],
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "limit", in: "query", schema: { type: "integer", default: 20, maximum: 50 } }
+                ],
+                responses: {
+                    200: { description: "List of recent activity log entries with user info" },
+                    401: { description: "Unauthorized" },
+                    403: { description: "Forbidden – admin only" }
+                }
+            }
+        },
+        // Admin – Users
+        "/api/admin/users": {
+            get: {
+                summary: "List all users (paginated)",
+                tags: ["Admin – Users"],
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+                    { name: "limit", in: "query", schema: { type: "integer", default: 10 } }
+                ],
+                responses: {
+                    200: { description: "Paginated user list" },
+                    401: { description: "Unauthorized" },
+                    403: { description: "Forbidden – admin only" }
+                }
+            }
+        },
+        "/api/admin/users/create": {
+            post: {
+                summary: "Create a new user account (admin)",
+                description: "Creates a user with emailVerified=true, generates a secure random password, sends credentials + password-reset token to the user's email.",
+                tags: ["Admin – Users"],
+                security: [{ bearerAuth: [] }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["firstName", "lastName", "email"],
+                                properties: {
+                                    firstName: { type: "string" },
+                                    lastName: { type: "string" },
+                                    email: { type: "string", format: "email" },
+                                    phone: { type: "string" },
+                                    role: {
+                                        type: "string",
+                                        enum: ["BUYER", "SELLER", "OPERATIONS_ADMIN", "SUPER_ADMIN"],
+                                        default: "BUYER"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    201: { description: "User created and credentials emailed" },
+                    400: { description: "Validation error" },
+                    401: { description: "Unauthorized" },
+                    403: { description: "Forbidden – admin only" },
+                    409: { description: "Email already in use" }
+                }
+            }
+        },
+        "/api/admin/users/{userId}": {
+            get: {
+                summary: "Get user by ID",
+                tags: ["Admin – Users"],
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "userId", in: "path", required: true, schema: { type: "string" } }
+                ],
+                responses: {
+                    200: { description: "User details" },
+                    401: { description: "Unauthorized" },
+                    403: { description: "Forbidden" },
+                    404: { description: "User not found" }
+                }
+            },
+            delete: {
+                summary: "Deactivate a user account",
+                tags: ["Admin – Users"],
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "userId", in: "path", required: true, schema: { type: "string" } }
+                ],
+                responses: {
+                    200: { description: "Account deactivated" },
+                    401: { description: "Unauthorized" },
+                    403: { description: "Forbidden – admin only" },
+                    404: { description: "User not found" }
+                }
+            }
+        },
+        // Admin – Payments
+        "/api/admin/payments/stats": {
+            get: {
+                summary: "Payment statistics for admin dashboard",
+                description: "Returns Total Transactions, Total Revenue, Pending count, and Total Refunded.",
+                tags: ["Admin – Payments"],
+                security: [{ bearerAuth: [] }],
+                responses: {
+                    200: {
+                        description: "Payment stats",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        totalTransactions: { type: "integer" },
+                                        totalRevenue: { type: "number" },
+                                        pendingCount: { type: "integer" },
+                                        totalRefunded: { type: "number" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    401: { description: "Unauthorized" },
+                    403: { description: "Forbidden – admin only" }
+                }
+            }
+        },
+        "/api/admin/payments": {
+            get: {
+                summary: "Paginated admin payments list",
+                description: "Supports filtering by status and full-text search on transaction reference or order ID.",
+                tags: ["Admin – Payments"],
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+                    { name: "limit", in: "query", schema: { type: "integer", default: 10, maximum: 100 } },
+                    {
+                        name: "status",
+                        in: "query",
+                        schema: {
+                            type: "string",
+                            enum: ["ALL", "PENDING", "COMPLETED", "FAILED", "REFUNDED"]
+                        }
+                    },
+                    { name: "search", in: "query", schema: { type: "string" }, description: "Search by transaction reference or order ID" }
+                ],
+                responses: {
+                    200: { description: "Paginated payments with user and order details" },
+                    401: { description: "Unauthorized" },
+                    403: { description: "Forbidden – admin only" }
+                }
+            }
+        },
+        "/api/admin/payments/{id}": {
+            get: {
+                summary: "Get a single payment by ID",
+                tags: ["Admin – Payments"],
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "id", in: "path", required: true, schema: { type: "string" } }
+                ],
+                responses: {
+                    200: { description: "Payment details with related order" },
+                    401: { description: "Unauthorized" },
+                    403: { description: "Forbidden – admin only" },
+                    404: { description: "Payment not found" }
+                }
+            }
+        },
+        // Admin – Notifications
+        "/api/admin/notifications/stats": {
+            get: {
+                summary: "Admin notification statistics",
+                description: "Returns Total Sent, Delivered (read), Pending (unread), and Order Alerts count.",
+                tags: ["Admin – Notifications"],
+                security: [{ bearerAuth: [] }],
+                responses: {
+                    200: {
+                        description: "Notification stats",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        totalSent: { type: "integer" },
+                                        delivered: { type: "integer" },
+                                        pending: { type: "integer" },
+                                        orderAlerts: { type: "integer" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    401: { description: "Unauthorized" },
+                    403: { description: "Forbidden – admin only" }
+                }
+            }
+        },
+        "/api/admin/notifications": {
+            get: {
+                summary: "Paginated admin notification list",
+                description: "Filter by notification type (All Types) and status (All Status / Pending / Completed). Automatically scoped to admin users.",
+                tags: ["Admin – Notifications"],
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+                    { name: "limit", in: "query", schema: { type: "integer", default: 20, maximum: 100 } },
+                    {
+                        name: "type",
+                        in: "query",
+                        description: "Filter by notification type",
+                        schema: {
+                            type: "string",
+                            enum: [
+                                "ALL",
+                                "ORDER_CREATED",
+                                "ORDER_STATUS_CHANGED",
+                                "PAYMENT_RECEIVED",
+                                "PAYMENT_FAILED",
+                                "INSPECTION_COMPLETE",
+                                "SHIPMENT_UPDATE",
+                                "DELIVERY_SCHEDULED",
+                                "ORDER_DELIVERED",
+                                "REFUND_PROCESSED",
+                                "QUOTE_EXPIRED",
+                                "SYSTEM_ALERT"
+                            ]
+                        }
+                    },
+                    {
+                        name: "status",
+                        in: "query",
+                        description: "all (default) | pending (unread) | completed (read)",
+                        schema: { type: "string", enum: ["all", "pending", "completed"] }
+                    }
+                ],
+                responses: {
+                    200: { description: "Paginated notification list with recipientEmail field" },
+                    401: { description: "Unauthorized" },
+                    403: { description: "Forbidden – admin only" }
+                }
+            }
+        },
+        "/api/admin/notifications/mark-all-read": {
+            patch: {
+                summary: "Mark all admin notifications as read",
+                tags: ["Admin – Notifications"],
+                security: [{ bearerAuth: [] }],
+                responses: {
+                    200: { description: "All notifications marked as read" },
+                    401: { description: "Unauthorized" },
+                    403: { description: "Forbidden – admin only" }
+                }
+            }
+        },
+        "/api/admin/notifications/{id}/read": {
+            patch: {
+                summary: "Mark a single notification as read",
+                tags: ["Admin – Notifications"],
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "id", in: "path", required: true, schema: { type: "string" } }
+                ],
+                responses: {
+                    200: { description: "Notification marked as read" },
+                    400: { description: "Notification ID required" },
+                    401: { description: "Unauthorized" },
+                    403: { description: "Forbidden – admin only" }
+                }
+            }
+        },
+        // Also document the legacy /api/users/admin/create route
+        "/api/users/admin/create": {
+            post: {
+                summary: "Create user account (admin) — legacy route",
+                description: "Same as POST /api/admin/users/create. Kept for backwards compatibility.",
+                tags: ["Admin – Users"],
+                security: [{ bearerAuth: [] }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["firstName", "lastName", "email"],
+                                properties: {
+                                    firstName: { type: "string" },
+                                    lastName: { type: "string" },
+                                    email: { type: "string", format: "email" },
+                                    phone: { type: "string" },
+                                    role: { type: "string", enum: ["BUYER", "SELLER", "OPERATIONS_ADMIN", "SUPER_ADMIN"] }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    201: { description: "User created" },
+                    409: { description: "Email already in use" }
+                }
+            }
+        },
         // SELLER VEHICLE ENDPOINTS (SellerVehicleRoutes.ts)
         "/api/seller-vehicles/submit": {
             post: {

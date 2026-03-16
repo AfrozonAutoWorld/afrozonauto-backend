@@ -96,6 +96,19 @@ let MailService = class MailService {
             yield (0, mailer_1.default)(email, "We've received your Find a Car request", html);
         });
     }
+    sendAdminCreatedUserEmail(email, recipientName, password, resetToken, loginUrl, resetUrl) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const html = mailer_templates_1.emailTemplates.adminCreatedUser({
+                recipientName,
+                email,
+                password,
+                resetToken,
+                loginUrl,
+                resetUrl,
+            });
+            yield (0, mailer_1.default)(email, 'Your AfrozonAuto Account Has Been Created', html);
+        });
+    }
 };
 exports.MailService = MailService;
 exports.MailService = MailService = __decorate([

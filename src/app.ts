@@ -19,6 +19,7 @@ import OrderRoutes from './routes/OrderRoutes';
 import SellerVehicleRoutes from './routes/SellerVehicleRoutes';
 import SellerRoutes from './routes/SellerRoutes';
 import SourcingRequestRoutes from './routes/SourcingRequestRoutes';
+import AdminRoutes from './routes/AdminRoutes';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './config/swagger';
 
@@ -161,6 +162,7 @@ class App {
     this.app.use('/api/users', UserRoutes);
     this.app.use('/api/seller-vehicles', SellerVehicleRoutes);
     this.app.use('/api/sellers', SellerRoutes);
+    this.app.use('/api/admin', AdminRoutes);
 
     // 404 handler - catch all unmatched routes
     this.app.use((req: Request, res: Response) => {

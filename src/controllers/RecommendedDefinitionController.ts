@@ -6,7 +6,7 @@ import { AuthenticatedRequest } from '../types/customRequest';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiResponse } from '../utils/ApiResponse';
 import { ApiError } from '../utils/ApiError';
-import { UserRole } from '../generated/prisma/client';
+
 
 @injectable()
 export class RecommendedDefinitionController {

@@ -2,10 +2,10 @@ import { Router } from 'express';
 import { container } from '../config/inversify.config';
 import { TYPES } from '../config/types';
 import { PaymentController } from '../controllers/PaymentController';
-import { authenticate } from '../middleware/authMiddleware';
+import { authenticate, authorize } from '../middleware/authMiddleware';
 import { validateBody } from '../middleware/bodyValidate';
 import Joi from 'joi';
-import { PaymentMethod, PaymentType } from '../generated/prisma/enums';
+import { PaymentMethod, PaymentType, UserRole } from '../generated/prisma/enums';
 
 // Validation schema for payment initiation
 const initPaymentSchema = Joi.object({
@@ -46,6 +46,20 @@ class PaymentRoutes {
     this.router.get('/all', authenticate, this.controller.getAllPayments);
     this.router.get('/user-mine', authenticate, this.controller.getAllUserPayments);
     this.router.get('/payment-id/:id', authenticate, this.controller.getPaymentById);
+
+    // Admin endpoints
+    this.router.get(
+      '/admin/list',
+      authenticate,
+      authorize([UserRole.OPERATIONS_ADMIN, UserRole.SUPER_ADMIN]),
+      this.controller.getAdminPayments
+    );
+    this.router.get(
+      '/admin/stats',
+      authenticate,
+      authorize([UserRole.OPERATIONS_ADMIN, UserRole.SUPER_ADMIN]),
+      this.controller.getPaymentStats
+    );
   }
 
   public getRouter(): Router {

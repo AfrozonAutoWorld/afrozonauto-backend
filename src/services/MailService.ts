@@ -105,4 +105,27 @@ export class MailService {
       html,
     );
   }
+
+  async sendAdminCreatedUserEmail(
+    email: string,
+    recipientName: string,
+    password: string,
+    resetToken: string,
+    loginUrl: string,
+    resetUrl: string,
+  ): Promise<void> {
+    const html = emailTemplates.adminCreatedUser({
+      recipientName,
+      email,
+      password,
+      resetToken,
+      loginUrl,
+      resetUrl,
+    });
+    await sendMail(
+      email,
+      'Your AfrozonAuto Account Has Been Created',
+      html,
+    );
+  }
 }

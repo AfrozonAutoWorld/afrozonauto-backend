@@ -1,15 +1,19 @@
 import { Request, Response } from 'express';
 import { UserService } from '../services/UserService';
+import { MailService } from '../services/MailService';
 import { injectable, inject } from 'inversify';
 import { TYPES } from '../config/types';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiResponse } from '../utils/ApiResponse';
 import { ApiError } from '../utils/ApiError';
+import { ADMIN_DASH, FRONTEND_URL } from '../secrets';
 
 @injectable()
 export class UserController {
-  constructor(@inject(TYPES.UserService) private userService: UserService) {
-  }
+  constructor(
+    @inject(TYPES.UserService) private userService: UserService,
+    @inject(TYPES.MailService) private mailService: MailService,
+  ) {}
 
   getUserByEmail = asyncHandler(async (req: Request, res: Response) => {
     const { email } = req.params;
@@ -67,7 +71,7 @@ export class UserController {
   updatePassword = asyncHandler(async (req: Request, res: Response) => {
     const { userId } = req.params;
     const { newPassword } = req.body;
-    
+
     if (!userId) {
       return res.status(404).json( ApiError.badRequest('User ID parameter is required'))
     }
@@ -81,13 +85,45 @@ export class UserController {
     }
 
     const result = await this.userService.updateUserPassword(userId, newPassword);
-    
+
     if (!result) {
       return res.status(500).json( ApiError.internal('Password update failed'))
     }
-    
+
     return res.json(new ApiResponse(200, { updated: true }, 'Password updated successfully'));
   });
 
+  adminCreateUser = asyncHandler(async (req: Request, res: Response) => {
+    const { firstName, lastName, email, phone, role } = req.body;
 
+    if (!firstName || !lastName || !email) {
+      return res.status(400).json(ApiError.badRequest('firstName, lastName, and email are required'));
+    }
+
+    const { user, password, resetToken } = await this.userService.adminCreateUser({
+      firstName,
+      lastName,
+      email,
+      phone,
+      role,
+    });
+
+    const loginUrl = `${ADMIN_DASH || FRONTEND_URL}/login`;
+    const resetUrl = `${ADMIN_DASH || FRONTEND_URL}/reset-password?email=${encodeURIComponent(email)}`;
+
+    await this.mailService.sendAdminCreatedUserEmail(
+      email,
+      `${firstName} ${lastName}`,
+      password,
+      resetToken.toString(),
+      loginUrl,
+      resetUrl,
+    );
+
+    const { passwordHash, ...safeUser } = user as any;
+    return res.status(201).json(ApiResponse.created(
+      { user: safeUser },
+      'User account created and credentials sent to email',
+    ));
+  });
 }

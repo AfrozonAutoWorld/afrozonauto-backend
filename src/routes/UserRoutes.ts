@@ -4,6 +4,8 @@ import { TYPES } from '../config/types';
 import { authenticate, authorize } from '../middleware/authMiddleware';
 import { UserRole } from '../generated/prisma/enums';
 import { UserController } from '../controllers/UserController';
+import { validateBody } from '../middleware/bodyValidate';
+import { createUserSchema } from '../validation/schema/user.vallidation';
 
 class UserRoutes {
     private router = Router();
@@ -31,11 +33,17 @@ class UserRoutes {
             authorize([UserRole.OPERATIONS_ADMIN, UserRole.SUPER_ADMIN]),
             this.controller.deactivateAccount
         );
-
         this.router.get(
             '/user-id/:userId',
             authenticate,
             this.controller.getUserById
+        );
+        this.router.post(
+            '/admin/create',
+            authenticate,
+            authorize([UserRole.OPERATIONS_ADMIN, UserRole.SUPER_ADMIN]),
+            validateBody(createUserSchema),
+            this.controller.adminCreateUser
         );
     }
 

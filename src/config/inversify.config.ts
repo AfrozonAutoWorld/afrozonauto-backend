@@ -58,6 +58,12 @@ import { SourcingRequestRepository } from '../repositories/SourcingRequestReposi
 import { SourcingRequestService } from '../services/SourcingRequestService';
 import { SourcingRequestController } from '../controllers/SourcingRequestController';
 import { SellerController } from '../controllers/SellerController';
+import { AdminDashboardRepository } from '../repositories/AdminDashboardRepository';
+import { AdminDashboardService } from '../services/AdminDashboardService';
+import { AdminDashboardController } from '../controllers/AdminDashboardController';
+import { NotificationRepository } from '../repositories/NotificationRepository';
+import { NotificationService } from '../services/NotificationService';
+import { NotificationController } from '../controllers/NotificationController';
 
 
 
@@ -129,5 +135,15 @@ container.bind<SellerController>(TYPES.SellerController).to(SellerController);
 container.bind<SourcingRequestRepository>(TYPES.SourcingRequestRepository).to(SourcingRequestRepository);
 container.bind<SourcingRequestService>(TYPES.SourcingRequestService).to(SourcingRequestService);
 container.bind<SourcingRequestController>(TYPES.SourcingRequestController).to(SourcingRequestController);
+
+// Admin Dashboard bindings
+container.bind<AdminDashboardRepository>(TYPES.AdminDashboardRepository).to(AdminDashboardRepository);
+container.bind<AdminDashboardService>(TYPES.AdminDashboardService).to(AdminDashboardService);
+container.bind<AdminDashboardController>(TYPES.AdminDashboardController).to(AdminDashboardController);
+
+// Notification bindings
+container.bind<NotificationRepository>(TYPES.NotificationRepository).to(NotificationRepository);
+container.bind<NotificationService>(TYPES.NotificationService).to(NotificationService);
+container.bind<NotificationController>(TYPES.NotificationController).to(NotificationController);
 
 export { container };

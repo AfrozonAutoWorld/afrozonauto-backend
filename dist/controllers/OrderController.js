@@ -34,17 +34,19 @@ const ProfileService_1 = require("../services/ProfileService");
 const AddressService_1 = require("../services/AddressService");
 const PricingConfigRepository_1 = require("../repositories/PricingConfigRepository");
 const PricingConfigService_1 = require("../services/PricingConfigService");
+const NotificationService_1 = require("../services/NotificationService");
 let OrderController = class OrderController {
-    constructor(service, vehicleService, pricingRepo, pricingService, profileService, addressService) {
+    constructor(service, vehicleService, pricingRepo, pricingService, profileService, addressService, notificationService) {
         this.service = service;
         this.vehicleService = vehicleService;
         this.pricingRepo = pricingRepo;
         this.pricingService = pricingService;
         this.profileService = profileService;
         this.addressService = addressService;
+        this.notificationService = notificationService;
         // ========== CREATE ==========
         this.createOrder = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
-            var _a, _b;
+            var _a, _b, _c, _d, _e, _f;
             const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
             if (!userId) {
                 return res.status(401).json(ApiError_1.ApiError.unauthorized("Authentication required"));
@@ -88,6 +90,17 @@ let OrderController = class OrderController {
                 vehicleSnapshot: vehicle,
                 paymentBreakdown
             });
+            // Fire-and-forget admin notification
+            const customerName = profile.firstName
+                ? `${profile.firstName} ${(_c = profile.lastName) !== null && _c !== void 0 ? _c : ''}`.trim()
+                : userId;
+            const vehicleLabel = `${(_d = vehicle.year) !== null && _d !== void 0 ? _d : ''} ${(_e = vehicle.make) !== null && _e !== void 0 ? _e : ''} ${(_f = vehicle.model) !== null && _f !== void 0 ? _f : ''}`.trim();
+            this.notificationService.notifyAdminsOrderCreated({
+                orderId: order.id,
+                requestNumber: order.requestNumber,
+                customerName,
+                vehicleLabel,
+            }).catch(() => { });
             return res.status(201).json(ApiResponse_1.ApiResponse.success(order, "Order created successfully"));
         }));
         this.orderSummary = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
@@ -415,10 +428,12 @@ exports.OrderController = OrderController = __decorate([
     __param(3, (0, inversify_1.inject)(types_1.TYPES.PricingConfigService)),
     __param(4, (0, inversify_1.inject)(types_1.TYPES.ProfileService)),
     __param(5, (0, inversify_1.inject)(types_1.TYPES.AddressService)),
+    __param(6, (0, inversify_1.inject)(types_1.TYPES.NotificationService)),
     __metadata("design:paramtypes", [OrderService_1.OrderService,
         VehicleServiceDirect_1.VehicleServiceDirect,
         PricingConfigRepository_1.PricingConfigRepository,
         PricingConfigService_1.PricingConfigService,
         ProfileService_1.ProfileService,
-        AddressService_1.AddressService])
+        AddressService_1.AddressService,
+        NotificationService_1.NotificationService])
 ], OrderController);

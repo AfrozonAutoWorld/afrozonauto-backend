@@ -157,6 +157,81 @@ const sourcingRequestConfirmationTemplate = ({ recipientName, requestNumber, }) 
 
       <p>— The Afrozon AutoGlobal Team</p>
     `);
+const adminCreatedUserTemplate = ({ recipientName, email, password, resetToken, loginUrl, resetUrl, }) => baseLayout(`
+      <h2 style="margin-top:0;">Welcome to AfrozonAuto</h2>
+
+      <p>Hello <strong>${recipientName}</strong>,</p>
+
+      <p>
+        An admin has created an account for you on AfrozonAuto. Below are your login credentials.
+        We strongly recommend you change your password after your first login.
+      </p>
+
+      <table style="border-collapse:collapse;width:100%;margin:20px 0;">
+        <tr>
+          <td style="padding:10px;background:#f5f5f5;border-radius:4px;font-weight:bold;width:140px;">Email</td>
+          <td style="padding:10px;background:#f5f5f5;border-radius:4px;">${email}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px;font-weight:bold;">Temporary Password</td>
+          <td style="padding:10px;">
+            <code style="background:#e3f2fd;padding:6px 12px;border-radius:4px;font-size:16px;color:#0d47a1;letter-spacing:2px;">${password}</code>
+          </td>
+        </tr>
+      </table>
+
+      <a href="${loginUrl}" style="
+        display:inline-block;
+        margin:10px 0 20px;
+        padding:12px 22px;
+        background:#0d47a1;
+        color:#ffffff;
+        text-decoration:none;
+        border-radius:6px;
+        font-weight:bold;
+      ">
+        Login to your account
+      </a>
+
+      <hr style="border:none;border-top:1px solid #eee;margin:24px 0;" />
+
+      <h3 style="margin:0 0 8px;">Reset Your Password</h3>
+      <p>
+        Use the token below together with your email address to reset your password at any time.
+      </p>
+
+      <div style="
+        margin:16px 0;
+        font-size:24px;
+        font-weight:bold;
+        background:#fff3e0;
+        padding:14px;
+        border-radius:8px;
+        color:#e65100;
+        width:fit-content;
+        letter-spacing:4px;
+      ">
+        ${resetToken}
+      </div>
+
+      <a href="${resetUrl}" style="
+        display:inline-block;
+        margin:10px 0;
+        padding:10px 20px;
+        background:#e65100;
+        color:#ffffff;
+        text-decoration:none;
+        border-radius:6px;
+        font-weight:bold;
+        font-size:14px;
+      ">
+        Reset Password
+      </a>
+
+      <p style="font-size:13px;color:#999;margin-top:20px;">
+        If you did not expect this email, please contact our support team immediately.
+      </p>
+    `);
 /* ---------------------------------------------------
    Exported Templates
 --------------------------------------------------- */
@@ -166,4 +241,5 @@ exports.emailTemplates = {
     welcomeVendor: (props) => welcomeTemplate(props),
     welcomeBuyer: (props) => welcomeTemplate(props),
     sourcingRequestConfirmation: (props) => sourcingRequestConfirmationTemplate(props),
+    adminCreatedUser: (props) => adminCreatedUserTemplate(props),
 };

@@ -32,13 +32,15 @@ const types_1 = require("../config/types");
 const db_1 = __importDefault(require("../db"));
 const PricingConfigService_1 = require("./PricingConfigService");
 const enums_1 = require("../generated/prisma/enums");
+const NotificationService_1 = require("./NotificationService");
 let PaymentService = class PaymentService {
-    constructor(paymentRepo, orderRepo, pricingService, stripe, paystack) {
+    constructor(paymentRepo, orderRepo, pricingService, stripe, paystack, notificationService) {
         this.paymentRepo = paymentRepo;
         this.orderRepo = orderRepo;
         this.pricingService = pricingService;
         this.stripe = stripe;
         this.paystack = paystack;
+        this.notificationService = notificationService;
         this.getPayments = () => {
             return this.paymentRepo.findAll();
         };
@@ -109,6 +111,13 @@ let PaymentService = class PaymentService {
                     ? enums_1.OrderStatus.DEPOSIT_PAID
                     : enums_1.OrderStatus.BALANCE_PAID)
             ]);
+            // Fire-and-forget admin notification
+            this.notificationService.notifyAdminsPaymentReceived({
+                orderId: payment.orderId,
+                orderRef: payment.orderId,
+                customerName: payment.userId,
+                amountUsd: payment.amountUsd,
+            }).catch(() => { });
         });
     }
     /**
@@ -162,6 +171,22 @@ let PaymentService = class PaymentService {
             }
         });
     }
+    getAdminPayments(filters) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const skip = (filters.page - 1) * filters.limit;
+            const { payments, total } = yield this.paymentRepo.findAdminPaginated({ status: filters.status, search: filters.search }, { skip, take: filters.limit });
+            return {
+                payments,
+                total,
+                page: filters.page,
+                limit: filters.limit,
+                pages: Math.ceil(total / filters.limit),
+            };
+        });
+    }
+    getPaymentStats() {
+        return this.paymentRepo.getStats();
+    }
 };
 exports.PaymentService = PaymentService;
 exports.PaymentService = PaymentService = __decorate([
@@ -171,7 +196,8 @@ exports.PaymentService = PaymentService = __decorate([
     __param(2, (0, inversify_1.inject)(types_1.TYPES.PricingConfigService)),
     __param(3, (0, inversify_1.inject)(types_1.TYPES.StripeProvider)),
     __param(4, (0, inversify_1.inject)(types_1.TYPES.PaystackProvider)),
+    __param(5, (0, inversify_1.inject)(types_1.TYPES.NotificationService)),
     __metadata("design:paramtypes", [PaymentRepository_1.PaymentRepository,
         OrderRepository_1.OrderRepository,
-        PricingConfigService_1.PricingConfigService, Object, Object])
+        PricingConfigService_1.PricingConfigService, Object, Object, NotificationService_1.NotificationService])
 ], PaymentService);

@@ -41,6 +41,9 @@ class PaymentRoutes {
         this.router.get('/all', authMiddleware_1.authenticate, this.controller.getAllPayments);
         this.router.get('/user-mine', authMiddleware_1.authenticate, this.controller.getAllUserPayments);
         this.router.get('/payment-id/:id', authMiddleware_1.authenticate, this.controller.getPaymentById);
+        // Admin endpoints
+        this.router.get('/admin/list', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([enums_1.UserRole.OPERATIONS_ADMIN, enums_1.UserRole.SUPER_ADMIN]), this.controller.getAdminPayments);
+        this.router.get('/admin/stats', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([enums_1.UserRole.OPERATIONS_ADMIN, enums_1.UserRole.SUPER_ADMIN]), this.controller.getPaymentStats);
     }
     getRouter() {
         return this.router;

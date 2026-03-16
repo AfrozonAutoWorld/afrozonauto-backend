@@ -29,6 +29,7 @@ const PaymentService_1 = require("../services/PaymentService");
 const ApiError_1 = require("../utils/ApiError");
 const ApiResponse_1 = require("../utils/ApiResponse");
 const OrderService_1 = require("../services/OrderService");
+const enums_1 = require("../generated/prisma/enums");
 let PaymentController = class PaymentController {
     constructor(paymentService, orderServices) {
         this.paymentService = paymentService;
@@ -51,8 +52,6 @@ let PaymentController = class PaymentController {
             //         ApiError.badRequest("Invalid vehicle snapshot data")
             //     );
             // }
-            console.log("============payments-=============");
-            console.log(req.body);
             const result = yield this.paymentService.initiatePayment({
                 orderId: req.body.orderId,
                 userId: req.user.id,
@@ -108,6 +107,22 @@ let PaymentController = class PaymentController {
             const id = req.params.id;
             const payment = yield this.paymentService.getPaymentById(id);
             return res.status(200).json(ApiResponse_1.ApiResponse.success(payment));
+        }));
+        this.getAdminPayments = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            var _a, _b;
+            const page = Math.max(1, parseInt(req.query.page) || 1);
+            const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 10));
+            const search = ((_a = req.query.search) === null || _a === void 0 ? void 0 : _a.trim()) || undefined;
+            const statusParam = (_b = req.query.status) === null || _b === void 0 ? void 0 : _b.toUpperCase();
+            const status = statusParam && statusParam !== 'ALL' && Object.values(enums_1.PaymentStatus).includes(statusParam)
+                ? statusParam
+                : undefined;
+            const result = yield this.paymentService.getAdminPayments({ status, search, page, limit });
+            return res.status(200).json(ApiResponse_1.ApiResponse.paginated(result.payments, { page: result.page, limit: result.limit, total: result.total, pages: result.pages }, 'Payments retrieved successfully'));
+        }));
+        this.getPaymentStats = (0, asyncHandler_1.asyncHandler)((_req, res) => __awaiter(this, void 0, void 0, function* () {
+            const stats = yield this.paymentService.getPaymentStats();
+            return res.status(200).json(ApiResponse_1.ApiResponse.success(stats, 'Payment statistics retrieved'));
         }));
     }
 };

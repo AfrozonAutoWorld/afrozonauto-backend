@@ -64,5 +64,15 @@ export const TYPES = {
 
     SourcingRequestRepository: Symbol.for('SourcingRequestRepository'),
     SourcingRequestService: Symbol.for('SourcingRequestService'),
-    SourcingRequestController: Symbol.for('SourcingRequestController')
+    SourcingRequestController: Symbol.for('SourcingRequestController'),
+
+    // Admin Dashboard
+    AdminDashboardRepository: Symbol.for('AdminDashboardRepository'),
+    AdminDashboardService: Symbol.for('AdminDashboardService'),
+    AdminDashboardController: Symbol.for('AdminDashboardController'),
+
+    // Notifications
+    NotificationRepository: Symbol.for('NotificationRepository'),
+    NotificationService: Symbol.for('NotificationService'),
+    NotificationController: Symbol.for('NotificationController'),
 };

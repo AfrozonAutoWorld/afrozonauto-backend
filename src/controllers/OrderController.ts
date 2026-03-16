@@ -12,6 +12,7 @@ import { AddressService } from '../services/AddressService';
 import { AuthenticatedRequest } from '../types/customRequest';
 import { PricingConfigRepository } from '../repositories/PricingConfigRepository';
 import { PricingConfigService } from '../services/PricingConfigService';
+import { NotificationService } from '../services/NotificationService';
 
 export class OrderController {
   constructor(
@@ -21,6 +22,7 @@ export class OrderController {
     @inject(TYPES.PricingConfigService) private pricingService: PricingConfigService,
     @inject(TYPES.ProfileService) private profileService: ProfileService,
     @inject(TYPES.AddressService) private addressService: AddressService,
+    @inject(TYPES.NotificationService) private notificationService: NotificationService,
   ) { }
   // ========== CREATE ==========
 
@@ -84,6 +86,18 @@ export class OrderController {
       vehicleSnapshot: vehicle,
       paymentBreakdown
     });
+
+    // Fire-and-forget admin notification
+    const customerName = profile.firstName
+      ? `${profile.firstName} ${profile.lastName ?? ''}`.trim()
+      : userId;
+    const vehicleLabel = `${vehicle.year ?? ''} ${vehicle.make ?? ''} ${vehicle.model ?? ''}`.trim();
+    this.notificationService.notifyAdminsOrderCreated({
+      orderId: order.id,
+      requestNumber: order.requestNumber,
+      customerName,
+      vehicleLabel,
+    }).catch(() => {/* silent — notification failure must not break order flow */});
 
     return res.status(201).json(
       ApiResponse.success(order, "Order created successfully")
