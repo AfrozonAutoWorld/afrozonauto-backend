@@ -5,6 +5,7 @@ import { TYPES } from '../config/types';
 import { PayoutRepository } from '../repositories/PayoutRepository';
 import { ApiError } from '../utils/ApiError';
 import { WithdrawalStatus } from '../generated/prisma/enums';
+import { PAYSTACK_SECRET_KEY } from '../secrets';
 
 const MIN_WITHDRAWAL_USD = 10;
 
@@ -16,7 +17,7 @@ export class PayoutService {
     @inject(TYPES.PayoutRepository)
     private payoutRepository: PayoutRepository,
   ) {
-    const secretKey = process.env.PAYSTACK_SECRET_KEY || '';
+    const secretKey = PAYSTACK_SECRET_KEY || '';
     this.paystack = axios.create({
       baseURL: 'https://api.paystack.co',
       headers: {

@@ -65,11 +65,12 @@ const types_1 = require("../config/types");
 const PayoutRepository_1 = require("../repositories/PayoutRepository");
 const ApiError_1 = require("../utils/ApiError");
 const enums_1 = require("../generated/prisma/enums");
+const secrets_1 = require("../secrets");
 const MIN_WITHDRAWAL_USD = 10;
 let PayoutService = class PayoutService {
     constructor(payoutRepository) {
         this.payoutRepository = payoutRepository;
-        const secretKey = process.env.PAYSTACK_SECRET_KEY || '';
+        const secretKey = secrets_1.PAYSTACK_SECRET_KEY || '';
         this.paystack = axios_1.default.create({
             baseURL: 'https://api.paystack.co',
             headers: {
