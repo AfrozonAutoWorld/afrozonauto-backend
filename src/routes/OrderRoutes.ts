@@ -61,10 +61,12 @@ class OrderRoutes {
 
         // ========== ADMIN ROUTES ==========
 
-        this.router.use(authorize([]));
-
-        // Get all orders with filters
-        // this.router.get('/', this.controller.getAllOrders);
+        // Get all orders with filters (admin only)
+        this.router.get('/admin/all',
+            authenticate,
+            authorize([UserRole.OPERATIONS_ADMIN, UserRole.SUPER_ADMIN]),
+            this.controller.getAllOrders
+        );
 
         // Update order status
         this.router.put('/:id/status',

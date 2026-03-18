@@ -12,6 +12,10 @@ const swaggerSpec = {
             url: "http://localhost:2026",
             description: "Development server",
         },
+        {
+            url: "https://api.afrozonauto.com",
+            description: "Production server",
+        },
     ],
     components: {
         securitySchemes: {
@@ -570,7 +574,213 @@ const swaggerSpec = {
                 tags: ["Orders"],
                 parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
                 security: [{ bearerAuth: [] }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["status"],
+                                properties: {
+                                    status: {
+                                        type: "string",
+                                        enum: ["PENDING", "CONFIRMED", "INSPECTION", "IN_TRANSIT", "CUSTOMS", "ARRIVED", "DELIVERED", "CANCELLED", "REFUNDED"]
+                                    },
+                                    note: { type: "string" }
+                                }
+                            }
+                        }
+                    }
+                },
                 responses: { 200: { description: "Status updated" } }
+            }
+        },
+        "/api/orders/admin/all": {
+            get: {
+                summary: "Get all orders (Admin)",
+                description: "Paginated, filterable list of all orders. Admin/Operations only.",
+                tags: ["Orders"],
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+                    { name: "limit", in: "query", schema: { type: "integer", default: 20, maximum: 100 } },
+                    {
+                        name: "status",
+                        in: "query",
+                        description: "Comma-separated or repeated statuses. e.g. status=PENDING&status=CONFIRMED",
+                        schema: {
+                            type: "array",
+                            items: {
+                                type: "string",
+                                enum: ["PENDING", "CONFIRMED", "INSPECTION", "IN_TRANSIT", "CUSTOMS", "ARRIVED", "DELIVERED", "CANCELLED", "REFUNDED"]
+                            }
+                        }
+                    },
+                    { name: "userId", in: "query", schema: { type: "string" } },
+                    { name: "search", in: "query", schema: { type: "string" }, description: "Search by request number, user name, or email" },
+                    { name: "priority", in: "query", schema: { type: "string", enum: ["LOW", "MEDIUM", "HIGH", "URGENT"] } },
+                    { name: "shippingMethod", in: "query", schema: { type: "string" } },
+                    { name: "destinationCountry", in: "query", schema: { type: "string" } },
+                    { name: "startDate", in: "query", schema: { type: "string", format: "date" }, description: "ISO date – filter orders created on or after this date" },
+                    { name: "endDate", in: "query", schema: { type: "string", format: "date" }, description: "ISO date – filter orders created on or before this date" }
+                ],
+                responses: {
+                    200: { description: "Paginated order list with user, vehicle, and payment details" },
+                    401: { description: "Unauthorized" },
+                    403: { description: "Forbidden – admin only" }
+                }
+            }
+        },
+        "/api/orders/{id}/request-refund": {
+            post: {
+                summary: "Request a refund for an order",
+                tags: ["Orders"],
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["reason"],
+                                properties: {
+                                    reason: { type: "string" }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: { 200: { description: "Refund requested" } }
+            }
+        },
+        "/api/orders/{id}/notes": {
+            get: {
+                summary: "Get admin notes for an order",
+                tags: ["Orders"],
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+                responses: { 200: { description: "List of notes" } }
+            },
+            post: {
+                summary: "Add an admin note to an order",
+                tags: ["Orders"],
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["content"],
+                                properties: {
+                                    content: { type: "string" },
+                                    isInternal: { type: "boolean", default: true }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: { 201: { description: "Note added" } }
+            }
+        },
+        "/api/orders/{id}/priority": {
+            patch: {
+                summary: "Update order priority (Admin)",
+                tags: ["Orders"],
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["priority"],
+                                properties: {
+                                    priority: { type: "string", enum: ["LOW", "MEDIUM", "HIGH", "URGENT"] }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: { 200: { description: "Priority updated" } }
+            }
+        },
+        "/api/orders/{id}/tags": {
+            patch: {
+                summary: "Update order tags",
+                tags: ["Orders"],
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["tags"],
+                                properties: {
+                                    tags: { type: "array", items: { type: "string" } }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: { 200: { description: "Tags updated" } }
+            }
+        },
+        "/api/orders/{id}/soft": {
+            delete: {
+                summary: "Soft-delete an order",
+                tags: ["Orders"],
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+                responses: { 200: { description: "Order soft-deleted" } }
+            }
+        },
+        "/api/orders/bulk/status": {
+            patch: {
+                summary: "Bulk update order statuses (Admin)",
+                tags: ["Orders"],
+                security: [{ bearerAuth: [] }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["orderIds", "status"],
+                                properties: {
+                                    orderIds: { type: "array", items: { type: "string" } },
+                                    status: { type: "string", enum: ["PENDING", "CONFIRMED", "INSPECTION", "IN_TRANSIT", "CUSTOMS", "ARRIVED", "DELIVERED", "CANCELLED", "REFUNDED"] }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: { 200: { description: "Statuses updated" } }
+            }
+        },
+        "/api/orders/stats/status-counts": {
+            get: {
+                summary: "Get order counts grouped by status",
+                tags: ["Orders"],
+                security: [{ bearerAuth: [] }],
+                responses: { 200: { description: "Status count map" } }
+            }
+        },
+        "/api/orders/stats/revenue": {
+            get: {
+                summary: "Get revenue statistics",
+                tags: ["Orders"],
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "startDate", in: "query", schema: { type: "string", format: "date" } },
+                    { name: "endDate", in: "query", schema: { type: "string", format: "date" } }
+                ],
+                responses: { 200: { description: "Revenue breakdown" } }
             }
         },
         // PAYMENT ENDPOINTS (PaymentRoutes.ts)
@@ -601,6 +811,31 @@ const swaggerSpec = {
                 tags: ["Payments"],
                 security: [{ bearerAuth: [] }],
                 responses: { 200: { description: "List of payments" } }
+            }
+        },
+        "/api/payments/all": {
+            get: {
+                summary: "Get all payments (Admin)",
+                tags: ["Payments"],
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+                    { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
+                    { name: "status", in: "query", schema: { type: "string", enum: ["PENDING", "COMPLETED", "FAILED", "REFUNDED"] } }
+                ],
+                responses: { 200: { description: "Paginated payment list" } }
+            }
+        },
+        "/api/payments/payment-id/{id}": {
+            get: {
+                summary: "Get payment by ID",
+                tags: ["Payments"],
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+                responses: {
+                    200: { description: "Payment details" },
+                    404: { description: "Payment not found" }
+                }
             }
         },
         // SOURCING REQUEST ENDPOINTS (SourcingRequestRoutes.ts)
@@ -1032,12 +1267,389 @@ const swaggerSpec = {
                 }
             }
         },
+        // ── PAYOUT ENDPOINTS (/api/payout) ────────────────────────────────────────
+        "/api/payout/webhooks/transfer": {
+            post: {
+                summary: "Paystack transfer webhook (no auth)",
+                description: "Receives Paystack transfer event notifications. Validates HMAC-SHA512 signature from x-paystack-signature header. Handles transfer.success, transfer.failed, transfer.reversed.",
+                tags: ["Payout"],
+                requestBody: {
+                    required: true,
+                    content: { "application/json": { schema: { type: "object" } } }
+                },
+                responses: {
+                    200: { description: "Webhook processed" },
+                    401: { description: "Invalid signature" }
+                }
+            }
+        },
+        "/api/payout/balance": {
+            get: {
+                summary: "Get wallet balance",
+                description: "Returns wallet balance in USD, equivalent NGN, current exchange rate, and whether a payout PIN is set.",
+                tags: ["Payout"],
+                security: [{ bearerAuth: [] }],
+                responses: {
+                    200: {
+                        description: "Wallet balance",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        success: { type: "boolean" },
+                                        data: {
+                                            type: "object",
+                                            properties: {
+                                                walletBalance: { type: "number" },
+                                                currency: { type: "string", example: "USD" },
+                                                equivalentNgn: { type: "number" },
+                                                exchangeRate: { type: "number" },
+                                                pinSet: { type: "boolean" }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/payout/pin/setup": {
+            post: {
+                summary: "Set up payout PIN",
+                description: "Sets a 4–6 digit numeric payout PIN. Can only be called once — use /pin/change to update.",
+                tags: ["Payout"],
+                security: [{ bearerAuth: [] }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["pin"],
+                                properties: {
+                                    pin: { type: "string", pattern: "^\\d{4,6}$", example: "1234" }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: { description: "PIN set successfully" },
+                    409: { description: "PIN already set" }
+                }
+            }
+        },
+        "/api/payout/pin/change": {
+            patch: {
+                summary: "Change payout PIN",
+                description: "Updates the payout PIN. Requires the current PIN for verification.",
+                tags: ["Payout"],
+                security: [{ bearerAuth: [] }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["oldPin", "newPin"],
+                                properties: {
+                                    oldPin: { type: "string", pattern: "^\\d{4,6}$" },
+                                    newPin: { type: "string", pattern: "^\\d{4,6}$" }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: { description: "PIN updated" },
+                    403: { description: "Current PIN incorrect" }
+                }
+            }
+        },
+        "/api/payout/banks": {
+            get: {
+                summary: "List Nigerian banks",
+                description: "Returns list of supported banks from Paystack (name, code, slug).",
+                tags: ["Payout"],
+                security: [{ bearerAuth: [] }],
+                responses: {
+                    200: { description: "List of banks" }
+                }
+            }
+        },
+        "/api/payout/banks/verify": {
+            post: {
+                summary: "Verify bank account number",
+                description: "Verifies an account number against a bank code via Paystack. Returns the account name.",
+                tags: ["Payout"],
+                security: [{ bearerAuth: [] }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["accountNumber", "bankCode"],
+                                properties: {
+                                    accountNumber: { type: "string", example: "0000000000" },
+                                    bankCode: { type: "string", example: "044" }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: {
+                        description: "Account verified",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        success: { type: "boolean" },
+                                        data: {
+                                            type: "object",
+                                            properties: {
+                                                account_name: { type: "string" },
+                                                account_number: { type: "string" },
+                                                bank_id: { type: "integer" }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    400: { description: "Invalid account number or bank code" }
+                }
+            }
+        },
+        "/api/payout/bank-accounts": {
+            post: {
+                summary: "Add a bank account",
+                description: "Verifies the account with Paystack, creates a transfer recipient, and saves it. First account is auto-set as default.",
+                tags: ["Payout"],
+                security: [{ bearerAuth: [] }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["bankName", "bankCode", "accountNumber"],
+                                properties: {
+                                    bankName: { type: "string", example: "Access Bank" },
+                                    bankCode: { type: "string", example: "044" },
+                                    accountNumber: { type: "string", example: "0000000000" }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    201: { description: "Bank account added" },
+                    409: { description: "Account already registered" }
+                }
+            },
+            get: {
+                summary: "List bank accounts",
+                description: "Returns all active bank accounts for the authenticated user.",
+                tags: ["Payout"],
+                security: [{ bearerAuth: [] }],
+                responses: {
+                    200: { description: "List of bank accounts" }
+                }
+            }
+        },
+        "/api/payout/bank-accounts/{id}/default": {
+            patch: {
+                summary: "Set default bank account",
+                tags: ["Payout"],
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+                responses: {
+                    200: { description: "Default account updated" },
+                    404: { description: "Bank account not found" }
+                }
+            }
+        },
+        "/api/payout/bank-accounts/{id}": {
+            delete: {
+                summary: "Remove a bank account",
+                description: "Soft-deletes (deactivates) the bank account.",
+                tags: ["Payout"],
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+                responses: {
+                    200: { description: "Bank account removed" },
+                    404: { description: "Bank account not found" }
+                }
+            }
+        },
+        "/api/payout/withdraw": {
+            post: {
+                summary: "Initiate a withdrawal",
+                description: "Verifies PIN, checks wallet balance, converts USD→NGN at live rate, deducts wallet, and initiates a Paystack transfer. Wallet is restored automatically on failure or reversal via webhook.",
+                tags: ["Payout"],
+                security: [{ bearerAuth: [] }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["bankAccountId", "amountUsd", "pin"],
+                                properties: {
+                                    bankAccountId: { type: "string" },
+                                    amountUsd: { type: "number", minimum: 10, example: 50 },
+                                    pin: { type: "string", pattern: "^\\d{4,6}$" },
+                                    note: { type: "string", example: "Monthly payout" }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: {
+                        description: "Withdrawal initiated",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        success: { type: "boolean" },
+                                        data: {
+                                            type: "object",
+                                            properties: {
+                                                message: { type: "string" },
+                                                reference: { type: "string" },
+                                                amountUsd: { type: "number" },
+                                                amountNgn: { type: "number" },
+                                                exchangeRate: { type: "number" },
+                                                status: { type: "string", example: "PROCESSING" },
+                                                bankAccount: {
+                                                    type: "object",
+                                                    properties: {
+                                                        bankName: { type: "string" },
+                                                        accountNumber: { type: "string" },
+                                                        accountName: { type: "string" }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    400: { description: "Insufficient balance or invalid amount" },
+                    403: { description: "Invalid PIN" }
+                }
+            }
+        },
+        "/api/payout/withdrawals": {
+            get: {
+                summary: "Get withdrawal history",
+                description: "Paginated list of withdrawal requests for the authenticated user.",
+                tags: ["Payout"],
+                security: [{ bearerAuth: [] }],
+                parameters: [
+                    { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+                    { name: "limit", in: "query", schema: { type: "integer", default: 20, maximum: 100 } }
+                ],
+                responses: {
+                    200: {
+                        description: "Paginated withdrawal history",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        success: { type: "boolean" },
+                                        withdrawals: { type: "array", items: { type: "object" } },
+                                        total: { type: "integer" },
+                                        page: { type: "integer" },
+                                        limit: { type: "integer" },
+                                        pages: { type: "integer" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         // SELLER VEHICLE ENDPOINTS (SellerVehicleRoutes.ts)
         "/api/seller-vehicles/submit": {
             post: {
                 summary: "Submit a vehicle listing for sale",
+                description: "Seller submits a vehicle for sale. All fields sent as multipart/form-data. Images uploaded via files array.",
                 tags: ["Seller Vehicles"],
-                responses: { 201: { description: "Listing submitted" } }
+                security: [{ bearerAuth: [] }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "multipart/form-data": {
+                            schema: {
+                                type: "object",
+                                required: ["make", "modelName", "year", "price", "mileage", "condition", "transmission", "fuelType", "color", "vin", "description", "country", "city"],
+                                properties: {
+                                    make: { type: "string", example: "Toyota" },
+                                    modelName: { type: "string", example: "Camry" },
+                                    year: { type: "integer", example: 2020 },
+                                    price: { type: "number", example: 15000 },
+                                    mileage: { type: "number", example: 45000 },
+                                    condition: {
+                                        type: "string",
+                                        enum: ["NEW", "USED", "CERTIFIED_PREOWNED"],
+                                        example: "USED"
+                                    },
+                                    transmission: {
+                                        type: "string",
+                                        enum: ["AUTOMATIC", "MANUAL", "CVT", "SEMI_AUTOMATIC"],
+                                        example: "AUTOMATIC"
+                                    },
+                                    fuelType: {
+                                        type: "string",
+                                        enum: ["PETROL", "DIESEL", "ELECTRIC", "HYBRID", "PLUG_IN_HYBRID", "CNG", "LPG"],
+                                        example: "PETROL"
+                                    },
+                                    color: { type: "string", example: "Silver" },
+                                    vin: { type: "string", example: "1HGCM82633A123456" },
+                                    description: { type: "string", example: "Well maintained, single owner" },
+                                    country: { type: "string", example: "Nigeria" },
+                                    city: { type: "string", example: "Lagos" },
+                                    engineSize: { type: "string", example: "2.5L" },
+                                    doors: { type: "integer", example: 4 },
+                                    seats: { type: "integer", example: 5 },
+                                    driveType: {
+                                        type: "string",
+                                        enum: ["FWD", "RWD", "AWD", "4WD"]
+                                    },
+                                    bodyType: { type: "string", example: "Sedan" },
+                                    features: {
+                                        type: "array",
+                                        items: { type: "string" },
+                                        description: "List of vehicle features, e.g. ['Leather seats', 'Sunroof']"
+                                    },
+                                    files: {
+                                        type: "array",
+                                        items: { type: "string", format: "binary" },
+                                        description: "Vehicle images (up to 10)"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    201: { description: "Listing submitted for admin review" },
+                    400: { description: "Validation error" },
+                    401: { description: "Unauthorized" }
+                }
             }
         },
         "/api/seller-vehicles": {

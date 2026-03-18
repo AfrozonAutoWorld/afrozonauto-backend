@@ -9,7 +9,7 @@
 * 🟢 You can import this file directly.
 */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VehicleListingCondition = exports.SellerVerificationStatus = exports.SourcingRequestStatus = exports.VehicleAvailability = exports.VehicleStatus = exports.ApiSyncStatus = exports.VehicleSource = exports.VehicleType = exports.UserRole = exports.TokenType = exports.ShipmentStatus = exports.EscrowStatus = exports.PaymentStatus = exports.PaymentMethod = exports.PaymentType = exports.OrderPriority = exports.ShippingMethod = exports.OrderStatus = exports.OrderVehicleSource = exports.ContentType = exports.NotificationType = exports.InspectionCondition = exports.DocumentName = exports.AddressType = void 0;
+exports.VehicleListingCondition = exports.SellerVerificationStatus = exports.SourcingRequestStatus = exports.VehicleAvailability = exports.VehicleStatus = exports.ApiSyncStatus = exports.VehicleSource = exports.VehicleType = exports.UserRole = exports.WithdrawalStatus = exports.TokenType = exports.ShipmentStatus = exports.EscrowStatus = exports.PaymentStatus = exports.PaymentMethod = exports.PaymentType = exports.OrderPriority = exports.ShippingMethod = exports.OrderStatus = exports.OrderVehicleSource = exports.ContentType = exports.NotificationType = exports.InspectionCondition = exports.DocumentName = exports.AddressType = void 0;
 exports.AddressType = {
     NORMAL: 'NORMAL',
     BILLING: 'BILLING',
@@ -159,6 +159,13 @@ exports.TokenType = {
     EMAIL: 'EMAIL',
     PASSWORD_RESET: 'PASSWORD_RESET',
     PHONE: 'PHONE'
+};
+exports.WithdrawalStatus = {
+    PENDING: 'PENDING',
+    PROCESSING: 'PROCESSING',
+    COMPLETED: 'COMPLETED',
+    FAILED: 'FAILED',
+    REVERSED: 'REVERSED'
 };
 exports.UserRole = {
     BUYER: 'BUYER',

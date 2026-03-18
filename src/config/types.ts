@@ -75,4 +75,9 @@ export const TYPES = {
     NotificationRepository: Symbol.for('NotificationRepository'),
     NotificationService: Symbol.for('NotificationService'),
     NotificationController: Symbol.for('NotificationController'),
+
+    // Payouts
+    PayoutRepository: Symbol.for('PayoutRepository'),
+    PayoutService: Symbol.for('PayoutService'),
+    PayoutController: Symbol.for('PayoutController'),
 };

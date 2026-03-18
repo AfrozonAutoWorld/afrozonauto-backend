@@ -77,16 +77,11 @@ let OrderService = class OrderService {
             return this.orderRepository.findByVehicleId(vehicleId);
         });
     }
-    // async getAllOrders(filters: OrderFilters, page = 1, limit = 20): Promise<{
-    //   orders: Order[];
-    //   total: number;
-    //   page: number;
-    //   limit: number;
-    //   totalPages: number;
-    //   stats: OrderStats;
-    // }> {
-    //   return this.orderRepository.findAllWithFilters(filters, page, limit);
-    // }
+    getAllOrders(filters_1) {
+        return __awaiter(this, arguments, void 0, function* (filters, page = 1, limit = 20) {
+            return this.orderRepository.findAllAdmin(filters, page, limit);
+        });
+    }
     // delete order
     delete(id) {
         return __awaiter(this, void 0, void 0, function* () {

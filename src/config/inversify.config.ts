@@ -64,6 +64,9 @@ import { AdminDashboardController } from '../controllers/AdminDashboardControlle
 import { NotificationRepository } from '../repositories/NotificationRepository';
 import { NotificationService } from '../services/NotificationService';
 import { NotificationController } from '../controllers/NotificationController';
+import { PayoutRepository } from '../repositories/PayoutRepository';
+import { PayoutService } from '../services/PayoutService';
+import { PayoutController } from '../controllers/PayoutController';
 
 
 
@@ -145,5 +148,10 @@ container.bind<AdminDashboardController>(TYPES.AdminDashboardController).to(Admi
 container.bind<NotificationRepository>(TYPES.NotificationRepository).to(NotificationRepository);
 container.bind<NotificationService>(TYPES.NotificationService).to(NotificationService);
 container.bind<NotificationController>(TYPES.NotificationController).to(NotificationController);
+
+// Payout bindings
+container.bind<PayoutRepository>(TYPES.PayoutRepository).to(PayoutRepository);
+container.bind<PayoutService>(TYPES.PayoutService).to(PayoutService);
+container.bind<PayoutController>(TYPES.PayoutController).to(PayoutController);
 
 export { container };

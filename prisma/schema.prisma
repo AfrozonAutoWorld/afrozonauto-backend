@@ -808,6 +808,10 @@ model User {
   walletBalance Float  @default(0) // In USD
   currency      String @default("USD") // Primary currency preference
 
+  // Payout PIN (bcrypt hashed)
+  payoutPin    String?
+  payoutPinSet Boolean @default(false)
+
   // Preferences
   language                String @default("en")
   timezone                String @default("Africa/Lagos")
@@ -831,13 +835,81 @@ model User {
 
   tokens Token[]
 
-  adminNotes        AdminNote[]       @relation("AdminNoteUser")
-  createdAdminNotes AdminNote[]       @relation("AdminNoteCreatedBy")
+  adminNotes        AdminNote[]        @relation("AdminNoteUser")
+  createdAdminNotes AdminNote[]        @relation("AdminNoteCreatedBy")
   sourcingRequests  SourcingRequest[]
+  bankAccounts      BankAccount[]
+  withdrawals       WithdrawalRequest[]
 
   @@index([role])
   @@index([isActive])
   @@map("users")
+}
+
+// ============================================
+// PAYOUT & WITHDRAWALS
+// ============================================
+
+model BankAccount {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  bankName      String
+  bankCode      String
+  accountNumber String
+  accountName   String // Verified name from Paystack resolve
+
+  recipientCode String @unique // Paystack transfer recipient code
+
+  isDefault Boolean @default(false)
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  withdrawals WithdrawalRequest[]
+
+  @@index([userId])
+  @@index([userId, isDefault])
+  @@map("bank_accounts")
+}
+
+model WithdrawalRequest {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String      @db.ObjectId
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bankAccountId String      @db.ObjectId
+  bankAccount   BankAccount @relation(fields: [bankAccountId], references: [id])
+
+  amountUsd    Float // Amount requested in USD
+  amountNgn    Float // Converted NGN amount
+  exchangeRate Float // Rate used at time of request
+
+  reference            String  @unique // Our internal reference
+  paystackTransferCode String? // Paystack transfer_code
+  paystackTransferId   String? // Paystack transfer id
+
+  status        WithdrawalStatus @default(PENDING)
+  note          String? // Reason/note from the seller
+  failureReason String? // From Paystack if transfer fails
+
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("withdrawal_requests")
+}
+
+enum WithdrawalStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REVERSED
 }
 
 enum UserRole {

@@ -32,9 +32,8 @@ class OrderRoutes {
         // Update order (limited fields for users)
         this.router.put('/:id', (0, bodyValidate_1.validateBody)(order_validation_1.updateOrderSchema), this.controller.updateOrder);
         // ========== ADMIN ROUTES ==========
-        this.router.use((0, authMiddleware_1.authorize)([]));
-        // Get all orders with filters
-        // this.router.get('/', this.controller.getAllOrders);
+        // Get all orders with filters (admin only)
+        this.router.get('/admin/all', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([enums_1.UserRole.OPERATIONS_ADMIN, enums_1.UserRole.SUPER_ADMIN]), this.controller.getAllOrders);
         // Update order status
         this.router.put('/:id/status', (0, authMiddleware_1.authorize)([enums_1.UserRole.OPERATIONS_ADMIN, enums_1.UserRole.SUPER_ADMIN]), this.controller.updateOrderStatus);
         // Bulk update order status

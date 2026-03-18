@@ -67,6 +67,9 @@ const AdminDashboardController_1 = require("../controllers/AdminDashboardControl
 const NotificationRepository_1 = require("../repositories/NotificationRepository");
 const NotificationService_1 = require("../services/NotificationService");
 const NotificationController_1 = require("../controllers/NotificationController");
+const PayoutRepository_1 = require("../repositories/PayoutRepository");
+const PayoutService_1 = require("../services/PayoutService");
+const PayoutController_1 = require("../controllers/PayoutController");
 const container = new inversify_1.Container();
 exports.container = container;
 container.bind(types_1.TYPES.UserRepository).to(UserRepository_1.UserRepository);
@@ -139,3 +142,7 @@ container.bind(types_1.TYPES.AdminDashboardController).to(AdminDashboardControll
 container.bind(types_1.TYPES.NotificationRepository).to(NotificationRepository_1.NotificationRepository);
 container.bind(types_1.TYPES.NotificationService).to(NotificationService_1.NotificationService);
 container.bind(types_1.TYPES.NotificationController).to(NotificationController_1.NotificationController);
+// Payout bindings
+container.bind(types_1.TYPES.PayoutRepository).to(PayoutRepository_1.PayoutRepository);
+container.bind(types_1.TYPES.PayoutService).to(PayoutService_1.PayoutService);
+container.bind(types_1.TYPES.PayoutController).to(PayoutController_1.PayoutController);

@@ -91,16 +91,23 @@ export class OrderService {
     return this.orderRepository.findByVehicleId(vehicleId);
   }
 
-  // async getAllOrders(filters: OrderFilters, page = 1, limit = 20): Promise<{
-  //   orders: Order[];
-  //   total: number;
-  //   page: number;
-  //   limit: number;
-  //   totalPages: number;
-  //   stats: OrderStats;
-  // }> {
-  //   return this.orderRepository.findAllWithFilters(filters, page, limit);
-  // }
+  async getAllOrders(
+    filters: {
+      status?: string | string[];
+      userId?: string;
+      search?: string;
+      priority?: string;
+      shippingMethod?: string;
+      destinationCountry?: string;
+      startDate?: Date;
+      endDate?: Date;
+    },
+    page = 1,
+    limit = 20,
+  ) {
+    return this.orderRepository.findAllAdmin(filters as any, page, limit);
+  }
+
   // delete order
   async delete(id: string) {
     const order = await this.getOrderById(id);

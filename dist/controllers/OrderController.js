@@ -167,48 +167,27 @@ let OrderController = class OrderController {
             const result = yield this.service.getUserOrders(userId, page, limit);
             return res.status(200).json(ApiResponse_1.ApiResponse.success(result, "User orders retrieved successfully"));
         }));
-        // getAllOrders = asyncHandler(async (req: Request, res: Response) => {
-        //   // Admin only
-        //   if (req.user?.role !== 'SUPER_ADMIN' && req.user?.role !== 'OPERATIONS_ADMIN') {
-        //     throw new ApiError(403, "Admin access required");
-        //   }
-        //   const {
-        //     status,
-        //     userId,
-        //     vehicleId,
-        //     destinationCountry,
-        //     destinationState,
-        //     shippingMethod,
-        //     priority,
-        //     tags,
-        //     startDate,
-        //     endDate,
-        //     search,
-        //     isCancelled,
-        //     isRefunded
-        //   } = req.query;
-        //   const page = parseInt(req.query.page as string) || 1;
-        //   const limit = parseInt(req.query.limit as string) || 20;
-        //   const filters = {
-        //     status: status ? (Array.isArray(status) ? status : [status]) as OrderStatus[] : undefined,
-        //     userId: userId as string,
-        //     vehicleId: vehicleId as string,
-        //     destinationCountry: destinationCountry as string,
-        //     destinationState: destinationState as string,
-        //     shippingMethod: shippingMethod as ShippingMethod,
-        //     priority: priority as OrderPriority,
-        //     tags: tags ? (Array.isArray(tags) ? tags : [tags]) as string[] : undefined,
-        //     startDate: startDate ? new Date(startDate as string) : undefined,
-        //     endDate: endDate ? new Date(endDate as string) : undefined,
-        //     search: search as string,
-        //     isCancelled: isCancelled ? isCancelled === 'true' : undefined,
-        //     isRefunded: isRefunded ? isRefunded === 'true' : undefined
-        //   };
-        //   const result = await this.service.getAllOrders(filters, page, limit);
-        //   return res.status(200).json(
-        //     ApiResponse.success(result, "Orders retrieved successfully")
-        //   );
-        // });
+        this.getAllOrders = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            var _a, _b;
+            if (!req.user || ((_a = req.user) === null || _a === void 0 ? void 0 : _a.role) !== 'SUPER_ADMIN' && ((_b = req.user) === null || _b === void 0 ? void 0 : _b.role) !== 'OPERATIONS_ADMIN') {
+                return res.status(403).json(ApiError_1.ApiError.unauthorized("Admin access required"));
+            }
+            const { status, userId, destinationCountry, shippingMethod, priority, startDate, endDate, search } = req.query;
+            const page = Math.max(1, parseInt(req.query.page) || 1);
+            const limit = Math.min(100, parseInt(req.query.limit) || 20);
+            const filters = {
+                status: status ? (Array.isArray(status) ? status : [status]) : undefined,
+                userId: userId,
+                destinationCountry: destinationCountry,
+                shippingMethod: shippingMethod,
+                priority: priority,
+                startDate: startDate ? new Date(startDate) : undefined,
+                endDate: endDate ? new Date(endDate) : undefined,
+                search: search,
+            };
+            const result = yield this.service.getAllOrders(filters, page, limit);
+            return res.status(200).json(ApiResponse_1.ApiResponse.success(result, 'Orders retrieved successfully'));
+        }));
         // ========== UPDATE ==========
         this.updateOrder = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             var _a, _b, _c;

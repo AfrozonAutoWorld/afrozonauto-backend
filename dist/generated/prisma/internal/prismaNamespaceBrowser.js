@@ -48,7 +48,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.QueryMode = exports.SortOrder = exports.TestimonialScalarFieldEnum = exports.SourcingRequestScalarFieldEnum = exports.VehicleCategoryScalarFieldEnum = exports.MediaFileScalarFieldEnum = exports.RecommendedDefinitionScalarFieldEnum = exports.TrendingDefinitionScalarFieldEnum = exports.SavedVehicleScalarFieldEnum = exports.VehicleScalarFieldEnum = exports.ProfileScalarFieldEnum = exports.UserScalarFieldEnum = exports.TokenScalarFieldEnum = exports.ShipmentScalarFieldEnum = exports.PaymentScalarFieldEnum = exports.OrderScalarFieldEnum = exports.ContentScalarFieldEnum = exports.NotificationScalarFieldEnum = exports.MessageScalarFieldEnum = exports.InspectionScalarFieldEnum = exports.FileInfoScalarFieldEnum = exports.ApiRequestLogScalarFieldEnum = exports.ApiIntegrationScalarFieldEnum = exports.FeeSettingsScalarFieldEnum = exports.SystemSettingScalarFieldEnum = exports.PricingConfigScalarFieldEnum = exports.ActivityLogScalarFieldEnum = exports.AdminNoteScalarFieldEnum = exports.AddressScalarFieldEnum = exports.ModelName = exports.AnyNull = exports.JsonNull = exports.DbNull = exports.NullTypes = exports.Decimal = void 0;
+exports.QueryMode = exports.SortOrder = exports.TestimonialScalarFieldEnum = exports.SourcingRequestScalarFieldEnum = exports.VehicleCategoryScalarFieldEnum = exports.MediaFileScalarFieldEnum = exports.RecommendedDefinitionScalarFieldEnum = exports.TrendingDefinitionScalarFieldEnum = exports.SavedVehicleScalarFieldEnum = exports.VehicleScalarFieldEnum = exports.ProfileScalarFieldEnum = exports.WithdrawalRequestScalarFieldEnum = exports.BankAccountScalarFieldEnum = exports.UserScalarFieldEnum = exports.TokenScalarFieldEnum = exports.ShipmentScalarFieldEnum = exports.PaymentScalarFieldEnum = exports.OrderScalarFieldEnum = exports.ContentScalarFieldEnum = exports.NotificationScalarFieldEnum = exports.MessageScalarFieldEnum = exports.InspectionScalarFieldEnum = exports.FileInfoScalarFieldEnum = exports.ApiRequestLogScalarFieldEnum = exports.ApiIntegrationScalarFieldEnum = exports.FeeSettingsScalarFieldEnum = exports.SystemSettingScalarFieldEnum = exports.PricingConfigScalarFieldEnum = exports.ActivityLogScalarFieldEnum = exports.AdminNoteScalarFieldEnum = exports.AddressScalarFieldEnum = exports.ModelName = exports.AnyNull = exports.JsonNull = exports.DbNull = exports.NullTypes = exports.Decimal = void 0;
 const runtime = __importStar(require("@prisma/client/runtime/index-browser"));
 exports.Decimal = runtime.Decimal;
 exports.NullTypes = {
@@ -93,6 +93,8 @@ exports.ModelName = {
     Shipment: 'Shipment',
     Token: 'Token',
     User: 'User',
+    BankAccount: 'BankAccount',
+    WithdrawalRequest: 'WithdrawalRequest',
     Profile: 'Profile',
     Vehicle: 'Vehicle',
     SavedVehicle: 'SavedVehicle',
@@ -436,10 +438,42 @@ exports.UserScalarFieldEnum = {
     suspensionUntil: 'suspensionUntil',
     walletBalance: 'walletBalance',
     currency: 'currency',
+    payoutPin: 'payoutPin',
+    payoutPinSet: 'payoutPinSet',
     language: 'language',
     timezone: 'timezone',
     notificationPreferences: 'notificationPreferences',
     lastLoginAt: 'lastLoginAt',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+};
+exports.BankAccountScalarFieldEnum = {
+    id: 'id',
+    userId: 'userId',
+    bankName: 'bankName',
+    bankCode: 'bankCode',
+    accountNumber: 'accountNumber',
+    accountName: 'accountName',
+    recipientCode: 'recipientCode',
+    isDefault: 'isDefault',
+    isActive: 'isActive',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+};
+exports.WithdrawalRequestScalarFieldEnum = {
+    id: 'id',
+    userId: 'userId',
+    bankAccountId: 'bankAccountId',
+    amountUsd: 'amountUsd',
+    amountNgn: 'amountNgn',
+    exchangeRate: 'exchangeRate',
+    reference: 'reference',
+    paystackTransferCode: 'paystackTransferCode',
+    paystackTransferId: 'paystackTransferId',
+    status: 'status',
+    note: 'note',
+    failureReason: 'failureReason',
+    processedAt: 'processedAt',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
 };

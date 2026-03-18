@@ -20,6 +20,7 @@ import SellerVehicleRoutes from './routes/SellerVehicleRoutes';
 import SellerRoutes from './routes/SellerRoutes';
 import SourcingRequestRoutes from './routes/SourcingRequestRoutes';
 import AdminRoutes from './routes/AdminRoutes';
+import PayoutRoutes from './routes/PayoutRoutes';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './config/swagger';
 
@@ -47,6 +48,10 @@ class App {
     );
     this.app.use(
       '/api/payments/webhooks/paystack',
+      express.raw({ type: 'application/json' })
+    );
+    this.app.use(
+      '/api/payout/webhooks/transfer',
       express.raw({ type: 'application/json' })
     );
 
@@ -163,6 +168,7 @@ class App {
     this.app.use('/api/seller-vehicles', SellerVehicleRoutes);
     this.app.use('/api/sellers', SellerRoutes);
     this.app.use('/api/admin', AdminRoutes);
+    this.app.use('/api/payout', PayoutRoutes);
 
     // 404 handler - catch all unmatched routes
     this.app.use((req: Request, res: Response) => {

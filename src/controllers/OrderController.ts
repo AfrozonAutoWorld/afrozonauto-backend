@@ -192,53 +192,35 @@ export class OrderController {
     );
   });
 
-  // getAllOrders = asyncHandler(async (req: Request, res: Response) => {
-  //   // Admin only
-  //   if (req.user?.role !== 'SUPER_ADMIN' && req.user?.role !== 'OPERATIONS_ADMIN') {
-  //     throw new ApiError(403, "Admin access required");
-  //   }
+  getAllOrders = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    if (!req.user || req.user?.role !== 'SUPER_ADMIN' && req.user?.role !== 'OPERATIONS_ADMIN') {
+      return res.status(403).json(
+        ApiError.unauthorized("Admin access required")
+      )
+    }
 
-  //   const {
-  //     status,
-  //     userId,
-  //     vehicleId,
-  //     destinationCountry,
-  //     destinationState,
-  //     shippingMethod,
-  //     priority,
-  //     tags,
-  //     startDate,
-  //     endDate,
-  //     search,
-  //     isCancelled,
-  //     isRefunded
-  //   } = req.query;
+    const { status, userId, destinationCountry, shippingMethod, priority, startDate, endDate, search } = req.query;
 
-  //   const page = parseInt(req.query.page as string) || 1;
-  //   const limit = parseInt(req.query.limit as string) || 20;
+    const page  = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(100, parseInt(req.query.limit as string) || 20);
 
-  //   const filters = {
-  //     status: status ? (Array.isArray(status) ? status : [status]) as OrderStatus[] : undefined,
-  //     userId: userId as string,
-  //     vehicleId: vehicleId as string,
-  //     destinationCountry: destinationCountry as string,
-  //     destinationState: destinationState as string,
-  //     shippingMethod: shippingMethod as ShippingMethod,
-  //     priority: priority as OrderPriority,
-  //     tags: tags ? (Array.isArray(tags) ? tags : [tags]) as string[] : undefined,
-  //     startDate: startDate ? new Date(startDate as string) : undefined,
-  //     endDate: endDate ? new Date(endDate as string) : undefined,
-  //     search: search as string,
-  //     isCancelled: isCancelled ? isCancelled === 'true' : undefined,
-  //     isRefunded: isRefunded ? isRefunded === 'true' : undefined
-  //   };
+    const filters = {
+      status: status ? (Array.isArray(status) ? status : [status]) as OrderStatus[] : undefined,
+      userId: userId as string | undefined,
+      destinationCountry: destinationCountry as string | undefined,
+      shippingMethod: shippingMethod as ShippingMethod | undefined,
+      priority: priority as OrderPriority | undefined,
+      startDate: startDate ? new Date(startDate as string) : undefined,
+      endDate: endDate ? new Date(endDate as string) : undefined,
+      search: search as string | undefined,
+    };
 
-  //   const result = await this.service.getAllOrders(filters, page, limit);
+    const result = await this.service.getAllOrders(filters, page, limit);
 
-  //   return res.status(200).json(
-  //     ApiResponse.success(result, "Orders retrieved successfully")
-  //   );
-  // });
+    return res.status(200).json(
+      ApiResponse.success(result, 'Orders retrieved successfully')
+    );
+  });
 
   // ========== UPDATE ==========
 

@@ -275,6 +275,64 @@ let OrderRepository = class OrderRepository {
                 .map(([id]) => id);
         });
     }
+    // ========== ADMIN LIST ==========
+    findAllAdmin(filters_1) {
+        return __awaiter(this, arguments, void 0, function* (filters, page = 1, limit = 20) {
+            const skip = (page - 1) * limit;
+            const where = {};
+            if (filters.status) {
+                where.status = Array.isArray(filters.status)
+                    ? { in: filters.status }
+                    : filters.status;
+            }
+            if (filters.userId)
+                where.userId = filters.userId;
+            if (filters.priority)
+                where.priority = filters.priority;
+            if (filters.shippingMethod)
+                where.shippingMethod = filters.shippingMethod;
+            if (filters.destinationCountry)
+                where.destinationCountry = filters.destinationCountry;
+            if (filters.startDate || filters.endDate) {
+                where.createdAt = {};
+                if (filters.startDate)
+                    where.createdAt.gte = filters.startDate;
+                if (filters.endDate)
+                    where.createdAt.lte = filters.endDate;
+            }
+            if (filters.search) {
+                where.OR = [
+                    { requestNumber: { contains: filters.search, mode: 'insensitive' } },
+                    { user: { fullName: { contains: filters.search, mode: 'insensitive' } } },
+                    { user: { email: { contains: filters.search, mode: 'insensitive' } } },
+                ];
+            }
+            const [orders, total] = yield Promise.all([
+                db_1.default.order.findMany({
+                    where,
+                    orderBy: { createdAt: 'desc' },
+                    skip,
+                    take: limit,
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                email: true,
+                                fullName: true,
+                                profile: { select: { firstName: true, lastName: true } },
+                            },
+                        },
+                        vehicle: {
+                            select: { id: true, make: true, model: true, year: true, thumbnail: true, priceUsd: true },
+                        },
+                        payments: { take: 1, orderBy: { createdAt: 'desc' } },
+                    },
+                }),
+                db_1.default.order.count({ where }),
+            ]);
+            return { orders, total, page, limit, totalPages: Math.ceil(total / limit) };
+        });
+    }
     // ========== ADVANCED QUERIES ==========
     // async findAllWithFilters(filters: OrderFilters, page = 1, limit = 20): Promise<{
     //   orders: Order[];

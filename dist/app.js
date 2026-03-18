@@ -25,6 +25,7 @@ const SellerVehicleRoutes_1 = __importDefault(require("./routes/SellerVehicleRou
 const SellerRoutes_1 = __importDefault(require("./routes/SellerRoutes"));
 const SourcingRequestRoutes_1 = __importDefault(require("./routes/SourcingRequestRoutes"));
 const AdminRoutes_1 = __importDefault(require("./routes/AdminRoutes"));
+const PayoutRoutes_1 = __importDefault(require("./routes/PayoutRoutes"));
 const swagger_ui_express_1 = __importDefault(require("swagger-ui-express"));
 const swagger_1 = __importDefault(require("./config/swagger"));
 class App {
@@ -44,6 +45,7 @@ class App {
             crossOriginEmbedderPolicy: false,
         }));
         this.app.use('/api/payments/webhooks/paystack', express_1.default.raw({ type: 'application/json' }));
+        this.app.use('/api/payout/webhooks/transfer', express_1.default.raw({ type: 'application/json' }));
         // Rate limiting
         const limiter = (0, express_rate_limit_1.default)({
             windowMs: 15 * 60 * 1000,
@@ -140,6 +142,7 @@ class App {
         this.app.use('/api/seller-vehicles', SellerVehicleRoutes_1.default);
         this.app.use('/api/sellers', SellerRoutes_1.default);
         this.app.use('/api/admin', AdminRoutes_1.default);
+        this.app.use('/api/payout', PayoutRoutes_1.default);
         // 404 handler - catch all unmatched routes
         this.app.use((req, res) => {
             res.status(404).json({
