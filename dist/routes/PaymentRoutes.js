@@ -1,30 +1,14 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const inversify_config_1 = require("../config/inversify.config");
 const types_1 = require("../config/types");
 const authMiddleware_1 = require("../middleware/authMiddleware");
 const bodyValidate_1 = require("../middleware/bodyValidate");
-const joi_1 = __importDefault(require("joi"));
 const enums_1 = require("../generated/prisma/enums");
-// Validation schema for payment initiation
-const initPaymentSchema = joi_1.default.object({
-    orderId: joi_1.default.string().required().messages({
-        'string.empty': 'Order ID is required',
-        'any.required': 'Order ID is required'
-    }),
-    provider: joi_1.default.string().valid('stripe', 'paystack', 'flutterwave').required().messages({
-        'any.only': 'Provider must be one of: stripe, paystack, flutterwave',
-        'any.required': 'Payment provider is required'
-    }),
-    callbackUrl: joi_1.default.string().required(),
-    paymentType: joi_1.default.string()
-        .valid(...Object.values(enums_1.PaymentType))
-        .optional(),
-});
+const multer_config_1 = require("../config/multer.config");
+const cloudinaryUploads_1 = require("../middleware/cloudinaryUploads");
+const payment_validation_1 = require("../validation/schema/payment.validation");
 class PaymentRoutes {
     constructor() {
         this.router = (0, express_1.Router)();
@@ -33,7 +17,7 @@ class PaymentRoutes {
     }
     initializeRoutes() {
         // Initiate payment
-        this.router.post('/init', authMiddleware_1.authenticate, (0, bodyValidate_1.validateBody)(initPaymentSchema), this.controller.initPayment);
+        this.router.post('/init', authMiddleware_1.authenticate, (0, bodyValidate_1.validateBody)(payment_validation_1.initPaymentSchema), this.controller.initPayment);
         this.router.patch('/verify/:reference', authMiddleware_1.authenticate, this.controller.verifyPayment);
         this.router.post('/webhooks/paystack', this.controller.paystackWebhook);
         this.router.post('/webhooks/stripe', this.controller.stripeWebhook);
@@ -41,9 +25,15 @@ class PaymentRoutes {
         this.router.get('/all', authMiddleware_1.authenticate, this.controller.getAllPayments);
         this.router.get('/user-mine', authMiddleware_1.authenticate, this.controller.getAllUserPayments);
         this.router.get('/payment-id/:id', authMiddleware_1.authenticate, this.controller.getPaymentById);
+        // Buyer: one-shot bank transfer — creates order + payment + attaches evidence simultaneously
+        this.router.post('/bank-transfer/initiate', authMiddleware_1.authenticate, multer_config_1.upload.array('evidence', 1), (0, bodyValidate_1.validateBody)(payment_validation_1.bankTransferInitiateSchema), cloudinaryUploads_1.uploadToCloudinary, this.controller.initiateBankTransfer);
+        // Buyer: attach evidence to an existing order's payment record
+        this.router.post('/orders/:orderId/evidence', authMiddleware_1.authenticate, multer_config_1.upload.array('evidence', 1), cloudinaryUploads_1.uploadToCloudinary, this.controller.uploadEvidence);
         // Admin endpoints
         this.router.get('/admin/list', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([enums_1.UserRole.OPERATIONS_ADMIN, enums_1.UserRole.SUPER_ADMIN]), this.controller.getAdminPayments);
         this.router.get('/admin/stats', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([enums_1.UserRole.OPERATIONS_ADMIN, enums_1.UserRole.SUPER_ADMIN]), this.controller.getPaymentStats);
+        this.router.patch('/:id/confirm', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([enums_1.UserRole.OPERATIONS_ADMIN, enums_1.UserRole.SUPER_ADMIN]), this.controller.confirmPayment);
+        this.router.patch('/:id/reject', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([enums_1.UserRole.OPERATIONS_ADMIN, enums_1.UserRole.SUPER_ADMIN]), this.controller.rejectPayment);
     }
     getRouter() {
         return this.router;

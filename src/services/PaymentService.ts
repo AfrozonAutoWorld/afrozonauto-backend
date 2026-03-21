@@ -56,11 +56,14 @@ export class PaymentService {
       reference,
       metadata: { orderId: payload.orderId, callbackUrl: payload.callbackUrl, shippingMethod: payload.shippingMethod, paymentType: payload.paymentType }
     });
+    // Use the actual payable amount from provider calculation, fall back to raw amountUsd
+    const payableAmount = result.calculation?.paymentAmount ?? payload.amountUsd;
+
     // Create payment record with calculation data if available
     const paymentData: any = {
       orderId: payload.orderId,
       userId: payload.userId,
-      amountUsd: payload.amountUsd,
+      amountUsd: payableAmount,
       paymentType: payload.paymentType,
       paymentProvider: payload.provider,
       status: PaymentStatus.PENDING,
@@ -71,6 +74,7 @@ export class PaymentService {
     // Add calculation metadata if available
     if (result.calculation) {
       paymentData.metadata = {
+        vehiclePriceUsd: payload.amountUsd,
         calculation: result.calculation,
         isDeposit: result.calculation.isDeposit,
         depositPercentage: result.calculation.depositPercentage,
@@ -218,5 +222,76 @@ export class PaymentService {
 
   getPaymentStats() {
     return this.paymentRepo.getStats();
+  }
+
+  // ─── Bank Transfer Evidence ───────────────────────────────────────────────
+
+  async uploadPaymentEvidence(
+    orderId: string,
+    userId: string,
+    evidenceUrl: string,
+    evidencePublicId: string,
+    paymentType: string = 'DEPOSIT',
+  ) {
+    // Verify order belongs to user
+    const order = await this.orderRepo.findById(orderId);
+    if (!order) throw Object.assign(new Error('Order not found'), { statusCode: 404 });
+    if (order.userId !== userId) throw Object.assign(new Error('Access denied'), { statusCode: 403 });
+
+    // Derive amount from paymentBreakdown (set at order creation via calculateTotalUsd)
+    // Fall back to vehicleSnapshot price if breakdown is missing
+    const breakdown = order.paymentBreakdown as Record<string, any> | null;
+    const snapshot = order.vehicleSnapshot as Record<string, any>;
+    const vehiclePriceUsd = (snapshot?.originalPriceUsd ?? snapshot?.priceUsd ?? 0) as number;
+
+    let amountUsd: number;
+    if (breakdown?.totalUsd) {
+      amountUsd = paymentType === 'FULL_PAYMENT'
+        ? (breakdown.totalUsd as number)
+        : (breakdown.totalUsedDeposit as number ?? breakdown.totalUsd * 0.25);
+    } else {
+      // paymentBreakdown not yet set — use raw vehicle price as best estimate
+      amountUsd = vehiclePriceUsd;
+    }
+
+    // Find existing open payment or create one now
+    const payment = await this.paymentRepo.findOrCreateBankTransferPayment(orderId, userId, paymentType, amountUsd);
+
+    return this.paymentRepo.saveEvidence(payment.id, evidenceUrl, evidencePublicId);
+  }
+
+  // ─── Admin Confirm / Reject ───────────────────────────────────────────────
+
+  async adminConfirmPayment(paymentId: string, adminId: string, note?: string) {
+    const payment = await this.paymentRepo.findPaymentWithOrder(paymentId);
+    if (!payment) throw Object.assign(new Error('Payment not found'), { statusCode: 404 });
+    if (payment.status === PaymentStatus.COMPLETED) throw Object.assign(new Error('Payment already confirmed'), { statusCode: 400 });
+
+    const newOrderStatus = payment.paymentType === PaymentType.DEPOSIT ? OrderStatus.DEPOSIT_PAID : OrderStatus.BALANCE_PAID;
+
+    await prisma.$transaction([
+      this.paymentRepo.adminConfirmPayment(paymentId, adminId, note) as any,
+      this.orderRepo.updateOrderStatus(payment.orderId, newOrderStatus) as any,
+    ]);
+
+    // Notify buyer
+    this.notificationService.notifyAdminsPaymentReceived({
+      orderId: payment.orderId,
+      orderRef: payment.order.requestNumber,
+      customerName: payment.user.fullName ?? payment.user.email,
+      amountUsd: payment.amountUsd,
+    }).catch(() => {});
+
+    return this.paymentRepo.findPaymentWithOrder(paymentId);
+  }
+
+  async adminRejectPayment(paymentId: string, adminId: string, note: string) {
+    const payment = await this.paymentRepo.findPaymentWithOrder(paymentId);
+    if (!payment) throw Object.assign(new Error('Payment not found'), { statusCode: 404 });
+    if (!['PROCESSING', 'PENDING'].includes(payment.status)) {
+      throw Object.assign(new Error('Only pending/processing payments can be rejected'), { statusCode: 400 });
+    }
+
+    return this.paymentRepo.adminRejectPayment(paymentId, adminId, note);
   }
 }

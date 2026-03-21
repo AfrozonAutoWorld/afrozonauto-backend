@@ -27,12 +27,12 @@ export class RecommendedDefinitionController {
   });
 
   create = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    // if (req.user?.role !== UserRole.SUPER_ADMIN && req.user?.role !== UserRole.OPERATIONS_ADMIN) {
-    //   throw ApiError.forbidden('Admin only');
-    // }
+
     const { make, model, yearStart, yearEnd, reason, sortOrder, isActive, maxFetchCount } = req.body;
     if (!make || yearStart == null || yearEnd == null) {
-      throw ApiError.badRequest('make, yearStart, yearEnd are required');
+      return res.status(400).json( 
+        ApiError.badRequest('make, yearStart, yearEnd are required')
+      )
     }
     const item = await this.repo.create({
       make,
@@ -50,7 +50,10 @@ export class RecommendedDefinitionController {
   update = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     const existing = await this.repo.findById(id);
-    if (!existing) throw ApiError.notFound('Recommended definition not found');
+    if (!existing) 
+    {
+      return res.status(400).json( ApiError.notFound('Recommended definition not found'))
+    }
     const { make, model, yearStart, yearEnd, reason, sortOrder, isActive, maxFetchCount } = req.body;
     const item = await this.repo.update(id, {
       ...(make != null && { make }),
@@ -68,7 +71,10 @@ export class RecommendedDefinitionController {
   delete = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     const existing = await this.repo.findById(id);
-    if (!existing) throw ApiError.notFound('Recommended definition not found');
+    if (!existing) 
+    {
+      return res.status(400).json( ApiError.notFound('Recommended definition not found'))
+    }
     await this.repo.delete(id);
     return res.json(ApiResponse.success(null, 'Recommended definition deleted'));
   });

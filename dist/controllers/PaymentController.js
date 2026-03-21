@@ -30,11 +30,16 @@ const ApiError_1 = require("../utils/ApiError");
 const ApiResponse_1 = require("../utils/ApiResponse");
 const OrderService_1 = require("../services/OrderService");
 const enums_1 = require("../generated/prisma/enums");
+const VehicleServiceDirect_1 = require("../services/VehicleServiceDirect");
+const PricingConfigService_1 = require("../services/PricingConfigService");
 let PaymentController = class PaymentController {
-    constructor(paymentService, orderServices) {
+    constructor(paymentService, orderServices, vehicleService, pricingService) {
         this.paymentService = paymentService;
         this.orderServices = orderServices;
+        this.vehicleService = vehicleService;
+        this.pricingService = pricingService;
         this.initPayment = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            var _a;
             if (!req.user) {
                 return res.status(403).json(ApiError_1.ApiError.unauthorized('User not authenticated'));
             }
@@ -47,17 +52,15 @@ let PaymentController = class PaymentController {
             }
             // Type guard to ensure it's an object
             const vehicleSnapshot = order.vehicleSnapshot;
-            // if (typeof vehicleSnapshot.originalPriceUsd !== 'number') {
-            //     return res.status(400).json(
-            //         ApiError.badRequest("Invalid vehicle snapshot data")
-            //     );
-            // }
+            const vehiclePriceUsd = ((_a = vehicleSnapshot.originalPriceUsd) !== null && _a !== void 0 ? _a : vehicleSnapshot.priceUsd);
+            if (!vehiclePriceUsd) {
+                return res.status(400).json(ApiError_1.ApiError.badRequest("Vehicle snapshot is missing price data"));
+            }
             const result = yield this.paymentService.initiatePayment({
                 orderId: req.body.orderId,
                 userId: req.user.id,
                 email: req.user.email,
-                // amountUsd: 1000 || (vehicleSnapshot.originalPriceUsd ?? vehicleSnapshot.priceUsd) as number,
-                amountUsd: 1000,
+                amountUsd: vehiclePriceUsd,
                 provider: req.body.provider,
                 paymentType: req.body.paymentType,
                 currency: vehicleSnapshot.currency || 'USD',
@@ -91,7 +94,7 @@ let PaymentController = class PaymentController {
             const payment = yield this.paymentService.handlePaymentSuccess(reference, 'stripe');
             return res.status(200).json(ApiResponse_1.ApiResponse.success(payment));
         }));
-        this.getAllPayments = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+        this.getAllPayments = (0, asyncHandler_1.asyncHandler)((_req, res) => __awaiter(this, void 0, void 0, function* () {
             const payments = yield this.paymentService.getPayments();
             return res.status(200).json(ApiResponse_1.ApiResponse.success(payments));
         }));
@@ -124,6 +127,73 @@ let PaymentController = class PaymentController {
             const stats = yield this.paymentService.getPaymentStats();
             return res.status(200).json(ApiResponse_1.ApiResponse.success(stats, 'Payment statistics retrieved'));
         }));
+        // ─── Bank Transfer: one-shot (create order + payment + attach evidence) ──
+        this.initiateBankTransfer = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            var _a, _b;
+            if (!req.user)
+                return res.status(401).json(ApiError_1.ApiError.unauthorized('Not authenticated'));
+            const { identifier, type, vehicleId, shippingMethod, paymentType = 'DEPOSIT', customerNotes, deliveryInstructions, specialRequests, } = req.body;
+            if (!identifier || !shippingMethod) {
+                return res.status(400).json(ApiError_1.ApiError.badRequest('identifier and shippingMethod are required'));
+            }
+            const uploadedFiles = (_a = req.body.uploadedFiles) !== null && _a !== void 0 ? _a : [];
+            if (!uploadedFiles.length)
+                return res.status(400).json(ApiError_1.ApiError.badRequest('No evidence file uploaded'));
+            // 1. Fetch vehicle
+            const vehicle = yield this.vehicleService.getVehicle(identifier, type !== null && type !== void 0 ? type : 'id');
+            if (!vehicle)
+                return res.status(404).json(ApiError_1.ApiError.notFound('Vehicle not found'));
+            // 2. Calculate pricing breakdown
+            const paymentBreakdown = yield this.pricingService.calculateTotalUsd(((_b = vehicle.originalPriceUsd) !== null && _b !== void 0 ? _b : vehicle.priceUsd), shippingMethod);
+            // 3. Create order (PENDING_QUOTE)
+            const order = yield this.orderServices.createOrder({
+                userId: req.user.id,
+                vehicleId: vehicleId !== null && vehicleId !== void 0 ? vehicleId : vehicle.id,
+                shippingMethod,
+                vehicleSnapshot: vehicle,
+                paymentBreakdown,
+                customerNotes,
+                deliveryInstructions,
+                specialRequests,
+            });
+            // 4. Create payment record + attach evidence → status PROCESSING
+            const { url, publicId } = uploadedFiles[0];
+            const payment = yield this.paymentService.uploadPaymentEvidence(order.id, req.user.id, url, publicId, paymentType);
+            return res.status(201).json(ApiResponse_1.ApiResponse.success({ order, payment }, 'Order and payment evidence submitted. Awaiting admin confirmation.'));
+        }));
+        // ─── Bank Transfer Evidence (existing order) ─────────────────────────────
+        this.uploadEvidence = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            var _a, _b;
+            if (!req.user)
+                return res.status(401).json(ApiError_1.ApiError.unauthorized('Not authenticated'));
+            const { orderId } = req.params;
+            const paymentType = (_a = req.body.paymentType) !== null && _a !== void 0 ? _a : 'DEPOSIT';
+            const uploadedFiles = (_b = req.body.uploadedFiles) !== null && _b !== void 0 ? _b : [];
+            if (!uploadedFiles.length)
+                return res.status(400).json(ApiError_1.ApiError.badRequest('No evidence file uploaded'));
+            const { url, publicId } = uploadedFiles[0];
+            const payment = yield this.paymentService.uploadPaymentEvidence(orderId, req.user.id, url, publicId, paymentType);
+            return res.status(200).json(ApiResponse_1.ApiResponse.success(payment, 'Payment evidence uploaded. Awaiting admin confirmation.'));
+        }));
+        // ─── Admin Confirm / Reject ─────────────────────────────────────────────
+        this.confirmPayment = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            if (!req.user)
+                return res.status(401).json(ApiError_1.ApiError.unauthorized('Not authenticated'));
+            const { id } = req.params;
+            const { note } = req.body;
+            const payment = yield this.paymentService.adminConfirmPayment(id, req.user.id, note);
+            return res.status(200).json(ApiResponse_1.ApiResponse.success(payment, 'Payment confirmed and order status updated'));
+        }));
+        this.rejectPayment = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            if (!req.user)
+                return res.status(401).json(ApiError_1.ApiError.unauthorized('Not authenticated'));
+            const { id } = req.params;
+            const { note } = req.body;
+            if (!note)
+                return res.status(400).json(ApiError_1.ApiError.badRequest('Rejection reason (note) is required'));
+            const payment = yield this.paymentService.adminRejectPayment(id, req.user.id, note);
+            return res.status(200).json(ApiResponse_1.ApiResponse.success(payment, 'Payment evidence rejected'));
+        }));
     }
 };
 exports.PaymentController = PaymentController;
@@ -131,6 +201,10 @@ exports.PaymentController = PaymentController = __decorate([
     (0, inversify_1.injectable)(),
     __param(0, (0, inversify_1.inject)(types_1.TYPES.PaymentService)),
     __param(1, (0, inversify_1.inject)(types_1.TYPES.OrderService)),
+    __param(2, (0, inversify_1.inject)(types_1.TYPES.VehicleService)),
+    __param(3, (0, inversify_1.inject)(types_1.TYPES.PricingConfigService)),
     __metadata("design:paramtypes", [PaymentService_1.PaymentService,
-        OrderService_1.OrderService])
+        OrderService_1.OrderService,
+        VehicleServiceDirect_1.VehicleServiceDirect,
+        PricingConfigService_1.PricingConfigService])
 ], PaymentController);

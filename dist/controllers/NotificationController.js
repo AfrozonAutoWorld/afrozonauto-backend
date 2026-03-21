@@ -59,6 +59,9 @@ let NotificationController = class NotificationController {
                 return res.status(400).json(ApiError_1.ApiError.badRequest('Notification ID is required'));
             }
             const updated = yield this.notificationService.markAsRead(id);
+            if (!updated) {
+                return res.status(404).json(ApiError_1.ApiError.notFound('Notification not found'));
+            }
             return res.status(200).json(ApiResponse_1.ApiResponse.success(updated, 'Notification marked as read'));
         }));
         this.markAllAsRead = (0, asyncHandler_1.asyncHandler)((_req, res) => __awaiter(this, void 0, void 0, function* () {

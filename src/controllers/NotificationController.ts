@@ -54,6 +54,9 @@ export class NotificationController {
       return res.status(400).json(ApiError.badRequest('Notification ID is required'));
     }
     const updated = await this.notificationService.markAsRead(id);
+    if (!updated) {
+      return res.status(404).json(ApiError.notFound('Notification not found'));
+    }
     return res.status(200).json(ApiResponse.success(updated, 'Notification marked as read'));
   });
 

@@ -107,6 +107,80 @@ export class PaymentRepository {
       data
     });
   }
+
+  // ─── Bank Transfer Evidence ───────────────────────────────────────────────
+
+  async findOrCreateBankTransferPayment(orderId: string, userId: string, paymentType: string, amountUsd: number) {
+    // Return existing open bank-transfer payment for this order if one exists
+    const existing = await prisma.payment.findFirst({
+      where: { orderId, userId, status: { in: ['PENDING', 'PROCESSING'] } },
+      include: { order: { select: { id: true, requestNumber: true, status: true, userId: true } } },
+    });
+    if (existing) return existing;
+
+    // Otherwise create a new one
+    const ref = `AFZ-BT-${Date.now()}`;
+    return prisma.payment.create({
+      data: {
+        orderId, userId,
+        amountUsd,
+        paymentType: paymentType as any,
+        paymentMethod: 'BANK_TRANSFER',
+        paymentProvider: 'bank_transfer',
+        status: 'PENDING',
+        transactionRef: ref,
+      },
+      include: { order: { select: { id: true, requestNumber: true, status: true, userId: true } } },
+    });
+  }
+
+  saveEvidence(id: string, evidenceUrl: string, evidencePublicId: string) {
+    return prisma.payment.update({
+      where: { id },
+      data: {
+        evidenceUrl,
+        evidencePublicId,
+        evidenceUploadedAt: new Date(),
+        status: 'PROCESSING',
+        paymentMethod: 'BANK_TRANSFER',
+      },
+    });
+  }
+
+  // ─── Admin Confirm / Reject ───────────────────────────────────────────────
+
+  findPaymentWithOrder(id: string) {
+    return prisma.payment.findUnique({
+      where: { id },
+      include: { order: true, user: { select: { id: true, email: true, fullName: true } } },
+    });
+  }
+
+  adminConfirmPayment(id: string, adminId: string, note?: string) {
+    return prisma.payment.update({
+      where: { id },
+      data: {
+        status: 'COMPLETED',
+        escrowStatus: 'HELD',
+        completedAt: new Date(),
+        adminConfirmedBy: adminId,
+        adminConfirmedAt: new Date(),
+        adminNote: note,
+      },
+    });
+  }
+
+  adminRejectPayment(id: string, adminId: string, note: string) {
+    return prisma.payment.update({
+      where: { id },
+      data: {
+        status: 'PENDING',
+        adminConfirmedBy: adminId,
+        adminConfirmedAt: new Date(),
+        adminNote: note,
+      },
+    });
+  }
   
 //   markExpiredAsAbandoned(now: Date) {
 //     return prisma.payment.updateMany({

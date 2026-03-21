@@ -784,46 +784,132 @@ const swaggerSpec = {
             }
         },
         // PAYMENT ENDPOINTS (PaymentRoutes.ts)
+        "/api/payments/webhooks/paystack": {
+            post: {
+                summary: "Paystack payment webhook (no auth)",
+                description: "Receives Paystack payment event callbacks. Verifies payment and updates order status to DEPOSIT_PAID or BALANCE_PAID.",
+                tags: ["Payments"],
+                requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } },
+                responses: { 200: { description: "Webhook processed" } }
+            }
+        },
+        "/api/payments/webhooks/stripe": {
+            post: {
+                summary: "Stripe payment webhook (no auth)",
+                description: "Receives Stripe payment event callbacks. Verifies payment and updates order/payment status.",
+                tags: ["Payments"],
+                requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } },
+                responses: { 200: { description: "Webhook processed" } }
+            }
+        },
         "/api/payments/init": {
             post: {
-                summary: "Initiate payment",
+                summary: "Initiate online payment (Paystack / Stripe)",
+                description: "Starts a payment session with the selected provider and creates a PENDING payment record. Use the returned checkout URL to redirect the buyer.",
                 tags: ["Payments"],
                 security: [{ bearerAuth: [] }],
                 requestBody: {
                     required: true,
-                    content: { "application/json": { schema: { type: "object", required: ["orderId", "provider", "callbackUrl"], properties: { orderId: { type: "string" }, provider: { type: "string", enum: ["stripe", "paystack", "flutterwave"] }, callbackUrl: { type: "string" }, paymentType: { type: "string" } } } } }
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["orderId", "provider", "callbackUrl"],
+                                properties: {
+                                    orderId: { type: "string" },
+                                    provider: { type: "string", enum: ["stripe", "paystack", "flutterwave"] },
+                                    callbackUrl: { type: "string", format: "uri" },
+                                    paymentType: { type: "string", enum: ["DEPOSIT", "FULL_PAYMENT", "BALANCE"], default: "DEPOSIT" }
+                                }
+                            }
+                        }
+                    }
                 },
-                responses: { 201: { description: "Payment initiated" } }
+                responses: {
+                    200: { description: "Payment session created — contains checkout URL" },
+                    400: { description: "Validation error or missing vehicle snapshot" },
+                    404: { description: "Order not found" }
+                }
             }
         },
         "/api/payments/verify/{reference}": {
             patch: {
-                summary: "Verify payment",
+                summary: "Verify online payment status",
+                description: "Confirms the payment with the provider and marks it COMPLETED if successful.",
                 tags: ["Payments"],
-                parameters: [{ name: "reference", in: "path", required: true, schema: { type: "string" } }],
                 security: [{ bearerAuth: [] }],
-                responses: { 200: { description: "Payment verified" } }
+                parameters: [
+                    { name: "reference", in: "path", required: true, schema: { type: "string" } },
+                    { name: "provider", in: "query", required: true, schema: { type: "string", enum: ["paystack", "stripe"] } }
+                ],
+                responses: {
+                    200: { description: "Payment verified" },
+                    400: { description: "Reference or provider missing" }
+                }
             }
         },
         "/api/payments/user-mine": {
             get: {
-                summary: "Get current user's payments",
+                summary: "Get authenticated user's payments",
                 tags: ["Payments"],
                 security: [{ bearerAuth: [] }],
-                responses: { 200: { description: "List of payments" } }
+                responses: { 200: { description: "List of payments for the current user" } }
             }
         },
         "/api/payments/all": {
             get: {
-                summary: "Get all payments (Admin)",
+                summary: "Get all payments (authenticated)",
+                description: "Returns all payments without pagination. For admin-filtered/paginated view use GET /api/payments/admin/list.",
+                tags: ["Payments"],
+                security: [{ bearerAuth: [] }],
+                responses: { 200: { description: "All payments with order details" } }
+            }
+        },
+        "/api/payments/admin/list": {
+            get: {
+                summary: "Get paginated payments list (Admin)",
+                description: "Filterable, paginated payments list for admin. Includes user and order details.",
                 tags: ["Payments"],
                 security: [{ bearerAuth: [] }],
                 parameters: [
                     { name: "page", in: "query", schema: { type: "integer", default: 1 } },
-                    { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
-                    { name: "status", in: "query", schema: { type: "string", enum: ["PENDING", "COMPLETED", "FAILED", "REFUNDED"] } }
+                    { name: "limit", in: "query", schema: { type: "integer", default: 10, maximum: 100 } },
+                    { name: "status", in: "query", schema: { type: "string", enum: ["ALL", "PENDING", "PROCESSING", "COMPLETED", "FAILED", "REFUNDED", "PARTIALLY_REFUNDED"] } },
+                    { name: "search", in: "query", schema: { type: "string" }, description: "Search by transaction reference or order ID" }
                 ],
-                responses: { 200: { description: "Paginated payment list" } }
+                responses: {
+                    200: { description: "Paginated payment list" },
+                    401: { description: "Unauthorized" },
+                    403: { description: "Forbidden – admin only" }
+                }
+            }
+        },
+        "/api/payments/admin/stats": {
+            get: {
+                summary: "Payment statistics (Admin)",
+                description: "Returns total transactions, total revenue, pending count, and total refunded.",
+                tags: ["Payments"],
+                security: [{ bearerAuth: [] }],
+                responses: {
+                    200: {
+                        description: "Payment statistics",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        totalTransactions: { type: "integer" },
+                                        totalRevenue: { type: "number" },
+                                        pendingCount: { type: "integer" },
+                                        totalRefunded: { type: "number" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    401: { description: "Unauthorized" },
+                    403: { description: "Forbidden – admin only" }
+                }
             }
         },
         "/api/payments/payment-id/{id}": {
@@ -833,7 +919,230 @@ const swaggerSpec = {
                 security: [{ bearerAuth: [] }],
                 parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
                 responses: {
-                    200: { description: "Payment details" },
+                    200: { description: "Payment details with order" },
+                    404: { description: "Payment not found" }
+                }
+            }
+        },
+        // Bank transfer: one-shot order + payment creation
+        "/api/payments/bank-transfer/initiate": {
+            post: {
+                summary: "Initiate bank transfer — create order + payment in one step",
+                description: "Buyer clicks 'I have paid'. This single endpoint creates the order, creates a PENDING payment record, and attaches the bank transfer evidence simultaneously. Both order (PENDING_QUOTE) and payment (PROCESSING) are created and await admin confirmation. Use this instead of separately creating an order then uploading evidence.",
+                tags: ["Payments"],
+                security: [{ bearerAuth: [] }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "multipart/form-data": {
+                            schema: {
+                                type: "object",
+                                required: ["identifier", "shippingMethod", "evidence"],
+                                properties: {
+                                    identifier: {
+                                        type: "string",
+                                        description: "Vehicle VIN or temp-id (e.g. temp-abc123)"
+                                    },
+                                    type: {
+                                        type: "string",
+                                        enum: ["id", "vin"],
+                                        default: "id",
+                                        description: "How to interpret the identifier"
+                                    },
+                                    vehicleId: {
+                                        type: "string",
+                                        description: "DB vehicle ID if known (optional)"
+                                    },
+                                    shippingMethod: {
+                                        type: "string",
+                                        enum: ["RORO", "CONTAINER", "AIR_FREIGHT", "EXPRESS"],
+                                        description: "Chosen shipping method"
+                                    },
+                                    paymentType: {
+                                        type: "string",
+                                        enum: ["DEPOSIT", "FULL_PAYMENT"],
+                                        default: "DEPOSIT",
+                                        description: "Whether this is a deposit or full payment"
+                                    },
+                                    evidence: {
+                                        type: "string",
+                                        format: "binary",
+                                        description: "Bank transfer receipt / proof of payment (image or PDF)"
+                                    },
+                                    customerNotes: { type: "string" },
+                                    deliveryInstructions: { type: "string" },
+                                    specialRequests: { type: "string" }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    201: {
+                        description: "Order and payment created — evidence attached, awaiting admin confirmation",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        success: { type: "boolean" },
+                                        data: {
+                                            type: "object",
+                                            properties: {
+                                                order: {
+                                                    type: "object",
+                                                    properties: {
+                                                        id: { type: "string" },
+                                                        requestNumber: { type: "string" },
+                                                        status: { type: "string", example: "PENDING_QUOTE" },
+                                                        vehicleSnapshot: { type: "object" },
+                                                        paymentBreakdown: { type: "object" }
+                                                    }
+                                                },
+                                                payment: {
+                                                    type: "object",
+                                                    properties: {
+                                                        id: { type: "string" },
+                                                        status: { type: "string", example: "PROCESSING" },
+                                                        amountUsd: { type: "number" },
+                                                        paymentType: { type: "string" },
+                                                        evidenceUrl: { type: "string", format: "uri" },
+                                                        evidenceUploadedAt: { type: "string", format: "date-time" }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    400: { description: "Missing required fields or no evidence file" },
+                    401: { description: "Unauthorized" },
+                    404: { description: "Vehicle not found" }
+                }
+            }
+        },
+        // Bank transfer evidence upload (existing order)
+        "/api/payments/orders/{orderId}/evidence": {
+            post: {
+                summary: "Upload bank transfer evidence for an existing order",
+                description: "Buyer re-uploads or adds proof of bank transfer to an already-created order. If no payment record exists for the order yet, one is created automatically. After upload the payment moves to PROCESSING and awaits admin confirmation. For a one-shot flow (no pre-existing order), use POST /api/payments/bank-transfer/initiate instead.",
+                tags: ["Payments"],
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "orderId", in: "path", required: true, schema: { type: "string" }, description: "Order ID to upload evidence for" }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "multipart/form-data": {
+                            schema: {
+                                type: "object",
+                                required: ["evidence"],
+                                properties: {
+                                    evidence: {
+                                        type: "string",
+                                        format: "binary",
+                                        description: "Payment receipt / proof of transfer (image or PDF, max 5 MB)"
+                                    },
+                                    paymentType: {
+                                        type: "string",
+                                        enum: ["DEPOSIT", "FULL_PAYMENT", "BALANCE"],
+                                        default: "DEPOSIT",
+                                        description: "Type of payment being evidenced"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: {
+                        description: "Evidence uploaded — payment status set to PROCESSING, awaiting admin confirmation",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        success: { type: "boolean" },
+                                        data: {
+                                            type: "object",
+                                            properties: {
+                                                id: { type: "string" },
+                                                status: { type: "string", example: "PROCESSING" },
+                                                evidenceUrl: { type: "string", format: "uri" },
+                                                evidenceUploadedAt: { type: "string", format: "date-time" },
+                                                amountUsd: { type: "number" },
+                                                paymentType: { type: "string" }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    400: { description: "No file uploaded or invalid order" },
+                    403: { description: "Order does not belong to this user" },
+                    404: { description: "Order not found" }
+                }
+            }
+        },
+        // Admin: confirm bank transfer payment
+        "/api/payments/{id}/confirm": {
+            patch: {
+                summary: "Confirm bank transfer payment (Admin)",
+                description: "Admin confirms the buyer's bank transfer evidence. Sets payment to COMPLETED and updates the order status to DEPOSIT_PAID or BALANCE_PAID based on payment type.",
+                tags: ["Payments"],
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" }, description: "Payment ID" }],
+                requestBody: {
+                    required: false,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    note: { type: "string", description: "Optional confirmation note" }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: { description: "Payment confirmed — order status updated" },
+                    400: { description: "Payment already confirmed" },
+                    401: { description: "Unauthorized" },
+                    403: { description: "Forbidden – admin only" },
+                    404: { description: "Payment not found" }
+                }
+            }
+        },
+        // Admin: reject bank transfer payment evidence
+        "/api/payments/{id}/reject": {
+            patch: {
+                summary: "Reject bank transfer payment evidence (Admin)",
+                description: "Admin rejects the uploaded evidence. Payment is reset to PENDING so the buyer can re-upload. A rejection reason (note) is required.",
+                tags: ["Payments"],
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" }, description: "Payment ID" }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["note"],
+                                properties: {
+                                    note: { type: "string", description: "Reason for rejection (shown to buyer)" }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: { description: "Evidence rejected — payment reset to PENDING" },
+                    400: { description: "note (rejection reason) is required, or payment is not in a rejectable state" },
+                    401: { description: "Unauthorized" },
+                    403: { description: "Forbidden – admin only" },
                     404: { description: "Payment not found" }
                 }
             }

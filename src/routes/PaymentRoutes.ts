@@ -5,24 +5,10 @@ import { PaymentController } from '../controllers/PaymentController';
 import { authenticate, authorize } from '../middleware/authMiddleware';
 import { validateBody } from '../middleware/bodyValidate';
 import Joi from 'joi';
-import { PaymentMethod, PaymentType, UserRole } from '../generated/prisma/enums';
-
-// Validation schema for payment initiation
-const initPaymentSchema = Joi.object({
-  orderId: Joi.string().required().messages({
-    'string.empty': 'Order ID is required',
-    'any.required': 'Order ID is required'
-  }),
-  provider: Joi.string().valid('stripe', 'paystack', 'flutterwave').required().messages({
-    'any.only': 'Provider must be one of: stripe, paystack, flutterwave',
-    'any.required': 'Payment provider is required'
-  }),
-  callbackUrl: Joi.string().required(),
-  paymentType: Joi.string()
-  .valid(...Object.values(PaymentType))
-  .optional(),
-
-});
+import { PaymentType, ShippingMethod, UserRole } from '../generated/prisma/enums';
+import { upload } from '../config/multer.config';
+import { uploadToCloudinary } from '../middleware/cloudinaryUploads';
+import { bankTransferInitiateSchema, initPaymentSchema } from '../validation/schema/payment.validation';
 
 class PaymentRoutes {
   private router: Router;
@@ -47,19 +33,17 @@ class PaymentRoutes {
     this.router.get('/user-mine', authenticate, this.controller.getAllUserPayments);
     this.router.get('/payment-id/:id', authenticate, this.controller.getPaymentById);
 
+    // Buyer: one-shot bank transfer — creates order + payment + attaches evidence simultaneously
+    this.router.post('/bank-transfer/initiate', authenticate, upload.array('evidence', 1), validateBody(bankTransferInitiateSchema), uploadToCloudinary, this.controller.initiateBankTransfer);
+
+    // Buyer: attach evidence to an existing order's payment record
+    this.router.post('/orders/:orderId/evidence', authenticate, upload.array('evidence', 1), uploadToCloudinary, this.controller.uploadEvidence);
+
     // Admin endpoints
-    this.router.get(
-      '/admin/list',
-      authenticate,
-      authorize([UserRole.OPERATIONS_ADMIN, UserRole.SUPER_ADMIN]),
-      this.controller.getAdminPayments
-    );
-    this.router.get(
-      '/admin/stats',
-      authenticate,
-      authorize([UserRole.OPERATIONS_ADMIN, UserRole.SUPER_ADMIN]),
-      this.controller.getPaymentStats
-    );
+    this.router.get('/admin/list', authenticate, authorize([UserRole.OPERATIONS_ADMIN, UserRole.SUPER_ADMIN]), this.controller.getAdminPayments);
+    this.router.get('/admin/stats', authenticate, authorize([UserRole.OPERATIONS_ADMIN, UserRole.SUPER_ADMIN]), this.controller.getPaymentStats);
+    this.router.patch('/:id/confirm', authenticate, authorize([UserRole.OPERATIONS_ADMIN, UserRole.SUPER_ADMIN]), this.controller.confirmPayment);
+    this.router.patch('/:id/reject', authenticate, authorize([UserRole.OPERATIONS_ADMIN, UserRole.SUPER_ADMIN]), this.controller.rejectPayment);
   }
 
   public getRouter(): Router {

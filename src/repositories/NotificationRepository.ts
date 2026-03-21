@@ -105,6 +105,8 @@ export class NotificationRepository {
   // ─── Mark as read ─────────────────────────────────────────────────────────
 
   async markAsRead(id: string) {
+    const exists = await prisma.notification.findUnique({ where: { id }, select: { id: true } });
+    if (!exists) return null;
     return prisma.notification.update({
       where: { id },
       data: { isRead: true, readAt: new Date() },

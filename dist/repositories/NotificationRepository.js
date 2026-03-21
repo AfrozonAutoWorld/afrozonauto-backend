@@ -105,6 +105,9 @@ let NotificationRepository = class NotificationRepository {
     // ─── Mark as read ─────────────────────────────────────────────────────────
     markAsRead(id) {
         return __awaiter(this, void 0, void 0, function* () {
+            const exists = yield db_1.default.notification.findUnique({ where: { id }, select: { id: true } });
+            if (!exists)
+                return null;
             return db_1.default.notification.update({
                 where: { id },
                 data: { isRead: true, readAt: new Date() },

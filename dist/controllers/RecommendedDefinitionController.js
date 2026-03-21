@@ -43,12 +43,9 @@ let RecommendedDefinitionController = class RecommendedDefinitionController {
             return res.json(ApiResponse_1.ApiResponse.success(item, 'Recommended definition retrieved'));
         }));
         this.create = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
-            // if (req.user?.role !== UserRole.SUPER_ADMIN && req.user?.role !== UserRole.OPERATIONS_ADMIN) {
-            //   throw ApiError.forbidden('Admin only');
-            // }
             const { make, model, yearStart, yearEnd, reason, sortOrder, isActive, maxFetchCount } = req.body;
             if (!make || yearStart == null || yearEnd == null) {
-                throw ApiError_1.ApiError.badRequest('make, yearStart, yearEnd are required');
+                return res.status(400).json(ApiError_1.ApiError.badRequest('make, yearStart, yearEnd are required'));
             }
             const item = yield this.repo.create({
                 make,
@@ -65,8 +62,9 @@ let RecommendedDefinitionController = class RecommendedDefinitionController {
         this.update = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             const { id } = req.params;
             const existing = yield this.repo.findById(id);
-            if (!existing)
-                throw ApiError_1.ApiError.notFound('Recommended definition not found');
+            if (!existing) {
+                return res.status(400).json(ApiError_1.ApiError.notFound('Recommended definition not found'));
+            }
             const { make, model, yearStart, yearEnd, reason, sortOrder, isActive, maxFetchCount } = req.body;
             const item = yield this.repo.update(id, Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, (make != null && { make })), (model !== undefined && { model })), (yearStart != null && { yearStart: Number(yearStart) })), (yearEnd != null && { yearEnd: Number(yearEnd) })), (reason !== undefined && { reason })), (sortOrder != null && { sortOrder: Number(sortOrder) })), (isActive !== undefined && { isActive: !!isActive })), (maxFetchCount != null && { maxFetchCount: Number(maxFetchCount) })));
             return res.json(ApiResponse_1.ApiResponse.success(item, 'Recommended definition updated'));
@@ -74,8 +72,9 @@ let RecommendedDefinitionController = class RecommendedDefinitionController {
         this.delete = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             const { id } = req.params;
             const existing = yield this.repo.findById(id);
-            if (!existing)
-                throw ApiError_1.ApiError.notFound('Recommended definition not found');
+            if (!existing) {
+                return res.status(400).json(ApiError_1.ApiError.notFound('Recommended definition not found'));
+            }
             yield this.repo.delete(id);
             return res.json(ApiResponse_1.ApiResponse.success(null, 'Recommended definition deleted'));
         }));

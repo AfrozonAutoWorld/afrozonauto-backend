@@ -8,7 +8,9 @@ import { ApiError } from '../utils/ApiError';
 import { ApiResponse } from '../utils/ApiResponse';
 import { OrderService } from '../services/OrderService';
 import { Prisma } from '../generated/prisma/client';
-import { PaymentStatus } from '../generated/prisma/enums';
+import { PaymentStatus, ShippingMethod } from '../generated/prisma/enums';
+import { VehicleServiceDirect } from '../services/VehicleServiceDirect';
+import { PricingConfigService } from '../services/PricingConfigService';
 
 
 @injectable()
@@ -18,6 +20,8 @@ export class PaymentController {
         @inject(TYPES.PaymentService)
         private paymentService: PaymentService,
         @inject(TYPES.OrderService) private orderServices: OrderService,
+        @inject(TYPES.VehicleService) private vehicleService: VehicleServiceDirect,
+        @inject(TYPES.PricingConfigService) private pricingService: PricingConfigService,
     ) { }
 
     initPayment = asyncHandler(async (req: AuthenticatedRequest, res) => {
@@ -42,18 +46,19 @@ export class PaymentController {
         
         // Type guard to ensure it's an object
         const vehicleSnapshot = order.vehicleSnapshot as Prisma.JsonObject;
-        
-        // if (typeof vehicleSnapshot.originalPriceUsd !== 'number') {
-        //     return res.status(400).json(
-        //         ApiError.badRequest("Invalid vehicle snapshot data")
-        //     );
-        // }
+
+        const vehiclePriceUsd = (vehicleSnapshot.originalPriceUsd ?? vehicleSnapshot.priceUsd) as number;
+        if (!vehiclePriceUsd) {
+            return res.status(400).json(
+                ApiError.badRequest("Vehicle snapshot is missing price data")
+            );
+        }
+
         const result = await this.paymentService.initiatePayment({
             orderId: req.body.orderId,
             userId: req.user.id,
             email: req.user.email,
-            // amountUsd: 1000 || (vehicleSnapshot.originalPriceUsd ?? vehicleSnapshot.priceUsd) as number,
-            amountUsd: 1000,
+            amountUsd: vehiclePriceUsd,
             provider: req.body.provider,
             paymentType: req.body.paymentType,
             currency: vehicleSnapshot.currency as string || 'USD',
@@ -117,7 +122,7 @@ export class PaymentController {
             )
         );
     });
-    getAllPayments = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    getAllPayments = asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
         const payments = await this.paymentService.getPayments()
         return res.status(200).json(
             ApiResponse.success(
@@ -172,5 +177,88 @@ export class PaymentController {
     getPaymentStats = asyncHandler(async (_req: Request, res: Response) => {
         const stats = await this.paymentService.getPaymentStats();
         return res.status(200).json(ApiResponse.success(stats, 'Payment statistics retrieved'));
+    });
+
+    // ─── Bank Transfer: one-shot (create order + payment + attach evidence) ──
+    initiateBankTransfer = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        if (!req.user) return res.status(401).json(ApiError.unauthorized('Not authenticated'));
+
+        const {
+            identifier, type, vehicleId,
+            shippingMethod, paymentType = 'DEPOSIT',
+            customerNotes, deliveryInstructions, specialRequests,
+        } = req.body;
+
+        if (!identifier || !shippingMethod) {
+            return res.status(400).json(ApiError.badRequest('identifier and shippingMethod are required'));
+        }
+
+        const uploadedFiles: any[] = req.body.uploadedFiles ?? [];
+        if (!uploadedFiles.length) return res.status(400).json(ApiError.badRequest('No evidence file uploaded'));
+
+        // 1. Fetch vehicle
+        const vehicle = await this.vehicleService.getVehicle(identifier, type ?? 'id');
+        if (!vehicle) return res.status(404).json(ApiError.notFound('Vehicle not found'));
+
+        // 2. Calculate pricing breakdown
+        const paymentBreakdown = await this.pricingService.calculateTotalUsd(
+            (vehicle.originalPriceUsd ?? vehicle.priceUsd) as number,
+            shippingMethod as ShippingMethod,
+        );
+
+        // 3. Create order (PENDING_QUOTE)
+        const order = await this.orderServices.createOrder({
+            userId: req.user.id,
+            vehicleId: vehicleId ?? vehicle.id,
+            shippingMethod,
+            vehicleSnapshot: vehicle as any,
+            paymentBreakdown,
+            customerNotes,
+            deliveryInstructions,
+            specialRequests,
+        });
+
+        // 4. Create payment record + attach evidence → status PROCESSING
+        const { url, publicId } = uploadedFiles[0];
+        const payment = await this.paymentService.uploadPaymentEvidence(
+            order.id, req.user.id, url, publicId, paymentType,
+        );
+
+        return res.status(201).json(
+            ApiResponse.success({ order, payment }, 'Order and payment evidence submitted. Awaiting admin confirmation.'),
+        );
+    });
+
+    // ─── Bank Transfer Evidence (existing order) ─────────────────────────────
+    uploadEvidence = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        if (!req.user) return res.status(401).json(ApiError.unauthorized('Not authenticated'));
+        const { orderId } = req.params;
+        const paymentType = req.body.paymentType ?? 'DEPOSIT';
+        const uploadedFiles: any[] = req.body.uploadedFiles ?? [];
+        if (!uploadedFiles.length) return res.status(400).json(ApiError.badRequest('No evidence file uploaded'));
+        const { url, publicId } = uploadedFiles[0];
+        const payment = await this.paymentService.uploadPaymentEvidence(orderId, req.user.id, url, publicId, paymentType);
+        return res.status(200).json(ApiResponse.success(payment, 'Payment evidence uploaded. Awaiting admin confirmation.'));
+    });
+
+    // ─── Admin Confirm / Reject ─────────────────────────────────────────────
+
+    confirmPayment = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        if (!req.user) return res.status(401).json(ApiError.unauthorized('Not authenticated'));
+        const { id } = req.params;
+        const { note } = req.body;
+
+        const payment = await this.paymentService.adminConfirmPayment(id, req.user.id, note);
+        return res.status(200).json(ApiResponse.success(payment, 'Payment confirmed and order status updated'));
+    });
+
+    rejectPayment = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        if (!req.user) return res.status(401).json(ApiError.unauthorized('Not authenticated'));
+        const { id } = req.params;
+        const { note } = req.body;
+        if (!note) return res.status(400).json(ApiError.badRequest('Rejection reason (note) is required'));
+
+        const payment = await this.paymentService.adminRejectPayment(id, req.user.id, note);
+        return res.status(200).json(ApiResponse.success(payment, 'Payment evidence rejected'));
     });
 }

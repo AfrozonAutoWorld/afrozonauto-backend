@@ -15,6 +15,7 @@ import {
   NotificationType,
   InspectionCondition,
   SourcingRequestStatus,
+  WithdrawalStatus,
 } from '../src/generated/prisma/enums';
 
 const prisma = new PrismaClient();
@@ -226,130 +227,45 @@ async function seedAdminData() {
 
   const passwordHash = await bcrypt.hash('Password123!', 10);
 
+  // ── 0. Fix nullable @unique indexes to be sparse (allow multiple nulls) ──────
+
+  for (const field of ['googleId', 'appleId']) {
+    const indexName = `users_${field}_key`;
+    try { await prisma.$runCommandRaw({ dropIndexes: 'users', index: indexName }); } catch { /* ok */ }
+    try {
+      await prisma.$runCommandRaw({
+        createIndexes: 'users',
+        indexes: [{ key: { [field]: 1 }, name: indexName, unique: true, sparse: true }],
+      });
+    } catch { /* ok */ }
+  }
+
   // ── 1. Users ────────────────────────────────────────────────────────────────
 
-  const superAdmin = await prisma.user.upsert({
-    where: { email: 'super.admin@afrozon.com' },
-    create: {
-      email: 'super.admin@afrozon.com',
-      fullName: 'Super Admin',
-      passwordHash,
-      role: UserRole.SUPER_ADMIN,
-      emailVerified: true,
-      isActive: true,
-    },
-    update: {},
-  });
+  // Safe helper: find existing user by email or create — avoids googleId unique index conflicts
+  const findOrCreateUser = async (email: string, data: Record<string, any>) => {
+    return (await prisma.user.findUnique({ where: { email } })) ??
+      (await prisma.user.create({ data: { ...data, email } }));
+  };
 
-  const opsAdmin = await prisma.user.upsert({
-    where: { email: 'ops.admin@afrozon.com' },
-    create: {
-      email: 'ops.admin@afrozon.com',
-      fullName: 'Operations Admin',
-      passwordHash,
-      role: UserRole.OPERATIONS_ADMIN,
-      emailVerified: true,
-      isActive: true,
-    },
-    update: {},
+  const superAdmin = await findOrCreateUser('super.admin@afrozon.com', {
+    fullName: 'Super Admin', passwordHash, role: UserRole.SUPER_ADMIN, emailVerified: true, isActive: true,
+  });
+  const opsAdmin = await findOrCreateUser('ops.admin@afrozon.com', {
+    fullName: 'Operations Admin', passwordHash, role: UserRole.OPERATIONS_ADMIN, emailVerified: true, isActive: true,
   });
 
   const buyerUsers = await Promise.all([
-    prisma.user.upsert({
-      where: { email: 'aisha.bello@example.com' },
-      create: {
-        email: 'aisha.bello@example.com',
-        fullName: 'Aisha Bello',
-        phone: '+2348012345678',
-        passwordHash,
-        role: UserRole.BUYER,
-        emailVerified: true,
-        isActive: true,
-      },
-      update: {},
-    }),
-    prisma.user.upsert({
-      where: { email: 'chukwuemeka.obi@example.com' },
-      create: {
-        email: 'chukwuemeka.obi@example.com',
-        fullName: 'Chukwuemeka Obi',
-        phone: '+2348023456789',
-        passwordHash,
-        role: UserRole.BUYER,
-        emailVerified: true,
-        isActive: true,
-      },
-      update: {},
-    }),
-    prisma.user.upsert({
-      where: { email: 'fatima.hassan@example.com' },
-      create: {
-        email: 'fatima.hassan@example.com',
-        fullName: 'Fatima Hassan',
-        phone: '+2348034567890',
-        passwordHash,
-        role: UserRole.BUYER,
-        emailVerified: true,
-        isActive: true,
-      },
-      update: {},
-    }),
-    prisma.user.upsert({
-      where: { email: 'kwame.asante@example.com' },
-      create: {
-        email: 'kwame.asante@example.com',
-        fullName: 'Kwame Asante',
-        phone: '+233244123456',
-        passwordHash,
-        role: UserRole.BUYER,
-        emailVerified: true,
-        currency: 'GHS',
-        isActive: true,
-      },
-      update: {},
-    }),
-    prisma.user.upsert({
-      where: { email: 'ngozi.nwosu@example.com' },
-      create: {
-        email: 'ngozi.nwosu@example.com',
-        fullName: 'Ngozi Nwosu',
-        phone: '+2348045678901',
-        passwordHash,
-        role: UserRole.BUYER,
-        emailVerified: true,
-        isActive: true,
-      },
-      update: {},
-    }),
+    findOrCreateUser('aisha.bello@example.com', { fullName: 'Aisha Bello', phone: '+2348012345678', passwordHash, role: UserRole.BUYER, emailVerified: true, isActive: true }),
+    findOrCreateUser('chukwuemeka.obi@example.com', { fullName: 'Chukwuemeka Obi', phone: '+2348023456789', passwordHash, role: UserRole.BUYER, emailVerified: true, isActive: true }),
+    findOrCreateUser('fatima.hassan@example.com', { fullName: 'Fatima Hassan', phone: '+2348034567890', passwordHash, role: UserRole.BUYER, emailVerified: true, isActive: true }),
+    findOrCreateUser('kwame.asante@example.com', { fullName: 'Kwame Asante', phone: '+233244123456', passwordHash, role: UserRole.BUYER, emailVerified: true, currency: 'GHS', isActive: true }),
+    findOrCreateUser('ngozi.nwosu@example.com', { fullName: 'Ngozi Nwosu', phone: '+2348045678901', passwordHash, role: UserRole.BUYER, emailVerified: true, isActive: true }),
   ]);
 
   const sellerUsers = await Promise.all([
-    prisma.user.upsert({
-      where: { email: 'autohub.lagos@example.com' },
-      create: {
-        email: 'autohub.lagos@example.com',
-        fullName: 'AutoHub Lagos',
-        phone: '+2341234567890',
-        passwordHash,
-        role: UserRole.SELLER,
-        emailVerified: true,
-        isActive: true,
-      },
-      update: {},
-    }),
-    prisma.user.upsert({
-      where: { email: 'premium.cars.abuja@example.com' },
-      create: {
-        email: 'premium.cars.abuja@example.com',
-        fullName: 'Premium Cars Abuja',
-        phone: '+2349012345678',
-        passwordHash,
-        role: UserRole.SELLER,
-        emailVerified: true,
-        isActive: true,
-      },
-      update: {},
-    }),
+    findOrCreateUser('autohub.lagos@example.com', { fullName: 'AutoHub Lagos', phone: '+2341234567890', passwordHash, role: UserRole.SELLER, emailVerified: true, isActive: true }),
+    findOrCreateUser('premium.cars.abuja@example.com', { fullName: 'Premium Cars Abuja', phone: '+2349012345678', passwordHash, role: UserRole.SELLER, emailVerified: true, isActive: true }),
   ]);
 
   // ── 2. Profiles ─────────────────────────────────────────────────────────────
@@ -1204,6 +1120,410 @@ async function seedAdminData() {
     if (!existing) {
       await prisma.sourcingRequest.create({ data: s });
     }
+  }
+
+  // ── 14. Additional Users (edge cases for admin testing) ─────────────────────
+
+  const inactiveBuyer = await findOrCreateUser('tunde.adebayo@example.com', {
+    fullName: 'Tunde Adebayo', phone: '+2348056789012', passwordHash, role: UserRole.BUYER, emailVerified: true, isActive: false,
+  });
+  const suspendedBuyer = await findOrCreateUser('amara.okafor@example.com', {
+    fullName: 'Amara Okafor', phone: '+2348067890123', passwordHash, role: UserRole.BUYER,
+    emailVerified: true, isActive: true, isSuspended: true,
+    suspensionReason: 'Fraudulent payment attempt detected', suspensionUntil: new Date(2026, 5, 1),
+  });
+  const unverifiedBuyer = await findOrCreateUser('kofi.mensah@example.com', {
+    fullName: 'Kofi Mensah', phone: '+233244567890', passwordHash, role: UserRole.BUYER, emailVerified: false, isActive: true, currency: 'GHS',
+  });
+  const seller3 = await findOrCreateUser('kings.motors.ph@example.com', {
+    fullName: 'Kings Motors Port Harcourt', phone: '+2348078901234', passwordHash, role: UserRole.SELLER, emailVerified: true, isActive: true, walletBalance: 1850.00,
+  });
+  const seller4 = await findOrCreateUser('topcar.kano@example.com', {
+    fullName: 'TopCar Kano', phone: '+2348089012345', passwordHash, role: UserRole.SELLER, emailVerified: true, isActive: true, walletBalance: 3200.50,
+  });
+
+  // Set wallet balances on existing sellers
+  await prisma.user.update({ where: { email: 'autohub.lagos@example.com' }, data: { walletBalance: 2400.00 } });
+  await prisma.user.update({ where: { email: 'premium.cars.abuja@example.com' }, data: { walletBalance: 750.00 } });
+
+  // Profiles for new users
+  const extraUsers = [inactiveBuyer, suspendedBuyer, unverifiedBuyer, seller3, seller4];
+  const extraProfileData = [
+    { firstName: 'Tunde', lastName: 'Adebayo' },
+    { firstName: 'Amara', lastName: 'Okafor' },
+    { firstName: 'Kofi', lastName: 'Mensah' },
+    { firstName: 'Kings', lastName: 'Motors', businessName: 'Kings Motors PH Ltd', isSeller: true },
+    { firstName: 'TopCar', lastName: 'Kano', businessName: 'TopCar Kano Ltd', isSeller: true },
+  ];
+  for (let i = 0; i < extraUsers.length; i++) {
+    const ep = await prisma.profile.findUnique({ where: { userId: extraUsers[i].id } });
+    if (!ep) {
+      await prisma.profile.create({
+        data: {
+          userId: extraUsers[i].id,
+          firstName: extraProfileData[i].firstName,
+          lastName: extraProfileData[i].lastName,
+          businessName: (extraProfileData[i] as any).businessName ?? undefined,
+          isSeller: (extraProfileData[i] as any).isSeller ?? false,
+          isVerified: true,
+          sellerStatus: (extraProfileData[i] as any).isSeller ? 'APPROVED' : 'NOT_APPLIED',
+        },
+      });
+    }
+  }
+
+  // ── 15. Seller-Submitted Vehicles (admin review workflow) ────────────────────
+
+  const sellerVehicleDefs = [
+    {
+      vin: 'SELLV1NISSAN2020001', slug: 'seller-2020-nissan-pathfinder-001',
+      make: 'Nissan', model: 'Pathfinder', year: 2020,
+      vehicleType: VehicleType.SUV, priceUsd: 24500, mileage: 52000,
+      transmission: 'Automatic', fuelType: 'Gasoline', exteriorColor: 'Midnight Black',
+      status: VehicleStatus.PENDING_REVIEW, userId: sellerUsers[0].id,
+      condition: 'GOOD', contactFirstName: 'AutoHub', contactLastName: 'Lagos', city: 'Lagos',
+    },
+    {
+      vin: 'SELLV2HONDA2019002', slug: 'seller-2019-honda-pilot-002',
+      make: 'Honda', model: 'Pilot', year: 2019,
+      vehicleType: VehicleType.SUV, priceUsd: 19800, mileage: 78000,
+      transmission: 'Automatic', fuelType: 'Gasoline', exteriorColor: 'Lunar Silver',
+      status: VehicleStatus.REVIEWING, userId: sellerUsers[1].id,
+      condition: 'FAIR', contactFirstName: 'Premium', contactLastName: 'Cars', city: 'Abuja',
+    },
+    {
+      vin: 'SELLV3FORD2018003', slug: 'seller-2018-ford-explorer-003',
+      make: 'Ford', model: 'Explorer', year: 2018,
+      vehicleType: VehicleType.SUV, priceUsd: 15000, mileage: 112000,
+      transmission: 'Automatic', fuelType: 'Gasoline', exteriorColor: 'Ruby Red',
+      status: VehicleStatus.REJECTED, userId: sellerUsers[0].id,
+      condition: 'BAD',
+      adminNotes: 'Rejected: High mileage and undisclosed structural damage from accident report.',
+      contactFirstName: 'AutoHub', contactLastName: 'Lagos', city: 'Lagos',
+    },
+  ];
+  for (const sv of sellerVehicleDefs) {
+    const exists = await prisma.vehicle.findUnique({ where: { vin: sv.vin } });
+    if (!exists) {
+      await prisma.vehicle.create({
+        data: {
+          vin: sv.vin, slug: sv.slug, make: sv.make, model: sv.model, year: sv.year,
+          vehicleType: sv.vehicleType as any, priceUsd: sv.priceUsd, mileage: sv.mileage,
+          transmission: sv.transmission, fuelType: sv.fuelType, exteriorColor: sv.exteriorColor,
+          status: sv.status as any, userId: sv.userId,
+          condition: (sv as any).condition as any,
+          adminNotes: (sv as any).adminNotes,
+          source: VehicleSource.SELLER,
+          contactFirstName: sv.contactFirstName, contactLastName: sv.contactLastName,
+          city: sv.city, isActive: true,
+        },
+      });
+    }
+  }
+
+  // ── 16. More Orders (full status coverage) ───────────────────────────────────
+
+  const moreOrderDefs: OrderDef[] = [
+    {
+      requestNumber: 'AFZ-26-03-000011', userId: buyerUsers[0].id, vehicleIdx: 2,
+      status: OrderStatus.DEPOSIT_PAID, quotedPriceUsd: 72000,
+      depositAmountUsd: 7200, totalLandedCostUsd: 91500,
+      shippingMethod: ShippingMethod.CONTAINER, createdAt: new Date(2026, 1, 28),
+    },
+    {
+      requestNumber: 'AFZ-26-03-000012', userId: buyerUsers[1].id, vehicleIdx: 0,
+      status: OrderStatus.INSPECTION_PENDING, quotedPriceUsd: 28500,
+      depositAmountUsd: 2850, totalLandedCostUsd: 36400,
+      shippingMethod: ShippingMethod.RORO, createdAt: new Date(2026, 2, 1),
+    },
+    {
+      requestNumber: 'AFZ-26-03-000013', userId: buyerUsers[2].id, vehicleIdx: 4,
+      status: OrderStatus.APPROVED, quotedPriceUsd: 31000,
+      depositAmountUsd: 3100, totalLandedCostUsd: 39500,
+      shippingMethod: ShippingMethod.RORO, priority: 'HIGH', createdAt: new Date(2026, 1, 20),
+    },
+    {
+      requestNumber: 'AFZ-26-02-000014', userId: buyerUsers[3].id, vehicleIdx: 5,
+      status: OrderStatus.PURCHASE_IN_PROGRESS, quotedPriceUsd: 42000,
+      depositAmountUsd: 4200, totalLandedCostUsd: 53500,
+      shippingMethod: ShippingMethod.CONTAINER, createdAt: new Date(2026, 1, 10),
+    },
+    {
+      requestNumber: 'AFZ-26-02-000015', userId: buyerUsers[4].id, vehicleIdx: 7,
+      status: OrderStatus.SHIPPED, quotedPriceUsd: 48000,
+      depositAmountUsd: 4800, totalLandedCostUsd: 62000,
+      shippingMethod: ShippingMethod.RORO, createdAt: new Date(2026, 0, 25),
+    },
+    {
+      requestNumber: 'AFZ-26-02-000016', userId: buyerUsers[0].id, vehicleIdx: 3,
+      status: OrderStatus.ARRIVED_PORT, quotedPriceUsd: 55000,
+      depositAmountUsd: 5500, totalLandedCostUsd: 69800,
+      shippingMethod: ShippingMethod.RORO, createdAt: new Date(2026, 0, 10),
+    },
+    {
+      requestNumber: 'AFZ-26-01-000017', userId: buyerUsers[1].id, vehicleIdx: 6,
+      status: OrderStatus.CUSTOMS_CLEARANCE, quotedPriceUsd: 110000,
+      depositAmountUsd: 11000, totalLandedCostUsd: 138000,
+      shippingMethod: ShippingMethod.CONTAINER, priority: 'URGENT', createdAt: new Date(2025, 11, 1),
+    },
+    {
+      requestNumber: 'AFZ-26-01-000018', userId: buyerUsers[2].id, vehicleIdx: 0,
+      status: OrderStatus.DELIVERY_SCHEDULED, quotedPriceUsd: 28500,
+      depositAmountUsd: 2850, totalLandedCostUsd: 36400,
+      shippingMethod: ShippingMethod.RORO, createdAt: new Date(2025, 11, 15),
+    },
+    {
+      requestNumber: 'AFZ-25-11-000019', userId: buyerUsers[3].id, vehicleIdx: 1,
+      status: OrderStatus.DELIVERED, quotedPriceUsd: 46000,
+      depositAmountUsd: 4600, totalLandedCostUsd: 58500,
+      shippingMethod: ShippingMethod.RORO, createdAt: new Date(2025, 10, 5),
+    },
+    {
+      requestNumber: 'AFZ-25-10-000020', userId: buyerUsers[4].id, vehicleIdx: 4,
+      status: OrderStatus.REFUNDED, quotedPriceUsd: 31000,
+      depositAmountUsd: 3100, totalLandedCostUsd: 39500,
+      shippingMethod: ShippingMethod.RORO, createdAt: new Date(2025, 9, 15),
+    },
+  ];
+
+  for (const def of moreOrderDefs) {
+    const existing = await prisma.order.findUnique({ where: { requestNumber: def.requestNumber } });
+    if (existing) { orders.push(existing); continue; }
+    const order = await prisma.order.create({
+      data: {
+        requestNumber: def.requestNumber, userId: def.userId,
+        vehicleId: vehicles[def.vehicleIdx].id,
+        vehicleSnapshot: makeSnapshot(vehicles[def.vehicleIdx]),
+        status: def.status,
+        quotedPriceUsd: def.quotedPriceUsd,
+        depositAmountUsd: def.depositAmountUsd,
+        totalLandedCostUsd: def.totalLandedCostUsd,
+        shippingMethod: def.shippingMethod,
+        destinationCountry: 'Nigeria', destinationCity: 'Lagos',
+        priority: def.priority ?? 'NORMAL',
+        vehicleSource: 'IN_HOUSE',
+        createdAt: def.createdAt ?? now,
+        refundAmount: def.status === OrderStatus.REFUNDED ? 3100 : undefined,
+        refundApproved: def.status === OrderStatus.REFUNDED,
+        cancelledAt: def.status === OrderStatus.REFUNDED ? new Date(2025, 10, 1) : undefined,
+        cancellationReason: def.status === OrderStatus.REFUNDED ? 'Customer changed mind after inspection' : undefined,
+      },
+    });
+    orders.push(order);
+  }
+
+  // ── 17. More Payments (revenue spread across Oct 2025 – Mar 2026) ─────────────
+  // orders[10]=AFZ-000011 … orders[19]=AFZ-000020
+
+  const morePaymentDefs: PaymentDef[] = [
+    { orderIdx: 10, userId: buyerUsers[0].id, amountUsd: 7200, paymentType: PaymentType.DEPOSIT, status: PaymentStatus.COMPLETED, escrowStatus: EscrowStatus.HELD, transactionRef: 'TXN-SEED-007', completedAt: new Date(2026, 1, 28) },
+    { orderIdx: 11, userId: buyerUsers[1].id, amountUsd: 2850, paymentType: PaymentType.DEPOSIT, status: PaymentStatus.COMPLETED, escrowStatus: EscrowStatus.HELD, transactionRef: 'TXN-SEED-008', completedAt: new Date(2026, 2, 1) },
+    { orderIdx: 12, userId: buyerUsers[2].id, amountUsd: 3100, paymentType: PaymentType.DEPOSIT, status: PaymentStatus.COMPLETED, escrowStatus: EscrowStatus.HELD, transactionRef: 'TXN-SEED-009', completedAt: new Date(2026, 1, 20) },
+    { orderIdx: 13, userId: buyerUsers[3].id, amountUsd: 4200, paymentType: PaymentType.DEPOSIT, status: PaymentStatus.COMPLETED, escrowStatus: EscrowStatus.HELD, transactionRef: 'TXN-SEED-010', completedAt: new Date(2026, 1, 10) },
+    { orderIdx: 14, userId: buyerUsers[4].id, amountUsd: 4800, paymentType: PaymentType.DEPOSIT, status: PaymentStatus.COMPLETED, escrowStatus: EscrowStatus.HELD, transactionRef: 'TXN-SEED-011', completedAt: new Date(2026, 0, 28) },
+    { orderIdx: 14, userId: buyerUsers[4].id, amountUsd: 57200, paymentType: PaymentType.BALANCE, status: PaymentStatus.COMPLETED, escrowStatus: EscrowStatus.HELD, transactionRef: 'TXN-SEED-012', completedAt: new Date(2026, 1, 5) },
+    { orderIdx: 15, userId: buyerUsers[0].id, amountUsd: 5500, paymentType: PaymentType.DEPOSIT, status: PaymentStatus.COMPLETED, escrowStatus: EscrowStatus.HELD, transactionRef: 'TXN-SEED-013', completedAt: new Date(2026, 0, 12) },
+    { orderIdx: 15, userId: buyerUsers[0].id, amountUsd: 64300, paymentType: PaymentType.BALANCE, status: PaymentStatus.COMPLETED, escrowStatus: EscrowStatus.HELD, transactionRef: 'TXN-SEED-014', completedAt: new Date(2026, 1, 1) },
+    { orderIdx: 16, userId: buyerUsers[1].id, amountUsd: 11000, paymentType: PaymentType.DEPOSIT, status: PaymentStatus.COMPLETED, escrowStatus: EscrowStatus.HELD, transactionRef: 'TXN-SEED-015', completedAt: new Date(2025, 11, 5) },
+    { orderIdx: 16, userId: buyerUsers[1].id, amountUsd: 127000, paymentType: PaymentType.BALANCE, status: PaymentStatus.COMPLETED, escrowStatus: EscrowStatus.HELD, transactionRef: 'TXN-SEED-016', completedAt: new Date(2026, 0, 5) },
+    { orderIdx: 17, userId: buyerUsers[2].id, amountUsd: 2850, paymentType: PaymentType.DEPOSIT, status: PaymentStatus.COMPLETED, escrowStatus: EscrowStatus.HELD, transactionRef: 'TXN-SEED-017', completedAt: new Date(2025, 11, 18) },
+    { orderIdx: 17, userId: buyerUsers[2].id, amountUsd: 33550, paymentType: PaymentType.BALANCE, status: PaymentStatus.COMPLETED, escrowStatus: EscrowStatus.HELD, transactionRef: 'TXN-SEED-018', completedAt: new Date(2026, 0, 20) },
+    { orderIdx: 18, userId: buyerUsers[3].id, amountUsd: 4600, paymentType: PaymentType.DEPOSIT, status: PaymentStatus.COMPLETED, escrowStatus: EscrowStatus.RELEASED, transactionRef: 'TXN-SEED-019', completedAt: new Date(2025, 10, 8) },
+    { orderIdx: 18, userId: buyerUsers[3].id, amountUsd: 53900, paymentType: PaymentType.BALANCE, status: PaymentStatus.COMPLETED, escrowStatus: EscrowStatus.RELEASED, transactionRef: 'TXN-SEED-020', completedAt: new Date(2025, 11, 10) },
+    { orderIdx: 19, userId: buyerUsers[4].id, amountUsd: 3100, paymentType: PaymentType.DEPOSIT, status: PaymentStatus.COMPLETED, escrowStatus: EscrowStatus.HELD, transactionRef: 'TXN-SEED-021', completedAt: new Date(2025, 9, 18) },
+    { orderIdx: 19, userId: buyerUsers[4].id, amountUsd: 3100, paymentType: PaymentType.REFUND, status: PaymentStatus.REFUNDED, escrowStatus: EscrowStatus.REFUNDED, transactionRef: 'TXN-SEED-022', completedAt: new Date(2025, 10, 2) },
+    // Failed payment attempt
+    { orderIdx: 3, userId: buyerUsers[3].id, amountUsd: 3100, paymentType: PaymentType.DEPOSIT, status: PaymentStatus.FAILED, escrowStatus: EscrowStatus.HELD, transactionRef: 'TXN-SEED-023' },
+  ];
+
+  for (const p of morePaymentDefs) {
+    const existing = await prisma.payment.findUnique({ where: { transactionRef: p.transactionRef } });
+    if (existing) continue;
+    await prisma.payment.create({
+      data: {
+        orderId: orders[p.orderIdx].id, userId: p.userId,
+        amountUsd: p.amountUsd, paymentType: p.paymentType,
+        status: p.status, escrowStatus: p.escrowStatus,
+        transactionRef: p.transactionRef,
+        paymentProvider: 'paystack', paymentMethod: 'BANK_TRANSFER',
+        completedAt: p.completedAt,
+      },
+    });
+  }
+
+  // ── 18. Bank Accounts & Withdrawals ──────────────────────────────────────────
+
+  const bankAccountSeeds = [
+    { userEmail: 'autohub.lagos@example.com', bankName: 'Guaranty Trust Bank', bankCode: '058', accountNumber: '0123456789', accountName: 'AUTOHUB LAGOS LIMITED', recipientCode: 'RCP_seed_autohub_001', isDefault: true },
+    { userEmail: 'premium.cars.abuja@example.com', bankName: 'Access Bank', bankCode: '044', accountNumber: '0987654321', accountName: 'PREMIUM CARS ABUJA', recipientCode: 'RCP_seed_premium_001', isDefault: true },
+    { userEmail: 'kings.motors.ph@example.com', bankName: 'Zenith Bank', bankCode: '057', accountNumber: '2345678901', accountName: 'KINGS MOTORS PORT HARCOURT', recipientCode: 'RCP_seed_kings_001', isDefault: true },
+  ];
+  const bankAccounts: any[] = [];
+  for (const ba of bankAccountSeeds) {
+    const user = await prisma.user.findUnique({ where: { email: ba.userEmail } });
+    if (!user) continue;
+    const existing = await prisma.bankAccount.findUnique({ where: { recipientCode: ba.recipientCode } });
+    if (existing) { bankAccounts.push(existing); continue; }
+    const created = await prisma.bankAccount.create({
+      data: {
+        userId: user.id, bankName: ba.bankName, bankCode: ba.bankCode,
+        accountNumber: ba.accountNumber, accountName: ba.accountName,
+        recipientCode: ba.recipientCode, isDefault: ba.isDefault,
+      },
+    });
+    bankAccounts.push(created);
+  }
+
+  const autoHubUser = await prisma.user.findUnique({ where: { email: 'autohub.lagos@example.com' } });
+  if (autoHubUser && bankAccounts[0]) {
+    const w1 = await prisma.withdrawalRequest.findUnique({ where: { reference: 'WDR-SEED-001' } });
+    if (!w1) {
+      await prisma.withdrawalRequest.create({
+        data: {
+          userId: autoHubUser.id, bankAccountId: bankAccounts[0].id,
+          amountUsd: 500, amountNgn: 775000, exchangeRate: 1550,
+          reference: 'WDR-SEED-001', paystackTransferCode: 'TRF_seed_autohub_001',
+          paystackTransferId: '12340001', status: WithdrawalStatus.COMPLETED,
+          processedAt: new Date(2026, 1, 15),
+        },
+      });
+    }
+    const w2 = await prisma.withdrawalRequest.findUnique({ where: { reference: 'WDR-SEED-002' } });
+    if (!w2) {
+      await prisma.withdrawalRequest.create({
+        data: {
+          userId: autoHubUser.id, bankAccountId: bankAccounts[0].id,
+          amountUsd: 300, amountNgn: 465000, exchangeRate: 1550,
+          reference: 'WDR-SEED-002', status: WithdrawalStatus.PENDING,
+          note: 'Monthly withdrawal',
+        },
+      });
+    }
+  }
+  const premiumUser = await prisma.user.findUnique({ where: { email: 'premium.cars.abuja@example.com' } });
+  if (premiumUser && bankAccounts[1]) {
+    const w3 = await prisma.withdrawalRequest.findUnique({ where: { reference: 'WDR-SEED-003' } });
+    if (!w3) {
+      await prisma.withdrawalRequest.create({
+        data: {
+          userId: premiumUser.id, bankAccountId: bankAccounts[1].id,
+          amountUsd: 750, amountNgn: 1162500, exchangeRate: 1550,
+          reference: 'WDR-SEED-003', paystackTransferCode: 'TRF_seed_premium_001',
+          status: WithdrawalStatus.PROCESSING, processedAt: new Date(2026, 2, 19),
+        },
+      });
+    }
+  }
+
+  // ── 19. Messages ──────────────────────────────────────────────────────────────
+
+  const messageSeeds = [
+    { senderId: opsAdmin.id, recipientId: buyerUsers[0].id, orderId: orders[1].id, isFromAdmin: true, subject: 'Your Quote is Ready', content: 'Hi Aisha, your quote for the 2021 Lexus RX 350 is ready. Please log in to review it and let us know if you have any questions.' },
+    { senderId: buyerUsers[0].id, recipientId: opsAdmin.id, orderId: orders[1].id, isFromAdmin: false, content: 'Thank you! I reviewed the quote. Can you clarify what is included in the shipping cost?' },
+    { senderId: opsAdmin.id, recipientId: buyerUsers[1].id, orderId: orders[6].id, isFromAdmin: true, subject: 'Shipment Update', content: 'Your 2020 Mercedes GLE is now in transit. MV Tera Star is expected at Tin Can Island Port by April 12, 2026.' },
+    { senderId: buyerUsers[2].id, recipientId: opsAdmin.id, orderId: orders[2].id, isFromAdmin: false, content: 'Hello, I accepted the quote for the BMW X5. What are the next steps to proceed with the deposit payment?' },
+    { senderId: superAdmin.id, recipientId: buyerUsers[3].id, orderId: orders[8].id, isFromAdmin: true, subject: 'Vehicle Delivered!', content: 'Congratulations Kwame! Your 2019 Porsche 911 Carrera has been successfully delivered. Please leave a review when you get a chance.' },
+  ];
+  for (const m of messageSeeds) {
+    const existing = await prisma.message.findFirst({ where: { senderId: m.senderId, orderId: m.orderId ?? undefined, content: m.content } });
+    if (!existing) { await prisma.message.create({ data: m }); }
+  }
+
+  // ── 20. Saved Vehicles ────────────────────────────────────────────────────────
+
+  const savedVehicleSeeds = [
+    { userId: buyerUsers[0].id, vehicleIdx: 2 },
+    { userId: buyerUsers[0].id, vehicleIdx: 4 },
+    { userId: buyerUsers[1].id, vehicleIdx: 3 },
+    { userId: buyerUsers[2].id, vehicleIdx: 6 },
+    { userId: buyerUsers[3].id, vehicleIdx: 0 },
+    { userId: buyerUsers[4].id, vehicleIdx: 1 },
+  ];
+  for (const sv of savedVehicleSeeds) {
+    const existing = await prisma.savedVehicle.findUnique({ where: { userId_vehicleId: { userId: sv.userId, vehicleId: vehicles[sv.vehicleIdx].id } } });
+    if (!existing) { await prisma.savedVehicle.create({ data: { userId: sv.userId, vehicleId: vehicles[sv.vehicleIdx].id } }); }
+  }
+
+  // ── 21. More Notifications (all remaining types) ──────────────────────────────
+
+  const moreNotifications = [
+    { userId: buyerUsers[2].id, orderId: orders[12]?.id, type: NotificationType.INSPECTION_COMPLETE, title: 'Inspection Complete', message: `Pre-purchase inspection for your Honda CR-V is done. Vehicle is in great condition. Please review the report.`, actionUrl: `/orders/${orders[12]?.id}`, actionLabel: 'View Report' },
+    { userId: buyerUsers[4].id, orderId: orders[14]?.id, type: NotificationType.SHIPMENT_UPDATE, title: 'Vehicle Shipped', message: `Your Ford F-150 has departed Port of Baltimore. Expected arrival Lagos: March 28, 2026.`, actionUrl: `/orders/${orders[14]?.id}`, actionLabel: 'Track Shipment' },
+    { userId: buyerUsers[2].id, orderId: orders[17]?.id, type: NotificationType.DELIVERY_SCHEDULED, title: 'Delivery Scheduled', message: `Your Toyota Camry delivery is scheduled for March 22, 2026 between 10am–2pm in Lagos.`, actionUrl: `/orders/${orders[17]?.id}`, actionLabel: 'View Details' },
+    { userId: buyerUsers[4].id, orderId: orders[19]?.id, type: NotificationType.REFUND_PROCESSED, title: 'Refund Processed', message: `Your refund of $3,100 for order ${orders[19]?.requestNumber} has been processed. Expect 3–5 business days.`, actionUrl: `/orders/${orders[19]?.id}`, actionLabel: 'View Order', isRead: true },
+    { userId: buyerUsers[1].id, orderId: orders[1]?.id, type: NotificationType.QUOTE_EXPIRED, title: 'Quote Expired', message: `Your quote for the 2021 Lexus RX 350 has expired. Please contact us to get an updated quote.`, actionUrl: `/orders/${orders[1]?.id}`, actionLabel: 'Contact Us' },
+    { userId: buyerUsers[3].id, orderId: orders[3]?.id, type: NotificationType.PAYMENT_FAILED, title: 'Payment Failed', message: `Your deposit payment for order ${orders[3]?.requestNumber} could not be processed. Please try again or use a different payment method.`, actionUrl: `/orders/${orders[3]?.id}`, actionLabel: 'Retry Payment' },
+    { userId: buyerUsers[0].id, type: NotificationType.SYSTEM_ALERT, title: 'Account Verified', message: `Your account has been fully verified. You can now place orders and track shipments.` },
+  ];
+  for (const n of moreNotifications) {
+    const existing = await prisma.notification.findFirst({ where: { userId: n.userId, type: n.type, orderId: (n as any).orderId ?? undefined } });
+    if (!existing) {
+      await prisma.notification.create({
+        data: {
+          userId: n.userId, orderId: (n as any).orderId,
+          type: n.type, title: n.title, message: n.message,
+          actionUrl: (n as any).actionUrl, actionLabel: (n as any).actionLabel,
+          isRead: (n as any).isRead ?? false,
+        },
+      });
+    }
+  }
+
+  // ── 22. More Sourcing Requests (all statuses covered) ────────────────────────
+
+  const moreSourcingSeeds = [
+    {
+      requestNumber: 'SRC-26-01-0004', status: SourcingRequestStatus.QUOTE_SENT,
+      make: 'Rolls-Royce', model: 'Cullinan', yearFrom: 2021, yearTo: 2024, condition: 'USED',
+      budgetUsd: '400000', shippingMethod: ShippingMethod.CONTAINER, timeline: '3-6',
+      firstName: 'Babatunde', lastName: 'Fashola', email: 'b.fashola@corporate.com',
+      phoneNumber: '08090123456', deliveryCity: 'Lagos', additionalNotes: 'Black exterior preferred',
+    },
+    {
+      requestNumber: 'SRC-25-12-0005', userId: buyerUsers[1].id,
+      status: SourcingRequestStatus.CONVERTED,
+      make: 'Lexus', model: 'RX 350', yearFrom: 2021, yearTo: 2023, condition: 'USED',
+      budgetUsd: '50000', shippingMethod: ShippingMethod.RORO, timeline: '1-3',
+      firstName: 'Chukwuemeka', lastName: 'Obi', email: 'chukwuemeka.obi@example.com',
+      phoneNumber: '08023456789', deliveryCity: 'Lagos',
+    },
+    {
+      requestNumber: 'SRC-25-11-0006', status: SourcingRequestStatus.CLOSED,
+      make: 'Volkswagen', model: 'Tiguan', yearFrom: 2020, yearTo: 2023, condition: 'USED',
+      budgetUsd: '28000', shippingMethod: ShippingMethod.RORO, timeline: 'FLEXIBLE',
+      firstName: 'Chioma', lastName: 'Eze', email: 'chioma.eze@gmail.com',
+      phoneNumber: '08034567890', deliveryCity: 'Enugu', additionalNotes: 'Budget is firm',
+    },
+  ];
+  for (const s of moreSourcingSeeds) {
+    const existing = await prisma.sourcingRequest.findUnique({ where: { requestNumber: s.requestNumber } });
+    if (!existing) { await prisma.sourcingRequest.create({ data: s }); }
+  }
+
+  // ── 23. More Testimonials ─────────────────────────────────────────────────────
+
+  const moreTestimonials = [
+    {
+      userId: buyerUsers[0].id, orderId: orders[18].id,
+      customerName: 'Aisha Bello', customerCity: 'Lagos', customerCountry: 'Nigeria',
+      rating: 4,
+      comment: 'Really impressed with the transparency throughout the process. The Lexus RX 350 arrived in excellent condition. Minor customs delay but the team handled it professionally.',
+      vehicleSnapshot: makeSnapshot(vehicles[1]),
+      isApproved: true, isFeatured: false,
+      publishedAt: new Date(2025, 11, 20), approvedBy: opsAdmin.id,
+    },
+    {
+      userId: buyerUsers[4].id,
+      customerName: 'Ngozi Nwosu', customerCity: 'Abuja', customerCountry: 'Nigeria',
+      rating: 5,
+      comment: 'Outstanding service from start to finish. Very professional team, always available to answer questions. Will definitely use Afrozon again for my next car.',
+      vehicleSnapshot: makeSnapshot(vehicles[7]),
+      isApproved: false,
+    },
+  ];
+  for (const t of moreTestimonials) {
+    const existing = await prisma.testimonial.findFirst({ where: { userId: t.userId, orderId: (t as any).orderId ?? undefined } });
+    if (!existing) { await prisma.testimonial.create({ data: t }); }
   }
 
   console.log('Admin data seeding complete.');

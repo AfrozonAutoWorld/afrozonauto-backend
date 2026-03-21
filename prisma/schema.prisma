@@ -626,6 +626,16 @@ model Payment {
   providerTransactionId String? // Payment gateway transaction ID
   receiptUrl            String?
 
+  // Bank Transfer Evidence (buyer uploads proof of payment)
+  evidenceUrl         String?
+  evidencePublicId    String? // Cloudinary public_id for deletion
+  evidenceUploadedAt  DateTime?
+
+  // Admin Confirmation
+  adminConfirmedBy String?   @db.ObjectId // Admin who confirmed/rejected
+  adminConfirmedAt DateTime?
+  adminNote        String?   // Reason for rejection or confirmation note
+
   // Refund Info
   refundAmount Float?
   refundReason String?

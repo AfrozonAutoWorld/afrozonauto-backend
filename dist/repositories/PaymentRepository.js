@@ -115,6 +115,75 @@ let PaymentRepository = class PaymentRepository {
             data
         });
     }
+    // ─── Bank Transfer Evidence ───────────────────────────────────────────────
+    findOrCreateBankTransferPayment(orderId, userId, paymentType, amountUsd) {
+        return __awaiter(this, void 0, void 0, function* () {
+            // Return existing open bank-transfer payment for this order if one exists
+            const existing = yield db_1.default.payment.findFirst({
+                where: { orderId, userId, status: { in: ['PENDING', 'PROCESSING'] } },
+                include: { order: { select: { id: true, requestNumber: true, status: true, userId: true } } },
+            });
+            if (existing)
+                return existing;
+            // Otherwise create a new one
+            const ref = `AFZ-BT-${Date.now()}`;
+            return db_1.default.payment.create({
+                data: {
+                    orderId, userId,
+                    amountUsd,
+                    paymentType: paymentType,
+                    paymentMethod: 'BANK_TRANSFER',
+                    paymentProvider: 'bank_transfer',
+                    status: 'PENDING',
+                    transactionRef: ref,
+                },
+                include: { order: { select: { id: true, requestNumber: true, status: true, userId: true } } },
+            });
+        });
+    }
+    saveEvidence(id, evidenceUrl, evidencePublicId) {
+        return db_1.default.payment.update({
+            where: { id },
+            data: {
+                evidenceUrl,
+                evidencePublicId,
+                evidenceUploadedAt: new Date(),
+                status: 'PROCESSING',
+                paymentMethod: 'BANK_TRANSFER',
+            },
+        });
+    }
+    // ─── Admin Confirm / Reject ───────────────────────────────────────────────
+    findPaymentWithOrder(id) {
+        return db_1.default.payment.findUnique({
+            where: { id },
+            include: { order: true, user: { select: { id: true, email: true, fullName: true } } },
+        });
+    }
+    adminConfirmPayment(id, adminId, note) {
+        return db_1.default.payment.update({
+            where: { id },
+            data: {
+                status: 'COMPLETED',
+                escrowStatus: 'HELD',
+                completedAt: new Date(),
+                adminConfirmedBy: adminId,
+                adminConfirmedAt: new Date(),
+                adminNote: note,
+            },
+        });
+    }
+    adminRejectPayment(id, adminId, note) {
+        return db_1.default.payment.update({
+            where: { id },
+            data: {
+                status: 'PENDING',
+                adminConfirmedBy: adminId,
+                adminConfirmedAt: new Date(),
+                adminNote: note,
+            },
+        });
+    }
 };
 exports.PaymentRepository = PaymentRepository;
 exports.PaymentRepository = PaymentRepository = __decorate([

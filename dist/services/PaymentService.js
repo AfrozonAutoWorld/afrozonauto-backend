@@ -53,6 +53,7 @@ let PaymentService = class PaymentService {
     }
     initiatePayment(payload) {
         return __awaiter(this, void 0, void 0, function* () {
+            var _a, _b;
             const reference = `AFZ-${Date.now()}`;
             const provider = payload.provider === 'stripe' ? this.stripe : this.paystack;
             const result = yield provider.initializePayment({
@@ -62,11 +63,13 @@ let PaymentService = class PaymentService {
                 reference,
                 metadata: { orderId: payload.orderId, callbackUrl: payload.callbackUrl, shippingMethod: payload.shippingMethod, paymentType: payload.paymentType }
             });
+            // Use the actual payable amount from provider calculation, fall back to raw amountUsd
+            const payableAmount = (_b = (_a = result.calculation) === null || _a === void 0 ? void 0 : _a.paymentAmount) !== null && _b !== void 0 ? _b : payload.amountUsd;
             // Create payment record with calculation data if available
             const paymentData = {
                 orderId: payload.orderId,
                 userId: payload.userId,
-                amountUsd: payload.amountUsd,
+                amountUsd: payableAmount,
                 paymentType: payload.paymentType,
                 paymentProvider: payload.provider,
                 status: enums_1.PaymentStatus.PENDING,
@@ -76,6 +79,7 @@ let PaymentService = class PaymentService {
             // Add calculation metadata if available
             if (result.calculation) {
                 paymentData.metadata = {
+                    vehiclePriceUsd: payload.amountUsd,
                     calculation: result.calculation,
                     isDeposit: result.calculation.isDeposit,
                     depositPercentage: result.calculation.depositPercentage,
@@ -186,6 +190,71 @@ let PaymentService = class PaymentService {
     }
     getPaymentStats() {
         return this.paymentRepo.getStats();
+    }
+    // ─── Bank Transfer Evidence ───────────────────────────────────────────────
+    uploadPaymentEvidence(orderId_1, userId_1, evidenceUrl_1, evidencePublicId_1) {
+        return __awaiter(this, arguments, void 0, function* (orderId, userId, evidenceUrl, evidencePublicId, paymentType = 'DEPOSIT') {
+            var _a, _b, _c;
+            // Verify order belongs to user
+            const order = yield this.orderRepo.findById(orderId);
+            if (!order)
+                throw Object.assign(new Error('Order not found'), { statusCode: 404 });
+            if (order.userId !== userId)
+                throw Object.assign(new Error('Access denied'), { statusCode: 403 });
+            // Derive amount from paymentBreakdown (set at order creation via calculateTotalUsd)
+            // Fall back to vehicleSnapshot price if breakdown is missing
+            const breakdown = order.paymentBreakdown;
+            const snapshot = order.vehicleSnapshot;
+            const vehiclePriceUsd = ((_b = (_a = snapshot === null || snapshot === void 0 ? void 0 : snapshot.originalPriceUsd) !== null && _a !== void 0 ? _a : snapshot === null || snapshot === void 0 ? void 0 : snapshot.priceUsd) !== null && _b !== void 0 ? _b : 0);
+            let amountUsd;
+            if (breakdown === null || breakdown === void 0 ? void 0 : breakdown.totalUsd) {
+                amountUsd = paymentType === 'FULL_PAYMENT'
+                    ? breakdown.totalUsd
+                    : ((_c = breakdown.totalUsedDeposit) !== null && _c !== void 0 ? _c : breakdown.totalUsd * 0.25);
+            }
+            else {
+                // paymentBreakdown not yet set — use raw vehicle price as best estimate
+                amountUsd = vehiclePriceUsd;
+            }
+            // Find existing open payment or create one now
+            const payment = yield this.paymentRepo.findOrCreateBankTransferPayment(orderId, userId, paymentType, amountUsd);
+            return this.paymentRepo.saveEvidence(payment.id, evidenceUrl, evidencePublicId);
+        });
+    }
+    // ─── Admin Confirm / Reject ───────────────────────────────────────────────
+    adminConfirmPayment(paymentId, adminId, note) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            const payment = yield this.paymentRepo.findPaymentWithOrder(paymentId);
+            if (!payment)
+                throw Object.assign(new Error('Payment not found'), { statusCode: 404 });
+            if (payment.status === enums_1.PaymentStatus.COMPLETED)
+                throw Object.assign(new Error('Payment already confirmed'), { statusCode: 400 });
+            const newOrderStatus = payment.paymentType === enums_1.PaymentType.DEPOSIT ? enums_1.OrderStatus.DEPOSIT_PAID : enums_1.OrderStatus.BALANCE_PAID;
+            yield db_1.default.$transaction([
+                this.paymentRepo.adminConfirmPayment(paymentId, adminId, note),
+                this.orderRepo.updateOrderStatus(payment.orderId, newOrderStatus),
+            ]);
+            // Notify buyer
+            this.notificationService.notifyAdminsPaymentReceived({
+                orderId: payment.orderId,
+                orderRef: payment.order.requestNumber,
+                customerName: (_a = payment.user.fullName) !== null && _a !== void 0 ? _a : payment.user.email,
+                amountUsd: payment.amountUsd,
+            }).catch(() => { });
+            return this.paymentRepo.findPaymentWithOrder(paymentId);
+        });
+    }
+    adminRejectPayment(paymentId, adminId, note) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const payment = yield this.paymentRepo.findPaymentWithOrder(paymentId);
+            if (!payment)
+                throw Object.assign(new Error('Payment not found'), { statusCode: 404 });
+            if (!['PROCESSING', 'PENDING'].includes(payment.status)) {
+                throw Object.assign(new Error('Only pending/processing payments can be rejected'), { statusCode: 400 });
+            }
+            return this.paymentRepo.adminRejectPayment(paymentId, adminId, note);
+        });
     }
 };
 exports.PaymentService = PaymentService;
