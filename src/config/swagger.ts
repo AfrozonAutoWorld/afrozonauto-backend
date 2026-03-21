@@ -870,53 +870,6 @@ const swaggerSpec = {
         responses: { 200: { description: "All payments with order details" } }
       }
     },
-    "/api/payments/admin/list": {
-      get: {
-        summary: "Get paginated payments list (Admin)",
-        description: "Filterable, paginated payments list for admin. Includes user and order details.",
-        tags: ["Payments"],
-        security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: "page",   in: "query", schema: { type: "integer", default: 1 } },
-          { name: "limit",  in: "query", schema: { type: "integer", default: 10, maximum: 100 } },
-          { name: "status", in: "query", schema: { type: "string", enum: ["ALL", "PENDING", "PROCESSING", "COMPLETED", "FAILED", "REFUNDED", "PARTIALLY_REFUNDED"] } },
-          { name: "search", in: "query", schema: { type: "string" }, description: "Search by transaction reference or order ID" }
-        ],
-        responses: {
-          200: { description: "Paginated payment list" },
-          401: { description: "Unauthorized" },
-          403: { description: "Forbidden – admin only" }
-        }
-      }
-    },
-    "/api/payments/admin/stats": {
-      get: {
-        summary: "Payment statistics (Admin)",
-        description: "Returns total transactions, total revenue, pending count, and total refunded.",
-        tags: ["Payments"],
-        security: [{ bearerAuth: [] }],
-        responses: {
-          200: {
-            description: "Payment statistics",
-            content: {
-              "application/json": {
-                schema: {
-                  type: "object",
-                  properties: {
-                    totalTransactions: { type: "integer" },
-                    totalRevenue:      { type: "number" },
-                    pendingCount:      { type: "integer" },
-                    totalRefunded:     { type: "number" }
-                  }
-                }
-              }
-            }
-          },
-          401: { description: "Unauthorized" },
-          403: { description: "Forbidden – admin only" }
-        }
-      }
-    },
     "/api/payments/payment-id/{id}": {
       get: {
         summary: "Get payment by ID",
@@ -1094,12 +1047,11 @@ const swaggerSpec = {
       }
     },
 
-    // Admin: confirm bank transfer payment
-    "/api/payments/{id}/confirm": {
+    "/api/admin/payments/{id}/confirm": {
       patch: {
         summary: "Confirm bank transfer payment (Admin)",
-        description: "Admin confirms the buyer's bank transfer evidence. Sets payment to COMPLETED and updates the order status to DEPOSIT_PAID or BALANCE_PAID based on payment type.",
-        tags: ["Payments"],
+        description: "Confirms the buyer's bank transfer evidence. Sets payment to COMPLETED and updates the order status to DEPOSIT_PAID or BALANCE_PAID based on payment type.",
+        tags: ["Admin – Payments"],
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" }, description: "Payment ID" }],
         requestBody: {
@@ -1124,13 +1076,11 @@ const swaggerSpec = {
         }
       }
     },
-
-    // Admin: reject bank transfer payment evidence
-    "/api/payments/{id}/reject": {
+    "/api/admin/payments/{id}/reject": {
       patch: {
         summary: "Reject bank transfer payment evidence (Admin)",
-        description: "Admin rejects the uploaded evidence. Payment is reset to PENDING so the buyer can re-upload. A rejection reason (note) is required.",
-        tags: ["Payments"],
+        description: "Rejects the uploaded evidence. Payment is reset to PENDING so the buyer can re-upload. A rejection reason (note) is required.",
+        tags: ["Admin – Payments"],
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" }, description: "Payment ID" }],
         requestBody: {
@@ -1149,7 +1099,7 @@ const swaggerSpec = {
         },
         responses: {
           200: { description: "Evidence rejected — payment reset to PENDING" },
-          400: { description: "note (rejection reason) is required, or payment is not in a rejectable state" },
+          400: { description: "note (rejection reason) is required, or payment is not rejectable" },
           401: { description: "Unauthorized" },
           403: { description: "Forbidden – admin only" },
           404: { description: "Payment not found" }

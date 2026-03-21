@@ -41,9 +41,11 @@ class AdminRoutes {
     this.router.delete('/users/:userId',        ...adminOnly, this.userController.deactivateAccount);
 
     // ── Payments ───────────────────────────────────────────────────────────
-    this.router.get('/payments/stats',          ...adminOnly, this.paymentController.getPaymentStats);
-    this.router.get('/payments',                ...adminOnly, this.paymentController.getAdminPayments);
-    this.router.get('/payments/:id',            ...adminOnly, this.paymentController.getPaymentById);
+    this.router.get('/payments/stats',              ...adminOnly, this.paymentController.getPaymentStats);
+    this.router.get('/payments',                    ...adminOnly, this.paymentController.getAdminPayments);
+    this.router.get('/payments/:id',                ...adminOnly, this.paymentController.getPaymentById);
+    this.router.patch('/payments/:id/confirm',      ...adminOnly, this.paymentController.confirmPayment);
+    this.router.patch('/payments/:id/reject',       ...adminOnly, this.paymentController.rejectPayment);
 
     // ── Notifications ──────────────────────────────────────────────────────
     this.router.get('/notifications/stats',             ...adminOnly, this.notificationController.getStats);

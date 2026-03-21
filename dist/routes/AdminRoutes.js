@@ -34,6 +34,8 @@ class AdminRoutes {
         this.router.get('/payments/stats', ...adminOnly, this.paymentController.getPaymentStats);
         this.router.get('/payments', ...adminOnly, this.paymentController.getAdminPayments);
         this.router.get('/payments/:id', ...adminOnly, this.paymentController.getPaymentById);
+        this.router.patch('/payments/:id/confirm', ...adminOnly, this.paymentController.confirmPayment);
+        this.router.patch('/payments/:id/reject', ...adminOnly, this.paymentController.rejectPayment);
         // ── Notifications ──────────────────────────────────────────────────────
         this.router.get('/notifications/stats', ...adminOnly, this.notificationController.getStats);
         this.router.get('/notifications', ...adminOnly, this.notificationController.getNotifications);
