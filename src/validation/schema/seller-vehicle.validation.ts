@@ -1,6 +1,5 @@
 import Joi from 'joi';
 import { VehicleStatus, VehicleListingCondition } from '../../generated/prisma/client';
-import { fileInfoSchema } from './files.validation';
 
 export const createSellerVehicleSchema = Joi.object({
     // Step 1: Vehicle Details
@@ -30,9 +29,17 @@ export const createSellerVehicleSchema = Joi.object({
     modifications: Joi.string().allow('', null).optional(),
 
     // Step 3: Photos & Price
-    // images: Joi.array().items(Joi.string().uri()).min(1).required(),
     uploadedFiles: Joi.array()
-    .items(fileInfoSchema)
+    .items(Joi.object({
+      url: Joi.string().uri().required(),
+      fileSize: Joi.number().min(0).required(),
+      fileType: Joi.string().optional(),
+      format: Joi.string().required(),
+      publicId: Joi.string().required(),
+      imageName: Joi.string().optional(),
+      documentName: Joi.string().allow(null, '').optional(),
+      uploadIndex: Joi.number().optional(),
+    }))
     .optional(),
     askingPrice: Joi.number().positive().required(),
     showAskingPrice: Joi.boolean().default(true),

@@ -53,7 +53,6 @@ const OrderController_1 = require("../controllers/OrderController");
 const ExchangeRateService_1 = require("../services/ExchangeRateService");
 const PricingConfigRepository_1 = require("../repositories/PricingConfigRepository");
 const PricingConfigService_1 = require("../services/PricingConfigService");
-const SellerVehicleRepository_1 = require("../repositories/SellerVehicleRepository");
 const SellerVehicleService_1 = require("../services/SellerVehicleService");
 const SellerVehicleController_1 = require("../controllers/SellerVehicleController");
 const SellerService_1 = require("../services/SellerService");
@@ -125,7 +124,6 @@ container.bind(types_1.TYPES.OrderRepository).to(OrderRepository_1.OrderReposito
 container.bind(types_1.TYPES.OrderService).to(OrderService_1.OrderService);
 container.bind(types_1.TYPES.OrderController).to(OrderController_1.OrderController);
 // Seller Vehicle bindings
-container.bind(types_1.TYPES.SellerVehicleRepository).to(SellerVehicleRepository_1.SellerVehicleRepository);
 container.bind(types_1.TYPES.SellerVehicleService).to(SellerVehicleService_1.SellerVehicleService);
 container.bind(types_1.TYPES.SellerVehicleController).to(SellerVehicleController_1.SellerVehicleController);
 // Seller Management bindings

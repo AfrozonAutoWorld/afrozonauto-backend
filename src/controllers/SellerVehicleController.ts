@@ -7,6 +7,7 @@ import { asyncHandler } from '../utils/asyncHandler';
 import { ApiResponse } from '../utils/ApiResponse';
 import { ApiError } from '../utils/ApiError';
 import { UserRole, VehicleStatus } from '../generated/prisma/client';
+import { allowEnum } from '../utils/enumUtils';
 
 @injectable()
 export class SellerVehicleController {
@@ -70,7 +71,7 @@ export class SellerVehicleController {
         }
 
         const filters = {
-            status: req.query.status as VehicleStatus,
+            status: allowEnum(req.query.status as string | undefined, VehicleStatus, 'status'),
             userId: req.query.userId as string,
             make: req.query.make as string,
             model: req.query.model as string,

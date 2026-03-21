@@ -35,6 +35,7 @@ const AddressService_1 = require("../services/AddressService");
 const PricingConfigRepository_1 = require("../repositories/PricingConfigRepository");
 const PricingConfigService_1 = require("../services/PricingConfigService");
 const NotificationService_1 = require("../services/NotificationService");
+const enumUtils_1 = require("../utils/enumUtils");
 let OrderController = class OrderController {
     constructor(service, vehicleService, pricingRepo, pricingService, profileService, addressService, notificationService) {
         this.service = service;
@@ -107,9 +108,9 @@ let OrderController = class OrderController {
             var _a, _b;
             const { identifier } = req.params;
             let raw = (_a = req.query) === null || _a === void 0 ? void 0 : _a.type;
-            const shippingMethod = req.query.shippingMethod;
+            const shippingMethod = (0, enumUtils_1.allowEnum)(req.query.shippingMethod, client_1.ShippingMethod, 'shippingMethod');
             if (!shippingMethod) {
-                return res.status(400).json(ApiError_1.ApiError.badRequest("shippingMethod is required"));
+                return res.status(400).json(ApiError_1.ApiError.badRequest(`shippingMethod is required. Allowed values: ${Object.values(client_1.ShippingMethod).join(', ')}`));
             }
             const typeParam = (Array.isArray(raw) ? raw[0] : raw) || '';
             let type = (typeParam === null || typeParam === void 0 ? void 0 : typeParam.toString().trim().toLowerCase()) === 'vin' ? 'vin' : 'vin';
@@ -175,12 +176,14 @@ let OrderController = class OrderController {
             const { status, userId, destinationCountry, shippingMethod, priority, startDate, endDate, search } = req.query;
             const page = Math.max(1, parseInt(req.query.page) || 1);
             const limit = Math.min(100, parseInt(req.query.limit) || 20);
+            const rawStatuses = status ? (Array.isArray(status) ? status : [status]) : [];
+            const validatedStatuses = (0, enumUtils_1.allowEnumArray)(rawStatuses, client_1.OrderStatus, 'status');
             const filters = {
-                status: status ? (Array.isArray(status) ? status : [status]) : undefined,
+                status: validatedStatuses.length ? validatedStatuses : undefined,
                 userId: userId,
                 destinationCountry: destinationCountry,
-                shippingMethod: shippingMethod,
-                priority: priority,
+                shippingMethod: (0, enumUtils_1.allowEnum)(shippingMethod, client_1.ShippingMethod, 'shippingMethod'),
+                priority: (0, enumUtils_1.allowEnum)(priority, client_1.OrderPriority, 'priority'),
                 startDate: startDate ? new Date(startDate) : undefined,
                 endDate: endDate ? new Date(endDate) : undefined,
                 search: search,

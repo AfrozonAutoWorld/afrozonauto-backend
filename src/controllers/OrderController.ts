@@ -13,6 +13,7 @@ import { AuthenticatedRequest } from '../types/customRequest';
 import { PricingConfigRepository } from '../repositories/PricingConfigRepository';
 import { PricingConfigService } from '../services/PricingConfigService';
 import { NotificationService } from '../services/NotificationService';
+import { allowEnum, allowEnumArray } from '../utils/enumUtils';
 
 export class OrderController {
   constructor(
@@ -107,11 +108,11 @@ export class OrderController {
 
     const { identifier } = req.params;
     let raw = req.query?.type;
-    const shippingMethod = req.query.shippingMethod as ShippingMethod;
+    const shippingMethod = allowEnum(req.query.shippingMethod as string | undefined, ShippingMethod, 'shippingMethod');
 
     if (!shippingMethod) {
       return res.status(400).json(
-        ApiError.badRequest("shippingMethod is required")
+        ApiError.badRequest(`shippingMethod is required. Allowed values: ${Object.values(ShippingMethod).join(', ')}`)
       );
     }
     const typeParam = (Array.isArray(raw) ? raw[0] : raw) || '';
@@ -204,12 +205,15 @@ export class OrderController {
     const page  = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(100, parseInt(req.query.limit as string) || 20);
 
+    const rawStatuses = status ? (Array.isArray(status) ? status : [status]) as string[] : [];
+    const validatedStatuses = allowEnumArray(rawStatuses, OrderStatus, 'status');
+
     const filters = {
-      status: status ? (Array.isArray(status) ? status : [status]) as OrderStatus[] : undefined,
+      status: validatedStatuses.length ? validatedStatuses : undefined,
       userId: userId as string | undefined,
       destinationCountry: destinationCountry as string | undefined,
-      shippingMethod: shippingMethod as ShippingMethod | undefined,
-      priority: priority as OrderPriority | undefined,
+      shippingMethod: allowEnum(shippingMethod as string | undefined, ShippingMethod, 'shippingMethod'),
+      priority: allowEnum(priority as string | undefined, OrderPriority, 'priority'),
       startDate: startDate ? new Date(startDate as string) : undefined,
       endDate: endDate ? new Date(endDate as string) : undefined,
       search: search as string | undefined,

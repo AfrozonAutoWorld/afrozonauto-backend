@@ -6,7 +6,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateSellerVehicleStatusSchema = exports.createSellerVehicleSchema = void 0;
 const joi_1 = __importDefault(require("joi"));
 const client_1 = require("../../generated/prisma/client");
-const files_validation_1 = require("./files.validation");
 exports.createSellerVehicleSchema = joi_1.default.object({
     // Step 1: Vehicle Details
     year: joi_1.default.number().integer().min(1900).max(new Date().getFullYear() + 1).required(),
@@ -33,9 +32,17 @@ exports.createSellerVehicleSchema = joi_1.default.object({
     highlights: joi_1.default.array().items(joi_1.default.string()).optional(),
     modifications: joi_1.default.string().allow('', null).optional(),
     // Step 3: Photos & Price
-    // images: Joi.array().items(Joi.string().uri()).min(1).required(),
     uploadedFiles: joi_1.default.array()
-        .items(files_validation_1.fileInfoSchema)
+        .items(joi_1.default.object({
+        url: joi_1.default.string().uri().required(),
+        fileSize: joi_1.default.number().min(0).required(),
+        fileType: joi_1.default.string().optional(),
+        format: joi_1.default.string().required(),
+        publicId: joi_1.default.string().required(),
+        imageName: joi_1.default.string().optional(),
+        documentName: joi_1.default.string().allow(null, '').optional(),
+        uploadIndex: joi_1.default.number().optional(),
+    }))
         .optional(),
     askingPrice: joi_1.default.number().positive().required(),
     showAskingPrice: joi_1.default.boolean().default(true),

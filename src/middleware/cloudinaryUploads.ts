@@ -18,15 +18,14 @@ export const uploadToCloudinary = asyncHandler(async (req: AuthenticatedRequest,
   console.log('--- Cloudinary Upload Middleware Started ---');
   console.log('Files to upload:', Array.isArray(req.files) ? req.files.length : (req.files ? Object.keys(req.files).length : 0));
 
-  if (typeof req.body.variants === 'string') {
-    try { req.body.variants = JSON.parse(req.body.variants); } catch { }
-  }
-  if (typeof req.body.address === 'string') {
-    try { req.body.address = JSON.parse(req.body.address); } catch { }
-  }
-
-  if (typeof req.body.variantImageIndexes === 'string') {
-    try { req.body.variantImageIndexes = JSON.parse(req.body.variantImageIndexes); } catch { }
+  // Generic: parse any string field that looks like a JSON array or object
+  for (const key of Object.keys(req.body)) {
+    if (typeof req.body[key] === 'string') {
+      const trimmed = req.body[key].trim();
+      if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+        try { req.body[key] = JSON.parse(trimmed); } catch { }
+      }
+    }
   }
 
   // Handle documentName which might be a comma-separated string or an array

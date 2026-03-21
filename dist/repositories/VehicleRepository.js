@@ -21,6 +21,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.VehicleRepository = void 0;
 const inversify_1 = require("inversify");
 const db_1 = __importDefault(require("../db"));
+const client_1 = require("../generated/prisma/client");
 let VehicleRepository = class VehicleRepository {
     /**
      * Create a new vehicle
@@ -277,6 +278,74 @@ let VehicleRepository = class VehicleRepository {
                 where: { id },
                 data: { isActive: false, isHidden: true },
             });
+        });
+    }
+    // ─── Seller listing methods ───────────────────────────────────────────────
+    /**
+     * Create a seller-submitted vehicle listing (forces source = SELLER)
+     */
+    createSellerListing(data) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return db_1.default.vehicle.create({
+                data: Object.assign(Object.assign({}, data), { source: client_1.VehicleSource.SELLER }),
+            });
+        });
+    }
+    /**
+     * Find a seller listing by ID, including the submitting user
+     */
+    findSellerById(id) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return db_1.default.vehicle.findUnique({
+                where: { id },
+                include: {
+                    user: {
+                        select: { id: true, email: true, fullName: true, phone: true },
+                    },
+                },
+            });
+        });
+    }
+    /**
+     * List seller-submitted vehicles with optional filters and pagination
+     */
+    findSellerListings(filters_1) {
+        return __awaiter(this, arguments, void 0, function* (filters, pagination = {}) {
+            const page = pagination.page || 1;
+            const limit = Math.min(pagination.limit || 50, 100);
+            const skip = (page - 1) * limit;
+            const where = { source: client_1.VehicleSource.SELLER };
+            if (filters.status)
+                where.status = filters.status;
+            if (filters.userId)
+                where.userId = filters.userId;
+            if (filters.make)
+                where.make = { equals: filters.make, mode: 'insensitive' };
+            if (filters.model)
+                where.model = { equals: filters.model, mode: 'insensitive' };
+            if (filters.year)
+                where.year = filters.year;
+            const [listings, total] = yield Promise.all([
+                db_1.default.vehicle.findMany({
+                    where,
+                    skip,
+                    take: limit,
+                    orderBy: { createdAt: 'desc' },
+                    include: {
+                        user: { select: { id: true, email: true, fullName: true } },
+                    },
+                }),
+                db_1.default.vehicle.count({ where }),
+            ]);
+            return { listings, total };
+        });
+    }
+    /**
+     * Hard-delete a seller listing record
+     */
+    hardDelete(id) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return db_1.default.vehicle.delete({ where: { id } });
         });
     }
 };

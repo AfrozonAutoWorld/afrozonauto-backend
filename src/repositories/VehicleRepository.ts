@@ -1,11 +1,19 @@
 import { injectable } from 'inversify';
 import prisma from '../db';
-import { Vehicle, Prisma } from '../generated/prisma/client';
+import { Vehicle, Prisma, VehicleSource } from '../generated/prisma/client';
 import { VehicleFilters } from '../validation/interfaces/IVehicle';
 
 export interface VehiclePagination {
   page?: number;
   limit?: number;
+}
+
+export interface SellerListingFilters {
+  status?: string;
+  userId?: string;
+  make?: string;
+  model?: string;
+  year?: number;
 }
 
 @injectable()
@@ -258,6 +266,72 @@ export class VehicleRepository {
       where: { id },
       data: { isActive: false, isHidden: true },
     });
+  }
+
+  // ─── Seller listing methods ───────────────────────────────────────────────
+
+  /**
+   * Create a seller-submitted vehicle listing (forces source = SELLER)
+   */
+  async createSellerListing(data: Prisma.VehicleCreateInput): Promise<Vehicle> {
+    return prisma.vehicle.create({
+      data: { ...data, source: VehicleSource.SELLER },
+    });
+  }
+
+  /**
+   * Find a seller listing by ID, including the submitting user
+   */
+  async findSellerById(id: string): Promise<Vehicle | null> {
+    return prisma.vehicle.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: { id: true, email: true, fullName: true, phone: true },
+        },
+      },
+    });
+  }
+
+  /**
+   * List seller-submitted vehicles with optional filters and pagination
+   */
+  async findSellerListings(
+    filters: SellerListingFilters,
+    pagination: VehiclePagination = {}
+  ): Promise<{ listings: Vehicle[]; total: number }> {
+    const page  = pagination.page  || 1;
+    const limit = Math.min(pagination.limit || 50, 100);
+    const skip  = (page - 1) * limit;
+
+    const where: Prisma.VehicleWhereInput = { source: VehicleSource.SELLER };
+    if (filters.status) where.status = filters.status as any;
+    if (filters.userId) where.userId = filters.userId;
+    if (filters.make)   where.make   = { equals: filters.make,  mode: 'insensitive' };
+    if (filters.model)  where.model  = { equals: filters.model, mode: 'insensitive' };
+    if (filters.year)   where.year   = filters.year;
+
+    const [listings, total] = await Promise.all([
+      prisma.vehicle.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: { select: { id: true, email: true, fullName: true } },
+        },
+      }),
+      prisma.vehicle.count({ where }),
+    ]);
+
+    return { listings, total };
+  }
+
+  /**
+   * Hard-delete a seller listing record
+   */
+  async hardDelete(id: string): Promise<Vehicle> {
+    return prisma.vehicle.delete({ where: { id } });
   }
 }
 

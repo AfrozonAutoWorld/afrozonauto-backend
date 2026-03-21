@@ -24,13 +24,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SellerVehicleService = void 0;
 const inversify_1 = require("inversify");
 const types_1 = require("../config/types");
-const SellerVehicleRepository_1 = require("../repositories/SellerVehicleRepository");
+const VehicleRepository_1 = require("../repositories/VehicleRepository");
 const ProfileRepository_1 = require("../repositories/ProfileRepository");
 const client_1 = require("../generated/prisma/client");
 const ApiError_1 = require("../utils/ApiError");
 let SellerVehicleService = class SellerVehicleService {
-    constructor(sellerRepo, profileRepo) {
-        this.sellerRepo = sellerRepo;
+    constructor(vehicleRepo, profileRepo) {
+        this.vehicleRepo = vehicleRepo;
         this.profileRepo = profileRepo;
     }
     /**
@@ -38,17 +38,15 @@ let SellerVehicleService = class SellerVehicleService {
      */
     submitListing(data) {
         return __awaiter(this, void 0, void 0, function* () {
-            // If user is provided, check if they are a verified seller
             if (data.userId) {
                 const profile = yield this.profileRepo.findUserById(data.userId);
                 if (!profile || !profile.isSeller) {
                     throw ApiError_1.ApiError.forbidden('You must be a verified seller to list vehicles');
                 }
             }
-            // Set initial status for seller listings
             data.source = client_1.VehicleSource.SELLER;
             data.status = client_1.VehicleStatus.PENDING_REVIEW;
-            return this.sellerRepo.create(data);
+            return this.vehicleRepo.createSellerListing(data);
         });
     }
     /**
@@ -56,7 +54,7 @@ let SellerVehicleService = class SellerVehicleService {
      */
     getListingById(id) {
         return __awaiter(this, void 0, void 0, function* () {
-            const listing = yield this.sellerRepo.findById(id);
+            const listing = yield this.vehicleRepo.findSellerById(id);
             if (!listing)
                 throw ApiError_1.ApiError.notFound('Listing not found');
             return listing;
@@ -67,7 +65,7 @@ let SellerVehicleService = class SellerVehicleService {
      */
     getListings(filters_1) {
         return __awaiter(this, arguments, void 0, function* (filters, pagination = {}) {
-            return this.sellerRepo.findMany(filters, pagination);
+            return this.vehicleRepo.findSellerListings(filters, pagination);
         });
     }
     /**
@@ -75,10 +73,10 @@ let SellerVehicleService = class SellerVehicleService {
      */
     updateStatus(id, status, adminNotes, reviewedBy) {
         return __awaiter(this, void 0, void 0, function* () {
-            const listing = yield this.sellerRepo.findById(id);
+            const listing = yield this.vehicleRepo.findSellerById(id);
             if (!listing)
                 throw ApiError_1.ApiError.notFound('Listing not found');
-            return this.sellerRepo.update(id, {
+            return this.vehicleRepo.update(id, {
                 status,
                 adminNotes,
                 reviewedBy,
@@ -91,16 +89,10 @@ let SellerVehicleService = class SellerVehicleService {
      */
     updateListing(id, data) {
         return __awaiter(this, void 0, void 0, function* () {
-            const listing = yield this.sellerRepo.findById(id);
+            const listing = yield this.vehicleRepo.findSellerById(id);
             if (!listing)
                 throw ApiError_1.ApiError.notFound('Listing not found');
-            // Logic to prevent editing if already approved/rejected could go here
-            if (listing.status === client_1.VehicleStatus.AVAILABLE || listing.status === client_1.VehicleStatus.REJECTED) {
-                // If it's AVAILABLE, it means it's already approved. 
-                // In a real app, we might allow edits but they might require re-approval or just update the live listing.
-                // For now let's keep it simple.
-            }
-            return this.sellerRepo.update(id, data);
+            return this.vehicleRepo.update(id, data);
         });
     }
     /**
@@ -108,18 +100,18 @@ let SellerVehicleService = class SellerVehicleService {
      */
     deleteListing(id) {
         return __awaiter(this, void 0, void 0, function* () {
-            const listing = yield this.sellerRepo.findById(id);
+            const listing = yield this.vehicleRepo.findSellerById(id);
             if (!listing)
                 throw ApiError_1.ApiError.notFound('Listing not found');
-            yield this.sellerRepo.delete(id);
+            yield this.vehicleRepo.hardDelete(id);
         });
     }
 };
 exports.SellerVehicleService = SellerVehicleService;
 exports.SellerVehicleService = SellerVehicleService = __decorate([
     (0, inversify_1.injectable)(),
-    __param(0, (0, inversify_1.inject)(types_1.TYPES.SellerVehicleRepository)),
+    __param(0, (0, inversify_1.inject)(types_1.TYPES.VehicleRepository)),
     __param(1, (0, inversify_1.inject)(types_1.TYPES.ProfileRepository)),
-    __metadata("design:paramtypes", [SellerVehicleRepository_1.SellerVehicleRepository,
+    __metadata("design:paramtypes", [VehicleRepository_1.VehicleRepository,
         ProfileRepository_1.ProfileRepository])
 ], SellerVehicleService);

@@ -40,6 +40,7 @@ const asyncHandler_1 = require("../utils/asyncHandler");
 const ApiResponse_1 = require("../utils/ApiResponse");
 const ApiError_1 = require("../utils/ApiError");
 const client_1 = require("../generated/prisma/client");
+const enumUtils_1 = require("../utils/enumUtils");
 let SellerVehicleController = class SellerVehicleController {
     constructor(service) {
         this.service = service;
@@ -83,7 +84,7 @@ let SellerVehicleController = class SellerVehicleController {
                 throw ApiError_1.ApiError.forbidden('Admin access required');
             }
             const filters = {
-                status: req.query.status,
+                status: (0, enumUtils_1.allowEnum)(req.query.status, client_1.VehicleStatus, 'status'),
                 userId: req.query.userId,
                 make: req.query.make,
                 model: req.query.model,

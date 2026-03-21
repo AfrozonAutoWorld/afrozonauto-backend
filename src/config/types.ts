@@ -55,7 +55,6 @@ export const TYPES = {
     PricingConfigRepository: Symbol.for('PricingConfigRepository'),
     PricingConfigService: Symbol.for('PricingConfigService'),
 
-    SellerVehicleRepository: Symbol.for('SellerVehicleRepository'),
     SellerVehicleService: Symbol.for('SellerVehicleService'),
     SellerVehicleController: Symbol.for('SellerVehicleController'),
 

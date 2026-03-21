@@ -50,7 +50,6 @@ import { OrderController } from '../controllers/OrderController';
 import { ExchangeRateService } from '../services/ExchangeRateService';
 import { PricingConfigRepository } from '../repositories/PricingConfigRepository';
 import { PricingConfigService } from '../services/PricingConfigService';
-import { SellerVehicleRepository } from '../repositories/SellerVehicleRepository';
 import { SellerVehicleService } from '../services/SellerVehicleService';
 import { SellerVehicleController } from '../controllers/SellerVehicleController';
 import { SellerService } from '../services/SellerService';
@@ -127,7 +126,6 @@ container.bind<OrderService>(TYPES.OrderService).to(OrderService);
 container.bind<OrderController>(TYPES.OrderController).to(OrderController);
 
 // Seller Vehicle bindings
-container.bind<SellerVehicleRepository>(TYPES.SellerVehicleRepository).to(SellerVehicleRepository);
 container.bind<SellerVehicleService>(TYPES.SellerVehicleService).to(SellerVehicleService);
 container.bind<SellerVehicleController>(TYPES.SellerVehicleController).to(SellerVehicleController);
 

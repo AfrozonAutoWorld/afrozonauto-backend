@@ -1,6 +1,6 @@
 import { inject, injectable } from 'inversify';
 import { TYPES } from '../config/types';
-import { SellerVehicleRepository, SellerListingFilters } from '../repositories/SellerVehicleRepository';
+import { VehicleRepository, SellerListingFilters } from '../repositories/VehicleRepository';
 import { ProfileRepository } from '../repositories/ProfileRepository';
 import { Vehicle, VehicleStatus, Prisma, VehicleSource } from '../generated/prisma/client';
 import { ApiError } from '../utils/ApiError';
@@ -8,7 +8,7 @@ import { ApiError } from '../utils/ApiError';
 @injectable()
 export class SellerVehicleService {
     constructor(
-        @inject(TYPES.SellerVehicleRepository) private sellerRepo: SellerVehicleRepository,
+        @inject(TYPES.VehicleRepository) private vehicleRepo: VehicleRepository,
         @inject(TYPES.ProfileRepository) private profileRepo: ProfileRepository
     ) { }
 
@@ -16,7 +16,6 @@ export class SellerVehicleService {
      * Submit a new vehicle listing
      */
     async submitListing(data: any): Promise<Vehicle> {
-        // If user is provided, check if they are a verified seller
         if (data.userId) {
             const profile = await this.profileRepo.findUserById(data.userId);
             if (!profile || !profile.isSeller) {
@@ -24,18 +23,17 @@ export class SellerVehicleService {
             }
         }
 
-        // Set initial status for seller listings
         data.source = VehicleSource.SELLER;
         data.status = VehicleStatus.PENDING_REVIEW;
 
-        return this.sellerRepo.create(data);
+        return this.vehicleRepo.createSellerListing(data);
     }
 
     /**
      * Get a listing by ID
      */
     async getListingById(id: string): Promise<Vehicle> {
-        const listing = await this.sellerRepo.findById(id);
+        const listing = await this.vehicleRepo.findSellerById(id);
         if (!listing) throw ApiError.notFound('Listing not found');
         return listing;
     }
@@ -47,7 +45,7 @@ export class SellerVehicleService {
         filters: SellerListingFilters,
         pagination: { page?: number; limit?: number } = {}
     ): Promise<{ listings: Vehicle[]; total: number }> {
-        return this.sellerRepo.findMany(filters, pagination);
+        return this.vehicleRepo.findSellerListings(filters, pagination);
     }
 
     /**
@@ -59,10 +57,10 @@ export class SellerVehicleService {
         adminNotes?: string,
         reviewedBy?: string
     ): Promise<Vehicle> {
-        const listing = await this.sellerRepo.findById(id);
+        const listing = await this.vehicleRepo.findSellerById(id);
         if (!listing) throw ApiError.notFound('Listing not found');
 
-        return this.sellerRepo.update(id, {
+        return this.vehicleRepo.update(id, {
             status,
             adminNotes,
             reviewedBy,
@@ -74,25 +72,17 @@ export class SellerVehicleService {
      * Update listing details (User/Admin)
      */
     async updateListing(id: string, data: Prisma.VehicleUpdateInput): Promise<Vehicle> {
-        const listing = await this.sellerRepo.findById(id);
+        const listing = await this.vehicleRepo.findSellerById(id);
         if (!listing) throw ApiError.notFound('Listing not found');
-
-        // Logic to prevent editing if already approved/rejected could go here
-        if (listing.status === VehicleStatus.AVAILABLE || listing.status === VehicleStatus.REJECTED) {
-            // If it's AVAILABLE, it means it's already approved. 
-            // In a real app, we might allow edits but they might require re-approval or just update the live listing.
-            // For now let's keep it simple.
-        }
-
-        return this.sellerRepo.update(id, data);
+        return this.vehicleRepo.update(id, data);
     }
 
     /**
      * Delete a listing
      */
     async deleteListing(id: string): Promise<void> {
-        const listing = await this.sellerRepo.findById(id);
+        const listing = await this.vehicleRepo.findSellerById(id);
         if (!listing) throw ApiError.notFound('Listing not found');
-        await this.sellerRepo.delete(id);
+        await this.vehicleRepo.hardDelete(id);
     }
 }
