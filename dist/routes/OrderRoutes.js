@@ -34,10 +34,10 @@ class OrderRoutes {
         // ========== ADMIN ROUTES ==========
         // Get all orders with filters (admin only)
         this.router.get('/admin/all', authMiddleware_1.authenticate, (0, authMiddleware_1.authorize)([enums_1.UserRole.OPERATIONS_ADMIN, enums_1.UserRole.SUPER_ADMIN]), this.controller.getAllOrders);
+        // Bulk update order status (must be before /:id/status to prevent route shadowing)
+        this.router.put('/bulk/status', (0, authMiddleware_1.authorize)([enums_1.UserRole.OPERATIONS_ADMIN, enums_1.UserRole.SUPER_ADMIN]), this.controller.bulkUpdateOrderStatus);
         // Update order status
         this.router.put('/:id/status', (0, authMiddleware_1.authorize)([enums_1.UserRole.OPERATIONS_ADMIN, enums_1.UserRole.SUPER_ADMIN]), this.controller.updateOrderStatus);
-        // Bulk update order status
-        this.router.put('/bulk/status', (0, authMiddleware_1.authorize)([enums_1.UserRole.OPERATIONS_ADMIN, enums_1.UserRole.SUPER_ADMIN]), this.controller.bulkUpdateOrderStatus);
         // Update order priority
         this.router.put('/:id/priority', (0, authMiddleware_1.authorize)([enums_1.UserRole.OPERATIONS_ADMIN, enums_1.UserRole.SUPER_ADMIN]), this.controller.updateOrderPriority);
         // Assign tags

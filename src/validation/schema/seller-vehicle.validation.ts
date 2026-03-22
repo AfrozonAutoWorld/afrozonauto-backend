@@ -1,11 +1,16 @@
 import Joi from 'joi';
-import { VehicleStatus, VehicleListingCondition } from '../../generated/prisma/client';
+import { VehicleStatus, VehicleListingCondition, VehicleType } from '../../generated/prisma/client';
 
 export const createSellerVehicleSchema = Joi.object({
     // Step 1: Vehicle Details
     year: Joi.number().integer().min(1900).max(new Date().getFullYear() + 1).required(),
     make: Joi.string().required(),
     model: Joi.string().required(),
+    vehicleType: Joi.string()
+        .uppercase()
+        .valid(...Object.values(VehicleType))
+        .default(VehicleType.OTHER)
+        .messages({ 'any.only': `vehicleType must be one of: ${Object.values(VehicleType).join(', ')}` }),
     trim: Joi.string().allow('', null).optional(),
     bodyStyle: Joi.string().allow('', null).optional(),
     mileage: Joi.number().integer().min(0).required(),
@@ -18,14 +23,19 @@ export const createSellerVehicleSchema = Joi.object({
 
     // Step 2: Vehicle Condition
     condition: Joi.string()
+        .uppercase()
         .valid(...Object.values(VehicleListingCondition))
-        .required(),
-    titleStatus: Joi.array().items(Joi.string()).required(), // [Clean title, etc.]
-    accidentHistory: Joi.string().required(), // No accidents, Minor, Major, Unknown
-    knownIssues: Joi.array().items(Joi.string()).default([]),
+        .required()
+        .messages({
+            'any.only': `condition must be one of: ${Object.values(VehicleListingCondition).join(', ')}`,
+        }),
+    // .single() allows a bare string to be coerced into a one-element array (multipart form-data sends single values as strings)
+    titleStatus: Joi.array().items(Joi.string()).single().min(1).required(),
+    accidentHistory: Joi.string().required(),
+    knownIssues: Joi.array().items(Joi.string()).single().default([]),
     keys: Joi.number().integer().min(0).optional(),
-    features: Joi.array().items(Joi.string()).optional(),
-    highlights: Joi.array().items(Joi.string()).optional(),
+    features: Joi.array().items(Joi.string()).single().optional(),
+    highlights: Joi.array().items(Joi.string()).single().optional(),
     modifications: Joi.string().allow('', null).optional(),
 
     // Step 3: Photos & Price
@@ -44,7 +54,7 @@ export const createSellerVehicleSchema = Joi.object({
     askingPrice: Joi.number().positive().required(),
     showAskingPrice: Joi.boolean().default(true),
     allowOffers: Joi.boolean().default(true),
-    additionalNotes: Joi.string().allow('', null).optional(),
+    additionalNotes: Joi.string().allow('', null).optional(), // mapped → manualNotes in service
 
     // Step 4: Contact Details (Mapping to contactFirstName etc in model)
     contactFirstName: Joi.string().required(),

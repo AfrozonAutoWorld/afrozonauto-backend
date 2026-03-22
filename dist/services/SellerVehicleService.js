@@ -38,11 +38,28 @@ let SellerVehicleService = class SellerVehicleService {
      */
     submitListing(data) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (data.userId) {
-                const profile = yield this.profileRepo.findUserById(data.userId);
-                if (!profile || !profile.isSeller) {
-                    throw ApiError_1.ApiError.forbidden('You must be a verified seller to list vehicles');
-                }
+            // if (data.userId) {
+            //     const profile = await this.profileRepo.findUserById(data.userId);
+            //     if (!profile || !profile.isSeller) {
+            //         throw ApiError.forbidden('You must be a verified seller to list vehicles');
+            //     }
+            // }
+            // additionalNotes (UI field) → manualNotes (Vehicle model field)
+            if (data.additionalNotes !== undefined) {
+                data.manualNotes = data.additionalNotes;
+                delete data.additionalNotes;
+            }
+            // Generate a unique VIN placeholder if the seller doesn't know theirs
+            if (!data.vin) {
+                data.vin = `SELLER-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+            }
+            // Auto-generate slug from make/model/year
+            if (!data.slug) {
+                const base = `${data.year}-${data.make}-${data.model}`
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, '-')
+                    .replace(/^-|-$/g, '');
+                data.slug = `${base}-${Date.now()}`;
             }
             data.source = client_1.VehicleSource.SELLER;
             data.status = client_1.VehicleStatus.PENDING_REVIEW;

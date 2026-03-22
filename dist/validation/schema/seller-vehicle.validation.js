@@ -11,6 +11,11 @@ exports.createSellerVehicleSchema = joi_1.default.object({
     year: joi_1.default.number().integer().min(1900).max(new Date().getFullYear() + 1).required(),
     make: joi_1.default.string().required(),
     model: joi_1.default.string().required(),
+    vehicleType: joi_1.default.string()
+        .uppercase()
+        .valid(...Object.values(client_1.VehicleType))
+        .default(client_1.VehicleType.OTHER)
+        .messages({ 'any.only': `vehicleType must be one of: ${Object.values(client_1.VehicleType).join(', ')}` }),
     trim: joi_1.default.string().allow('', null).optional(),
     bodyStyle: joi_1.default.string().allow('', null).optional(),
     mileage: joi_1.default.number().integer().min(0).required(),
@@ -22,14 +27,19 @@ exports.createSellerVehicleSchema = joi_1.default.object({
     cylinders: joi_1.default.number().integer().min(0).optional(),
     // Step 2: Vehicle Condition
     condition: joi_1.default.string()
+        .uppercase()
         .valid(...Object.values(client_1.VehicleListingCondition))
-        .required(),
-    titleStatus: joi_1.default.array().items(joi_1.default.string()).required(), // [Clean title, etc.]
-    accidentHistory: joi_1.default.string().required(), // No accidents, Minor, Major, Unknown
-    knownIssues: joi_1.default.array().items(joi_1.default.string()).default([]),
+        .required()
+        .messages({
+        'any.only': `condition must be one of: ${Object.values(client_1.VehicleListingCondition).join(', ')}`,
+    }),
+    // .single() allows a bare string to be coerced into a one-element array (multipart form-data sends single values as strings)
+    titleStatus: joi_1.default.array().items(joi_1.default.string()).single().min(1).required(),
+    accidentHistory: joi_1.default.string().required(),
+    knownIssues: joi_1.default.array().items(joi_1.default.string()).single().default([]),
     keys: joi_1.default.number().integer().min(0).optional(),
-    features: joi_1.default.array().items(joi_1.default.string()).optional(),
-    highlights: joi_1.default.array().items(joi_1.default.string()).optional(),
+    features: joi_1.default.array().items(joi_1.default.string()).single().optional(),
+    highlights: joi_1.default.array().items(joi_1.default.string()).single().optional(),
     modifications: joi_1.default.string().allow('', null).optional(),
     // Step 3: Photos & Price
     uploadedFiles: joi_1.default.array()
@@ -47,7 +57,7 @@ exports.createSellerVehicleSchema = joi_1.default.object({
     askingPrice: joi_1.default.number().positive().required(),
     showAskingPrice: joi_1.default.boolean().default(true),
     allowOffers: joi_1.default.boolean().default(true),
-    additionalNotes: joi_1.default.string().allow('', null).optional(),
+    additionalNotes: joi_1.default.string().allow('', null).optional(), // mapped → manualNotes in service
     // Step 4: Contact Details (Mapping to contactFirstName etc in model)
     contactFirstName: joi_1.default.string().required(),
     contactLastName: joi_1.default.string().required(),

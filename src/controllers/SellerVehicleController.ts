@@ -19,27 +19,23 @@ export class SellerVehicleController {
      * Submit a new vehicle listing (Public/Authenticated)
      */
     submitListing = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-        // Map any old field names if necessary, but validation schema is already updated
-        const { uploadedFiles, ...data } = req.body;
-        // Extract just the URLs from uploadedFiles
-        // Extract URLs by file type
-        const imageUrls = uploadedFiles
-            ?.filter((file: any) => file.fileType === 'image')
-            .map((file: any) => file.url) || [];
+        // Destructure to keep only Vehicle model fields (askingPrice is the UI alias for priceUsd)
+        const { uploadedFiles, askingPrice, ...vehicleData } = req.body;
 
-        const videoUrls = uploadedFiles
-            ?.filter((file: any) => file.fileType === 'video')
-            .map((file: any) => file.url) || [];
+        const imageUrls = (uploadedFiles ?? [])
+            .filter((f: any) => f.fileType === 'image')
+            .map((f: any) => f.url);
 
-        // Get all URLs regardless of type
-        const allUrls = uploadedFiles?.map((file: any) => file.url) || [];
+        const videoUrls = (uploadedFiles ?? [])
+            .filter((f: any) => f.fileType === 'video')
+            .map((f: any) => f.url);
 
         const listing = await this.service.submitListing({
-            ...data,
+            ...vehicleData,
+            priceUsd: askingPrice,
             images: imageUrls,
             videos: videoUrls,
-                userId: req.user?.id || null,
-            priceUsd: req.body.askingPrice,
+            userId: req.user?.id ?? null,
         });
 
         return res.status(201).json(ApiResponse.created(listing, 'Vehicle listing submitted for review'));

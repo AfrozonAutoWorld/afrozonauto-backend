@@ -68,16 +68,16 @@ class OrderRoutes {
             this.controller.getAllOrders
         );
 
+        // Bulk update order status (must be before /:id/status to prevent route shadowing)
+        this.router.put('/bulk/status',
+            authorize([UserRole.OPERATIONS_ADMIN, UserRole.SUPER_ADMIN]),
+            this.controller.bulkUpdateOrderStatus
+        );
+
         // Update order status
         this.router.put('/:id/status',
             authorize([UserRole.OPERATIONS_ADMIN, UserRole.SUPER_ADMIN]),
             this.controller.updateOrderStatus
-        );
-
-        // Bulk update order status
-        this.router.put('/bulk/status',
-            authorize([UserRole.OPERATIONS_ADMIN, UserRole.SUPER_ADMIN]),
-            this.controller.bulkUpdateOrderStatus
         );
 
         // Update order priority

@@ -48,16 +48,16 @@ let SellerVehicleController = class SellerVehicleController {
          * Submit a new vehicle listing (Public/Authenticated)
          */
         this.submitListing = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
-            var _a;
-            // Map any old field names if necessary, but validation schema is already updated
-            const _b = req.body, { uploadedFiles } = _b, data = __rest(_b, ["uploadedFiles"]);
-            // Extract just the URLs from uploadedFiles
-            // Extract URLs by file type
-            const imageUrls = (uploadedFiles === null || uploadedFiles === void 0 ? void 0 : uploadedFiles.filter((file) => file.fileType === 'image').map((file) => file.url)) || [];
-            const videoUrls = (uploadedFiles === null || uploadedFiles === void 0 ? void 0 : uploadedFiles.filter((file) => file.fileType === 'video').map((file) => file.url)) || [];
-            // Get all URLs regardless of type
-            const allUrls = (uploadedFiles === null || uploadedFiles === void 0 ? void 0 : uploadedFiles.map((file) => file.url)) || [];
-            const listing = yield this.service.submitListing(Object.assign(Object.assign({}, data), { images: imageUrls, videos: videoUrls, userId: ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || null, priceUsd: req.body.askingPrice }));
+            var _a, _b;
+            // Destructure to keep only Vehicle model fields (askingPrice is the UI alias for priceUsd)
+            const _c = req.body, { uploadedFiles, askingPrice } = _c, vehicleData = __rest(_c, ["uploadedFiles", "askingPrice"]);
+            const imageUrls = (uploadedFiles !== null && uploadedFiles !== void 0 ? uploadedFiles : [])
+                .filter((f) => f.fileType === 'image')
+                .map((f) => f.url);
+            const videoUrls = (uploadedFiles !== null && uploadedFiles !== void 0 ? uploadedFiles : [])
+                .filter((f) => f.fileType === 'video')
+                .map((f) => f.url);
+            const listing = yield this.service.submitListing(Object.assign(Object.assign({}, vehicleData), { priceUsd: askingPrice, images: imageUrls, videos: videoUrls, userId: (_b = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id) !== null && _b !== void 0 ? _b : null }));
             return res.status(201).json(ApiResponse_1.ApiResponse.created(listing, 'Vehicle listing submitted for review'));
         }));
         /**

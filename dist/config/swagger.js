@@ -119,6 +119,77 @@ const swaggerSpec = {
                 responses: { 200: { description: "Current user" } }
             }
         },
+        "/api/auth/send-token-recovery-email": {
+            post: {
+                summary: "Resend email verification token",
+                description: "Sends a fresh OTP to the user's email address so they can complete verification.",
+                tags: ["Auth"],
+                requestBody: {
+                    required: true,
+                    content: { "application/json": { schema: { type: "object", required: ["email"], properties: { email: { type: "string", format: "email" } } } } }
+                },
+                responses: {
+                    200: { description: "Recovery token sent" },
+                    404: { description: "User not found" }
+                }
+            }
+        },
+        "/api/auth/token-validation-reset": {
+            post: {
+                summary: "Validate reset token before setting a new password",
+                description: "Checks that the one-time reset token is valid and not expired. Call this before /reset-password.",
+                tags: ["Auth"],
+                requestBody: {
+                    required: true,
+                    content: { "application/json": { schema: { type: "object", required: ["email", "token"], properties: { email: { type: "string", format: "email" }, token: { type: "string" } } } } }
+                },
+                responses: {
+                    200: { description: "Token is valid" },
+                    400: { description: "Invalid or expired token" }
+                }
+            }
+        },
+        "/api/auth/refresh-token": {
+            post: {
+                summary: "Refresh access token",
+                description: "Issues a new short-lived JWT access token using the refresh token stored in the HTTP-only cookie.",
+                tags: ["Auth"],
+                responses: {
+                    200: { description: "New access token returned" },
+                    401: { description: "Refresh token missing or expired" }
+                }
+            }
+        },
+        "/api/auth/google-auth-verify": {
+            post: {
+                summary: "Sign in / register via Google",
+                description: "Verifies the Google ID token from the client and returns an access token. Creates a new account if the user does not exist.",
+                tags: ["Auth"],
+                requestBody: {
+                    required: true,
+                    content: { "application/json": { schema: { type: "object", required: ["idToken"], properties: { idToken: { type: "string", description: "Google ID token from client-side Google Sign-In" } } } } }
+                },
+                responses: {
+                    200: { description: "Authenticated — returns user and access token" },
+                    400: { description: "Invalid Google token" }
+                }
+            }
+        },
+        "/api/auth/apple-auth-initiate": {
+            post: {
+                summary: "Initiate Apple Sign In",
+                description: "Exchanges the Apple identity token/authorization code for an access token and user record.",
+                tags: ["Auth"],
+                requestBody: {
+                    required: true,
+                    content: { "application/json": { schema: { type: "object", required: ["identityToken"], properties: { identityToken: { type: "string" }, authorizationCode: { type: "string" }, fullName: { type: "object", properties: { firstName: { type: "string" }, lastName: { type: "string" } } } } } } }
+                },
+                responses: {
+                    200: { description: "Authenticated — returns user and access token" },
+                    400: { description: "Invalid Apple token" }
+                }
+            }
+        },
         // USER ENDPOINTS (UserRoutes.ts)
         "/api/users/": {
             get: {
@@ -209,16 +280,200 @@ const swaggerSpec = {
                 responses: { 200: { description: "Vehicle details" } }
             },
             put: {
-                summary: "Update vehicle",
+                summary: "Update vehicle (Admin)",
                 tags: ["Vehicles"],
                 security: [{ bearerAuth: [] }],
+                parameters: [{ name: "identifier", in: "path", required: true, schema: { type: "string" } }],
                 responses: { 200: { description: "Vehicle updated" } }
             },
             delete: {
-                summary: "Delete vehicle",
+                summary: "Delete vehicle (Admin)",
                 tags: ["Vehicles"],
                 security: [{ bearerAuth: [] }],
+                parameters: [{ name: "identifier", in: "path", required: true, schema: { type: "string" } }],
                 responses: { 200: { description: "Vehicle deleted" } }
+            }
+        },
+        "/api/vehicles/reference/models": {
+            get: {
+                summary: "Get make/model reference list",
+                description: "Returns all makes and their corresponding models for use in dropdowns and filters.",
+                tags: ["Vehicles"],
+                responses: { 200: { description: "Make–model map" } }
+            }
+        },
+        "/api/vehicles/sync/{vin}": {
+            post: {
+                summary: "Sync vehicle data by VIN (Admin)",
+                description: "Fetches latest data for a vehicle from the external NHTSA / VIN decoder API and updates the record.",
+                tags: ["Vehicles"],
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "vin", in: "path", required: true, schema: { type: "string" }, description: "17-character VIN" }],
+                responses: {
+                    200: { description: "Vehicle synced" },
+                    404: { description: "VIN not found" }
+                }
+            }
+        },
+        "/api/vehicles/save-from-api": {
+            post: {
+                summary: "Save a vehicle from external API data (Admin)",
+                description: "Creates a new vehicle record from a structured payload sourced from an external listing API.",
+                tags: ["Vehicles"],
+                security: [{ bearerAuth: [] }],
+                requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } },
+                responses: { 201: { description: "Vehicle saved" } }
+            }
+        },
+        // Saved vehicles
+        "/api/vehicles/saved": {
+            get: {
+                summary: "Get current user's saved vehicles",
+                tags: ["Vehicles – Saved"],
+                security: [{ bearerAuth: [] }],
+                responses: { 200: { description: "List of saved vehicles" } }
+            },
+            post: {
+                summary: "Save a vehicle to favourites",
+                tags: ["Vehicles – Saved"],
+                security: [{ bearerAuth: [] }],
+                requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["vehicleId"], properties: { vehicleId: { type: "string" } } } } } },
+                responses: {
+                    201: { description: "Vehicle saved" },
+                    409: { description: "Already saved" }
+                }
+            }
+        },
+        "/api/vehicles/saved/{vehicleId}": {
+            delete: {
+                summary: "Remove a vehicle from favourites",
+                tags: ["Vehicles – Saved"],
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "vehicleId", in: "path", required: true, schema: { type: "string" } }],
+                responses: {
+                    200: { description: "Removed from saved" },
+                    404: { description: "Not found in saved list" }
+                }
+            }
+        },
+        // Trending definitions (Admin)
+        "/api/vehicles/trending-definitions": {
+            get: {
+                summary: "List trending vehicle definitions (Admin)",
+                tags: ["Vehicles – Admin Definitions"],
+                security: [{ bearerAuth: [] }],
+                responses: { 200: { description: "Trending definitions list" } }
+            },
+            post: {
+                summary: "Create a trending definition (Admin)",
+                tags: ["Vehicles – Admin Definitions"],
+                security: [{ bearerAuth: [] }],
+                requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } },
+                responses: { 201: { description: "Definition created" } }
+            }
+        },
+        "/api/vehicles/trending-definitions/{id}": {
+            get: {
+                summary: "Get trending definition by ID (Admin)",
+                tags: ["Vehicles – Admin Definitions"],
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+                responses: { 200: { description: "Definition details" }, 404: { description: "Not found" } }
+            },
+            put: {
+                summary: "Update trending definition (Admin)",
+                tags: ["Vehicles – Admin Definitions"],
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+                requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } },
+                responses: { 200: { description: "Updated" } }
+            },
+            delete: {
+                summary: "Delete trending definition (Admin)",
+                tags: ["Vehicles – Admin Definitions"],
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+                responses: { 200: { description: "Deleted" } }
+            }
+        },
+        // Recommended definitions (Admin)
+        "/api/vehicles/recommended-definitions": {
+            get: {
+                summary: "List recommended vehicle definitions (Admin)",
+                tags: ["Vehicles – Admin Definitions"],
+                security: [{ bearerAuth: [] }],
+                responses: { 200: { description: "Recommended definitions list" } }
+            },
+            post: {
+                summary: "Create a recommended definition (Admin)",
+                tags: ["Vehicles – Admin Definitions"],
+                security: [{ bearerAuth: [] }],
+                requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } },
+                responses: { 201: { description: "Definition created" } }
+            }
+        },
+        "/api/vehicles/recommended-definitions/{id}": {
+            get: {
+                summary: "Get recommended definition by ID (Admin)",
+                tags: ["Vehicles – Admin Definitions"],
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+                responses: { 200: { description: "Definition details" }, 404: { description: "Not found" } }
+            },
+            put: {
+                summary: "Update recommended definition (Admin)",
+                tags: ["Vehicles – Admin Definitions"],
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+                requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } },
+                responses: { 200: { description: "Updated" } }
+            },
+            delete: {
+                summary: "Delete recommended definition (Admin)",
+                tags: ["Vehicles – Admin Definitions"],
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+                responses: { 200: { description: "Deleted" } }
+            }
+        },
+        // Vehicle categories (Admin)
+        "/api/vehicles/admin/categories": {
+            get: {
+                summary: "List vehicle categories (Admin)",
+                tags: ["Vehicles – Admin Definitions"],
+                security: [{ bearerAuth: [] }],
+                responses: { 200: { description: "Categories list" } }
+            },
+            post: {
+                summary: "Create a vehicle category (Admin)",
+                tags: ["Vehicles – Admin Definitions"],
+                security: [{ bearerAuth: [] }],
+                requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["name"], properties: { name: { type: "string" }, description: { type: "string" } } } } } },
+                responses: { 201: { description: "Category created" } }
+            }
+        },
+        "/api/vehicles/admin/categories/{id}": {
+            get: {
+                summary: "Get vehicle category by ID (Admin)",
+                tags: ["Vehicles – Admin Definitions"],
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+                responses: { 200: { description: "Category details" }, 404: { description: "Not found" } }
+            },
+            put: {
+                summary: "Update vehicle category (Admin)",
+                tags: ["Vehicles – Admin Definitions"],
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+                requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } },
+                responses: { 200: { description: "Updated" } }
+            },
+            delete: {
+                summary: "Delete vehicle category (Admin)",
+                tags: ["Vehicles – Admin Definitions"],
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+                responses: { 200: { description: "Deleted" } }
             }
         },
         // SELLER ENDPOINTS (SellerRoutes.ts)
@@ -1845,70 +2100,110 @@ const swaggerSpec = {
         // SELLER VEHICLE ENDPOINTS (SellerVehicleRoutes.ts)
         "/api/seller-vehicles/submit": {
             post: {
-                summary: "Submit a vehicle listing for sale",
-                description: "Seller submits a vehicle for sale. All fields sent as multipart/form-data. Images uploaded via files array.",
+                summary: "Submit a vehicle listing for review",
+                description: `Submit a vehicle for sale as a seller. Send as **multipart/form-data** so images can be included.
+
+**Array fields** (titleStatus, knownIssues, features, highlights) can be sent either as JSON strings (\`["Clean title"]\`) or as plain strings when there is only one value (multer will coerce them).
+
+**condition** is case-insensitive — \`excellent\` is accepted and converted to \`EXCELLENT\`.
+
+The endpoint is accessible without authentication. When a logged-in user submits, their userId is attached automatically.`,
                 tags: ["Seller Vehicles"],
-                security: [{ bearerAuth: [] }],
                 requestBody: {
                     required: true,
                     content: {
                         "multipart/form-data": {
                             schema: {
                                 type: "object",
-                                required: ["make", "modelName", "year", "price", "mileage", "condition", "transmission", "fuelType", "color", "vin", "description", "country", "city"],
+                                required: [
+                                    "year", "make", "model", "mileage",
+                                    "condition", "titleStatus", "accidentHistory",
+                                    "askingPrice",
+                                    "contactFirstName", "contactLastName", "contactEmail", "contactPhone",
+                                    "city", "zipCode"
+                                ],
                                 properties: {
+                                    // ── Step 1: Vehicle Details ─────────────────────────────
+                                    year: { type: "integer", example: 2020, description: "Model year (1900 – current+1)" },
                                     make: { type: "string", example: "Toyota" },
-                                    modelName: { type: "string", example: "Camry" },
-                                    year: { type: "integer", example: 2020 },
-                                    price: { type: "number", example: 15000 },
-                                    mileage: { type: "number", example: 45000 },
+                                    model: { type: "string", example: "Camry" },
+                                    vehicleType: {
+                                        type: "string",
+                                        enum: ["CAR", "SUV", "TRUCK", "VAN", "COUPE", "SEDAN", "HATCHBACK", "WAGON", "CONVERTIBLE", "MOTORCYCLE", "OTHER"],
+                                        default: "OTHER",
+                                        description: "Defaults to OTHER if omitted"
+                                    },
+                                    trim: { type: "string", example: "XSE", description: "Optional trim level" },
+                                    bodyStyle: { type: "string", example: "Sedan" },
+                                    mileage: { type: "integer", example: 45000 },
+                                    vin: { type: "string", example: "1HGCM82633A123456", description: "Leave blank — a placeholder is generated automatically" },
+                                    transmission: { type: "string", example: "Automatic" },
+                                    drivetrain: { type: "string", example: "FWD", description: "AWD / FWD / RWD" },
+                                    fuelType: { type: "string", example: "Petrol" },
+                                    exteriorColor: { type: "string", example: "Silver" },
+                                    cylinders: { type: "integer", example: 4 },
+                                    // ── Step 2: Condition ────────────────────────────────────
                                     condition: {
                                         type: "string",
-                                        enum: ["NEW", "USED", "CERTIFIED_PREOWNED"],
-                                        example: "USED"
+                                        enum: ["EXCELLENT", "GOOD", "FAIR", "BAD"],
+                                        example: "GOOD",
+                                        description: "Case-insensitive — 'good' is accepted"
                                     },
-                                    transmission: {
+                                    titleStatus: {
                                         type: "string",
-                                        enum: ["AUTOMATIC", "MANUAL", "CVT", "SEMI_AUTOMATIC"],
-                                        example: "AUTOMATIC"
+                                        example: "Clean title",
+                                        description: "One value as a plain string, or a JSON array: '[\"Clean title\",\"Lien free\"]'"
                                     },
-                                    fuelType: {
+                                    accidentHistory: {
                                         type: "string",
-                                        enum: ["PETROL", "DIESEL", "ELECTRIC", "HYBRID", "PLUG_IN_HYBRID", "CNG", "LPG"],
-                                        example: "PETROL"
+                                        example: "No accidents",
+                                        description: "e.g. No accidents / Minor accident / Major accident / Unknown"
                                     },
-                                    color: { type: "string", example: "Silver" },
-                                    vin: { type: "string", example: "1HGCM82633A123456" },
-                                    description: { type: "string", example: "Well maintained, single owner" },
-                                    country: { type: "string", example: "Nigeria" },
-                                    city: { type: "string", example: "Lagos" },
-                                    engineSize: { type: "string", example: "2.5L" },
-                                    doors: { type: "integer", example: 4 },
-                                    seats: { type: "integer", example: 5 },
-                                    driveType: {
+                                    knownIssues: {
                                         type: "string",
-                                        enum: ["FWD", "RWD", "AWD", "4WD"]
+                                        example: "Engine ticking",
+                                        description: "Plain string or JSON array. Omit if none."
                                     },
-                                    bodyType: { type: "string", example: "Sedan" },
+                                    keys: { type: "integer", example: 2 },
                                     features: {
-                                        type: "array",
-                                        items: { type: "string" },
-                                        description: "List of vehicle features, e.g. ['Leather seats', 'Sunroof']"
+                                        type: "string",
+                                        example: "Sunroof",
+                                        description: "Plain string or JSON array: '[\"Sunroof\",\"Leather seats\"]'"
                                     },
+                                    highlights: {
+                                        type: "string",
+                                        example: "New brakes installed 2024",
+                                        description: "Major repairs / highlights. Plain string or JSON array."
+                                    },
+                                    modifications: { type: "string", example: "Aftermarket exhaust" },
+                                    // ── Step 3: Photos & Price ───────────────────────────────
                                     files: {
                                         type: "array",
                                         items: { type: "string", format: "binary" },
-                                        description: "Vehicle images (up to 10)"
-                                    }
+                                        description: "Vehicle images / videos (up to 10 files)"
+                                    },
+                                    askingPrice: { type: "number", example: 18500, description: "Asking price in USD" },
+                                    showAskingPrice: { type: "boolean", example: true, default: true },
+                                    allowOffers: { type: "boolean", example: true, default: true },
+                                    additionalNotes: { type: "string", example: "Will consider reasonable offers" },
+                                    // ── Step 4: Contact Details ──────────────────────────────
+                                    contactFirstName: { type: "string", example: "John" },
+                                    contactLastName: { type: "string", example: "Doe" },
+                                    contactEmail: { type: "string", format: "email", example: "john@example.com" },
+                                    contactPhone: { type: "string", example: "+2348012345678" },
+                                    city: { type: "string", example: "Lagos" },
+                                    zipCode: { type: "string", example: "100001" },
+                                    preferredContact: { type: "string", enum: ["Email", "Phone", "SMS"] },
+                                    bestTimeToReach: { type: "string", example: "Morning" }
                                 }
                             }
                         }
                     }
                 },
                 responses: {
-                    201: { description: "Listing submitted for admin review" },
-                    400: { description: "Validation error" },
-                    401: { description: "Unauthorized" }
+                    201: { description: "Listing submitted — pending admin review" },
+                    400: { description: "Validation error — see details array" },
+                    403: { description: "Authenticated user is not a verified seller" }
                 }
             }
         },
