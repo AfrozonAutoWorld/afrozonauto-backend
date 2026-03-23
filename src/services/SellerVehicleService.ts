@@ -38,7 +38,7 @@ export class SellerVehicleService {
 
         // Generate a unique VIN placeholder if the seller doesn't know theirs
         if (!data.vin) {
-            data.vin = `SELLER-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+            data.vin = SellerVehicleService.generateTempVin();
         }
 
         // Auto-generate slug from make/model/year
@@ -51,9 +51,25 @@ export class SellerVehicleService {
         }
 
         data.source = VehicleSource.SELLER;
-        data.status = VehicleStatus.PENDING_REVIEW;
+        if (!isAdmin) {
+            data.status = VehicleStatus.PENDING_REVIEW;
+        }
 
-        return this.vehicleRepo.createSellerListing(data);
+        try {
+            return await this.vehicleRepo.createSellerListing(data);
+        } catch (err: any) {
+            // P2002 on VIN means our placeholder collided — retry once with fresh VIN
+            if (err?.code === 'P2002' && err?.meta?.target?.includes('vin')) {
+                data.vin = SellerVehicleService.generateTempVin();
+                return this.vehicleRepo.createSellerListing(data);
+            }
+            throw err;
+        }
+    }
+
+    private static generateTempVin(): string {
+        const rand = () => Math.random().toString(36).substring(2, 8).toUpperCase();
+        return `TEMP-${Date.now().toString(36).toUpperCase()}-${rand()}${rand()}`;
     }
 
     /**
