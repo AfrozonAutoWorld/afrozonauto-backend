@@ -16,12 +16,12 @@ export class SellerVehicleService {
      * Submit a new vehicle listing
      */
     async submitListing(data: any): Promise<Vehicle> {
-        if (data.userId) {
-            const profile = await this.profileRepo.findUserById(data.userId);
-            if (!profile || !profile.isSeller) {
-                throw ApiError.forbidden('You must be a verified seller to list vehicles');
-            }
-        }
+        // if (data.userId) {
+        //     const profile = await this.profileRepo.findUserById(data.userId);
+        //     if (!profile || !profile.isSeller) {
+        //         throw ApiError.forbidden('You must be a verified seller to list vehicles');
+        //     }
+        // }
 
         // additionalNotes (UI field) → manualNotes (Vehicle model field)
         if (data.additionalNotes !== undefined) {
