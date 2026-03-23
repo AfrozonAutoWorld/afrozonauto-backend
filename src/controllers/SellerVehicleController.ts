@@ -36,7 +36,7 @@ export class SellerVehicleController {
             images: imageUrls,
             videos: videoUrls,
             userId: req.user?.id ?? null,
-        });
+        }, req.user?.role as UserRole | undefined);
 
         return res.status(201).json(ApiResponse.created(listing, 'Vehicle listing submitted for review'));
     });

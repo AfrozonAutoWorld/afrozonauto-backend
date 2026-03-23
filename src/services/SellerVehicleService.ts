@@ -2,7 +2,7 @@ import { inject, injectable } from 'inversify';
 import { TYPES } from '../config/types';
 import { VehicleRepository, SellerListingFilters } from '../repositories/VehicleRepository';
 import { ProfileRepository } from '../repositories/ProfileRepository';
-import { Vehicle, VehicleStatus, Prisma, VehicleSource } from '../generated/prisma/client';
+import { Vehicle, VehicleStatus, Prisma, VehicleSource, UserRole } from '../generated/prisma/client';
 import { ApiError } from '../utils/ApiError';
 
 @injectable()
@@ -15,13 +15,20 @@ export class SellerVehicleService {
     /**
      * Submit a new vehicle listing
      */
-    async submitListing(data: any): Promise<Vehicle> {
-        // if (data.userId) {
-        //     const profile = await this.profileRepo.findUserById(data.userId);
-        //     if (!profile || !profile.isSeller) {
-        //         throw ApiError.forbidden('You must be a verified seller to list vehicles');
-        //     }
-        // }
+    async submitListing(data: any, userRole?: UserRole): Promise<Vehicle> {
+        const isAdmin = userRole === UserRole.SUPER_ADMIN || userRole === UserRole.OPERATIONS_ADMIN;
+
+        if (!isAdmin && data.userId) {
+            const profile = await this.profileRepo.findUserById(data.userId);
+            if (!profile || !profile.isSeller) {
+                throw ApiError.forbidden('You must be a verified seller to list vehicles');
+            }
+        }
+
+        // Admin-submitted vehicles go live immediately; seller submissions await review
+        if (isAdmin) {
+            data.status = VehicleStatus.AVAILABLE;
+        }
 
         // additionalNotes (UI field) → manualNotes (Vehicle model field)
         if (data.additionalNotes !== undefined) {

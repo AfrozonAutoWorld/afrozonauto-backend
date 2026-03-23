@@ -2123,14 +2123,17 @@ const swaggerSpec = {
     // SELLER VEHICLE ENDPOINTS (SellerVehicleRoutes.ts)
     "/api/seller-vehicles/submit": {
       post: {
-        summary: "Submit a vehicle listing for review",
-        description: `Submit a vehicle for sale as a seller. Send as **multipart/form-data** so images can be included.
+        summary: "Submit a vehicle listing (Seller or Admin)",
+        description: `Submit a vehicle listing. Accessible by **verified sellers** and **admins** (OPERATIONS_ADMIN / SUPER_ADMIN).
 
-**Array fields** (titleStatus, knownIssues, features, highlights) can be sent either as JSON strings (\`["Clean title"]\`) or as plain strings when there is only one value (multer will coerce them).
+- **Seller** submissions: status is set to \`PENDING_REVIEW\` and await admin approval.
+- **Admin** submissions: status is set to \`AVAILABLE\` immediately — no review step needed.
 
-**condition** is case-insensitive — \`excellent\` is accepted and converted to \`EXCELLENT\`.
+Send as **multipart/form-data** so images can be included.
 
-The endpoint is accessible without authentication. When a logged-in user submits, their userId is attached automatically.`,
+**Array fields** (titleStatus, knownIssues, features, highlights) accept either a JSON string (\`["Clean title"]\`) or a plain string for a single value.
+
+**condition** is case-insensitive — \`good\` is accepted and converted to \`GOOD\`.`,
         tags: ["Seller Vehicles"],
         requestBody: {
           required: true,
@@ -2227,9 +2230,9 @@ The endpoint is accessible without authentication. When a logged-in user submits
           }
         },
         responses: {
-          201: { description: "Listing submitted — pending admin review" },
+          201: { description: "Seller: listing submitted and pending review. Admin: listing published immediately as AVAILABLE." },
           400: { description: "Validation error — see details array" },
-          403: { description: "Authenticated user is not a verified seller" }
+          403: { description: "User is not a verified seller (admins bypass this check)" }
         }
       }
     },
