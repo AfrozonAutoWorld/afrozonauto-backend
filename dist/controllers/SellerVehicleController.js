@@ -48,16 +48,16 @@ let SellerVehicleController = class SellerVehicleController {
          * Submit a new vehicle listing (Public/Authenticated)
          */
         this.submitListing = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
-            var _a, _b;
+            var _a, _b, _c;
             // Destructure to keep only Vehicle model fields (askingPrice is the UI alias for priceUsd)
-            const _c = req.body, { uploadedFiles, askingPrice } = _c, vehicleData = __rest(_c, ["uploadedFiles", "askingPrice"]);
+            const _d = req.body, { uploadedFiles, askingPrice } = _d, vehicleData = __rest(_d, ["uploadedFiles", "askingPrice"]);
             const imageUrls = (uploadedFiles !== null && uploadedFiles !== void 0 ? uploadedFiles : [])
                 .filter((f) => f.fileType === 'image')
                 .map((f) => f.url);
             const videoUrls = (uploadedFiles !== null && uploadedFiles !== void 0 ? uploadedFiles : [])
                 .filter((f) => f.fileType === 'video')
                 .map((f) => f.url);
-            const listing = yield this.service.submitListing(Object.assign(Object.assign({}, vehicleData), { priceUsd: askingPrice, images: imageUrls, videos: videoUrls, userId: (_b = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id) !== null && _b !== void 0 ? _b : null }));
+            const listing = yield this.service.submitListing(Object.assign(Object.assign({}, vehicleData), { priceUsd: askingPrice, images: imageUrls, videos: videoUrls, userId: (_b = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id) !== null && _b !== void 0 ? _b : null }), (_c = req.user) === null || _c === void 0 ? void 0 : _c.role);
             return res.status(201).json(ApiResponse_1.ApiResponse.created(listing, 'Vehicle listing submitted for review'));
         }));
         /**

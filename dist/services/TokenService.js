@@ -60,11 +60,13 @@ let TokenService = class TokenService {
             if (!userId && !email) {
                 throw ApiError_1.ApiError.badRequest('userId or email must be provided');
             }
-            // Find latest unused token
+            const OTP_TTL_MS = 5 * 60 * 1000; // 5 minutes
+            // Find latest unused, non-expired token
             const existingToken = yield db_1.default.token.findFirst({
-                where: Object.assign({ type, used: false }, (userId
-                    ? { userId }
-                    : { email })),
+                where: Object.assign(Object.assign({ type, used: false }, (userId ? { userId } : { email })), { OR: [
+                        { expiresAt: null },
+                        { expiresAt: { gt: new Date() } },
+                    ] }),
                 orderBy: {
                     createdAt: 'desc',
                 },
@@ -74,7 +76,7 @@ let TokenService = class TokenService {
             }
             const token = yield this.generateToken();
             const data = Object.assign(Object.assign({ token,
-                type }, (userId && {
+                type, expiresAt: new Date(Date.now() + OTP_TTL_MS) }, (userId && {
                 user: {
                     connect: { id: userId },
                 },
@@ -94,7 +96,10 @@ let TokenService = class TokenService {
       ---------------------------------------------------- */
     validateToken(token, identifier, type) {
         return __awaiter(this, void 0, void 0, function* () {
-            const whereConditions = Object.assign(Object.assign({ token: Number(token) }, (type ? { type } : {})), { used: false });
+            const whereConditions = Object.assign(Object.assign({ token: Number(token) }, (type ? { type } : {})), { used: false, OR: [
+                    { expiresAt: null },
+                    { expiresAt: { gt: new Date() } },
+                ] });
             // Handle both string identifier (email) or object identifier
             if (typeof identifier === 'string') {
                 // It's a string - check if it's an email or userId

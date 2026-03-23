@@ -90,12 +90,16 @@ export class AuthController {
       return res.status(400).json(ApiError.badRequest('Email is required'))
     }
 
-    const validateTokenVerification = await this.tokenService.getUsedTokenForUser({ email: value.email });
-    console.log(validateTokenVerification)
-    if (!validateTokenVerification) {
-      return res.status(400).json(ApiError.badRequest('Please complete token validation for your account'))
+    // AUTH-001: explicit duplicate email guard before any further processing
+    const existingUser = await this.userService.getUserByEmail(value.email);
+    if (existingUser) {
+      return res.status(409).json(ApiError.badRequest('An account with this email already exists'));
     }
 
+    const validateTokenVerification = await this.tokenService.getUsedTokenForUser({ email: value.email });
+    if (!validateTokenVerification) {
+      return res.status(400).json(ApiError.badRequest('Please verify your email before completing registration'));
+    }
 
     const user = await this.authService.register(value);
     await this.profileService.updateProfileByUserId(user.id.toString(), { firstName, lastName });

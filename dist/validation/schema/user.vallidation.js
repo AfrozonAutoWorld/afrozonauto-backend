@@ -27,18 +27,27 @@ exports.forgotSchema = joi_1.default.object({
     token: joi_1.default.string().required(),
     newPassword: joi_1.default.string().optional()
 });
+// E.164-ish: optional +, then 7–15 digits (covers all international numbers)
+const phoneSchema = joi_1.default.string()
+    .pattern(/^\+?[1-9]\d{6,14}$/)
+    .allow('', null)
+    .optional()
+    .messages({
+    'string.pattern.base': 'Phone number must be a valid international format (7–15 digits, e.g. +2348012345678)',
+});
 exports.createUserSchema = joi_1.default.object({
     email: joi_1.default.string().email().required(),
     password: joi_1.default.string().optional(),
     firstName: joi_1.default.string().required(),
     lastName: joi_1.default.string().required(),
-    phone: joi_1.default.string().optional(),
+    phone: phoneSchema,
     role: joi_1.default.string()
         .valid(...Object.values(client_1.UserRole))
         .optional(),
     isActive: joi_1.default.boolean().optional(),
 });
 exports.updateProfileSchema = joi_1.default.object({
+    phone: phoneSchema,
     uploadedFiles: joi_1.default.array()
         .items(files_validation_1.fileInfoSchema)
         .optional(),

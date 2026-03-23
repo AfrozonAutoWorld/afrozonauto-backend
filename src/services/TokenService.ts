@@ -1,6 +1,6 @@
 import { randomInt } from 'node:crypto';
 import { inject, injectable } from 'inversify';
-import { PrismaClient, TokenType, Token, Prisma } from '../generated/prisma/client';
+import { TokenType, Token, Prisma } from '../generated/prisma/client';
 import { TYPES } from '../config/types';
 import { MailService } from './MailService';
 import { ApiError } from '../utils/ApiError';
@@ -47,14 +47,18 @@ export default class TokenService {
 
 
 
-    // Find latest unused token
+    const OTP_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+    // Find latest unused, non-expired token
     const existingToken = await prisma.token.findFirst({
       where: {
         type,
         used: false,
-        ...(userId
-          ? { userId }
-          : { email }),
+        ...(userId ? { userId } : { email }),
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: new Date() } },
+        ],
       },
       orderBy: {
         createdAt: 'desc',
@@ -69,6 +73,7 @@ export default class TokenService {
     const data: Prisma.TokenCreateInput = {
       token,
       type,
+      expiresAt: new Date(Date.now() + OTP_TTL_MS),
       ...(userId && {
         user: {
           connect: { id: userId },
@@ -101,6 +106,10 @@ export default class TokenService {
       token: Number(token),
       ...(type ? { type } : {}),
       used: false,
+      OR: [
+        { expiresAt: null },
+        { expiresAt: { gt: new Date() } },
+      ],
     };
   
     // Handle both string identifier (email) or object identifier

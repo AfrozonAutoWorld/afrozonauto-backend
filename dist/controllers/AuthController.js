@@ -102,10 +102,14 @@ let AuthController = class AuthController {
             if (!value.email) {
                 return res.status(400).json(ApiError_1.ApiError.badRequest('Email is required'));
             }
+            // AUTH-001: explicit duplicate email guard before any further processing
+            const existingUser = yield this.userService.getUserByEmail(value.email);
+            if (existingUser) {
+                return res.status(409).json(ApiError_1.ApiError.badRequest('An account with this email already exists'));
+            }
             const validateTokenVerification = yield this.tokenService.getUsedTokenForUser({ email: value.email });
-            console.log(validateTokenVerification);
             if (!validateTokenVerification) {
-                return res.status(400).json(ApiError_1.ApiError.badRequest('Please complete token validation for your account'));
+                return res.status(400).json(ApiError_1.ApiError.badRequest('Please verify your email before completing registration'));
             }
             const user = yield this.authService.register(value);
             yield this.profileService.updateProfileByUserId(user.id.toString(), { firstName, lastName });

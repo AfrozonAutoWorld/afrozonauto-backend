@@ -29,12 +29,22 @@ export const forgotSchema = Joi.object({
   token: Joi.string().required(),
   newPassword: Joi.string().optional()
 });
+// E.164-ish: optional +, then 7–15 digits (covers all international numbers)
+const phoneSchema = Joi.string()
+  .pattern(/^\+?[1-9]\d{6,14}$/)
+  .allow('', null)
+  .optional()
+  .messages({
+    'string.pattern.base':
+      'Phone number must be a valid international format (7–15 digits, e.g. +2348012345678)',
+  });
+
 export const createUserSchema = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().optional(),
   firstName: Joi.string().required(),
   lastName: Joi.string().required(),
-  phone: Joi.string().optional(),
+  phone: phoneSchema,
   role: Joi.string()
     .valid(...Object.values(UserRole))
     .optional(),
@@ -43,6 +53,7 @@ export const createUserSchema = Joi.object({
 
 
 export const updateProfileSchema = Joi.object({
+  phone: phoneSchema,
 
   uploadedFiles: Joi.array()
     .items(fileInfoSchema)

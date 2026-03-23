@@ -20,6 +20,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var SellerVehicleService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SellerVehicleService = void 0;
 const inversify_1 = require("inversify");
@@ -28,7 +29,7 @@ const VehicleRepository_1 = require("../repositories/VehicleRepository");
 const ProfileRepository_1 = require("../repositories/ProfileRepository");
 const client_1 = require("../generated/prisma/client");
 const ApiError_1 = require("../utils/ApiError");
-let SellerVehicleService = class SellerVehicleService {
+let SellerVehicleService = SellerVehicleService_1 = class SellerVehicleService {
     constructor(vehicleRepo, profileRepo) {
         this.vehicleRepo = vehicleRepo;
         this.profileRepo = profileRepo;
@@ -36,14 +37,20 @@ let SellerVehicleService = class SellerVehicleService {
     /**
      * Submit a new vehicle listing
      */
-    submitListing(data) {
+    submitListing(data, userRole) {
         return __awaiter(this, void 0, void 0, function* () {
-            // if (data.userId) {
-            //     const profile = await this.profileRepo.findUserById(data.userId);
-            //     if (!profile || !profile.isSeller) {
-            //         throw ApiError.forbidden('You must be a verified seller to list vehicles');
-            //     }
-            // }
+            var _a, _b;
+            const isAdmin = userRole === client_1.UserRole.SUPER_ADMIN || userRole === client_1.UserRole.OPERATIONS_ADMIN;
+            if (!isAdmin && data.userId) {
+                const profile = yield this.profileRepo.findUserById(data.userId);
+                if (!profile || !profile.isSeller) {
+                    throw ApiError_1.ApiError.forbidden('You must be a verified seller to list vehicles');
+                }
+            }
+            // Admin-submitted vehicles go live immediately; seller submissions await review
+            if (isAdmin) {
+                data.status = client_1.VehicleStatus.AVAILABLE;
+            }
             // additionalNotes (UI field) → manualNotes (Vehicle model field)
             if (data.additionalNotes !== undefined) {
                 data.manualNotes = data.additionalNotes;
@@ -51,7 +58,7 @@ let SellerVehicleService = class SellerVehicleService {
             }
             // Generate a unique VIN placeholder if the seller doesn't know theirs
             if (!data.vin) {
-                data.vin = `SELLER-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+                data.vin = SellerVehicleService_1.generateTempVin();
             }
             // Auto-generate slug from make/model/year
             if (!data.slug) {
@@ -62,9 +69,25 @@ let SellerVehicleService = class SellerVehicleService {
                 data.slug = `${base}-${Date.now()}`;
             }
             data.source = client_1.VehicleSource.SELLER;
-            data.status = client_1.VehicleStatus.PENDING_REVIEW;
-            return this.vehicleRepo.createSellerListing(data);
+            if (!isAdmin) {
+                data.status = client_1.VehicleStatus.PENDING_REVIEW;
+            }
+            try {
+                return yield this.vehicleRepo.createSellerListing(data);
+            }
+            catch (err) {
+                // P2002 on VIN means our placeholder collided — retry once with fresh VIN
+                if ((err === null || err === void 0 ? void 0 : err.code) === 'P2002' && ((_b = (_a = err === null || err === void 0 ? void 0 : err.meta) === null || _a === void 0 ? void 0 : _a.target) === null || _b === void 0 ? void 0 : _b.includes('vin'))) {
+                    data.vin = SellerVehicleService_1.generateTempVin();
+                    return this.vehicleRepo.createSellerListing(data);
+                }
+                throw err;
+            }
         });
+    }
+    static generateTempVin() {
+        const rand = () => Math.random().toString(36).substring(2, 8).toUpperCase();
+        return `TEMP-${Date.now().toString(36).toUpperCase()}-${rand()}${rand()}`;
     }
     /**
      * Get a listing by ID
@@ -125,7 +148,7 @@ let SellerVehicleService = class SellerVehicleService {
     }
 };
 exports.SellerVehicleService = SellerVehicleService;
-exports.SellerVehicleService = SellerVehicleService = __decorate([
+exports.SellerVehicleService = SellerVehicleService = SellerVehicleService_1 = __decorate([
     (0, inversify_1.injectable)(),
     __param(0, (0, inversify_1.inject)(types_1.TYPES.VehicleRepository)),
     __param(1, (0, inversify_1.inject)(types_1.TYPES.ProfileRepository)),

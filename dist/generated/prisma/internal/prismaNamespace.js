@@ -453,6 +453,7 @@ exports.TokenScalarFieldEnum = {
     type: 'type',
     used: 'used',
     usedAt: 'usedAt',
+    expiresAt: 'expiresAt',
     createdAt: 'createdAt'
 };
 exports.UserScalarFieldEnum = {

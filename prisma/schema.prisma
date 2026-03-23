@@ -784,6 +784,7 @@ model Token {
   type      TokenType
   used      Boolean   @default(false)
   usedAt    DateTime?
+  expiresAt DateTime? // null = never expires (legacy); new tokens always have this set
   createdAt DateTime  @default(now())
 
   @@index([userId])
