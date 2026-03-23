@@ -1,9 +1,6 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find /Users/apple/Desktop/dox-tech/afrozonauto/src -type d -name *service* -o -type d -name *repository* -o -type d -name *repo*)",
-      "Bash(find /Users/apple/Desktop/dox-tech/afrozonauto -type f \\\\\\(-name *.md -o -name *.txt \\\\\\) ! -path */node_modules/* ! -path */dist/*)",
-      "Bash(grep -r \"BankAccount\\\\|bank.*account\\\\|payout\\\\|withdrawal\" /Users/apple/Desktop/dox-tech/afrozonauto/src --include=*.ts)",
       "Bash(npx tsc:*)",
       "Bash(npx tsx:*)",
       "Bash(npx prisma:*)"
