@@ -90,7 +90,7 @@ export class AuthController {
       return res.status(400).json(ApiError.badRequest('Email is required'))
     }
 
-    // AUTH-001: explicit duplicate email guard before any further processing
+    //explicit duplicate email guard before any further processing
     const existingUser = await this.userService.getUserByEmail(value.email);
     if (existingUser) {
       return res.status(409).json(ApiError.badRequest('An account with this email already exists'));
