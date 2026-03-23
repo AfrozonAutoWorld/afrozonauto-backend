@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto';
 import { inject, injectable } from 'inversify';
 import { TokenType, Token, Prisma } from '../generated/prisma/client';
+import { TOKEN_EXPIRY_MINUTES } from '../secrets';
 import { TYPES } from '../config/types';
 import { MailService } from './MailService';
 import { ApiError } from '../utils/ApiError';
@@ -45,9 +46,7 @@ export default class TokenService {
       throw ApiError.badRequest('userId or email must be provided');
     }
 
-
-
-    const OTP_TTL_MS = 5 * 60 * 1000; // 5 minutes
+    const OTP_TTL_MS = (parseInt(TOKEN_EXPIRY_MINUTES, 10) || 5) * 60 * 1000;
 
     // Find latest unused, non-expired token
     const existingToken = await prisma.token.findFirst({
@@ -92,51 +91,40 @@ export default class TokenService {
   }
 
   /* ----------------------------------------------------
-     VALIDATE TOKEN
-  ---------------------------------------------------- */
-/* ----------------------------------------------------
-     VALIDATE TOKEN
-  ---------------------------------------------------- */
+       VALIDATE TOKEN
+    ---------------------------------------------------- */
   async validateToken(
     token: number,
     identifier: string | { userId?: string; email?: string },
     type?: TokenType
   ): Promise<Token | null> {
-    const whereConditions: any = {
-      token: Number(token),
-      ...(type ? { type } : {}),
-      used: false,
+    const notExpired = {
       OR: [
         { expiresAt: null },
         { expiresAt: { gt: new Date() } },
       ],
     };
-  
-    // Handle both string identifier (email) or object identifier
+
+    // Build identifier condition — string shorthand or object with userId/email
+    let identifierCondition: any;
     if (typeof identifier === 'string') {
-      // It's a string - check if it's an email or userId
-      if (identifier.includes('@')) {
-        whereConditions.email = identifier;
-      } else {
-        whereConditions.userId = identifier;
-      }
+      identifierCondition = identifier.includes('@')
+        ? { email: identifier }
+        : { userId: identifier };
     } else {
-      // It's an object with userId and/or email
-      const orConditions = [];
-      if (identifier.userId) {
-        orConditions.push({ userId: identifier.userId });
-      }
-      if (identifier.email) {
-        orConditions.push({ email: identifier.email });
-      }
-      
-      if (orConditions.length > 0) {
-        whereConditions.OR = orConditions;
-      }
+      const orParts: any[] = [];
+      if (identifier.userId) orParts.push({ userId: identifier.userId });
+      if (identifier.email) orParts.push({ email: identifier.email });
+      identifierCondition = orParts.length === 1 ? orParts[0] : { OR: orParts };
     }
-  
+
     return prisma.token.findFirst({
-      where: whereConditions,
+      where: {
+        token: Number(token),
+        ...(type ? { type } : {}),
+        used: false,
+        AND: [notExpired, identifierCondition],
+      },
     });
   }
 
@@ -207,7 +195,7 @@ export default class TokenService {
       usedAt: null,
       ...(type ? { type } : {}),
     };
-  
+
     if (userId) {
       whereConditions.userId = userId;
     } else if (email) {
@@ -215,7 +203,7 @@ export default class TokenService {
     } else {
       throw new Error('Either userId or email must be provided');
     }
-  
+
     await prisma.token.updateMany({
       where: whereConditions,
       data: {
