@@ -30,11 +30,78 @@ const swaggerSpec = {
         properties: {
           success: { type: "boolean" },
           message: { type: "string" },
-          data: {
-            type: "object"
-          }
+          data: { type: "object" }
         }
-      }
+      },
+      PlatformBankAccount: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          label: { type: "string", example: "USD - Domiciliary Account" },
+          bankName: { type: "string", example: "Guaranty Trust Bank" },
+          bankCode: { type: "string", nullable: true },
+          accountName: { type: "string", example: "Afrozon AutoGlobal Ltd" },
+          accountNumber: { type: "string", example: "0123456789" },
+          currency: { type: "string", enum: ["USD", "NGN", "GBP", "EUR", "GHS", "KES", "ZAR"] },
+          country: { type: "string", example: "NG" },
+          swiftCode: { type: "string", nullable: true },
+          iban: { type: "string", nullable: true },
+          sortCode: { type: "string", nullable: true },
+          routingNumber: { type: "string", nullable: true },
+          bankAddress: { type: "string", nullable: true },
+          isActive: { type: "boolean" },
+          isPrimary: { type: "boolean" },
+          displayOrder: { type: "integer" },
+          instructions: { type: "string", nullable: true, example: "Use your Order ID as the payment reference" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" }
+        }
+      },
+      CreatePlatformBankAccountInput: {
+        type: "object",
+        required: ["label", "bankName", "accountName", "accountNumber", "currency", "country"],
+        properties: {
+          label: { type: "string", example: "NGN - Naira Account" },
+          bankName: { type: "string", example: "First Bank" },
+          bankCode: { type: "string" },
+          accountName: { type: "string", example: "Afrozon AutoGlobal Ltd" },
+          accountNumber: { type: "string", example: "3012345678" },
+          currency: { type: "string", enum: ["USD", "NGN", "GBP", "EUR", "GHS", "KES", "ZAR"] },
+          country: { type: "string", example: "NG", description: "ISO 3166-1 alpha-2 country code" },
+          swiftCode: { type: "string" },
+          iban: { type: "string" },
+          sortCode: { type: "string" },
+          routingNumber: { type: "string" },
+          bankAddress: { type: "string" },
+          isPrimary: { type: "boolean", default: false },
+          displayOrder: { type: "integer", default: 0 },
+          instructions: { type: "string", example: "Use your Order ID as the payment reference" },
+          notes: { type: "string", description: "Internal admin note" }
+        }
+      },
+      UpdatePlatformBankAccountInput: {
+        type: "object",
+        minProperties: 1,
+        properties: {
+          label: { type: "string" },
+          bankName: { type: "string" },
+          bankCode: { type: "string" },
+          accountName: { type: "string" },
+          accountNumber: { type: "string" },
+          currency: { type: "string", enum: ["USD", "NGN", "GBP", "EUR", "GHS", "KES", "ZAR"] },
+          country: { type: "string" },
+          swiftCode: { type: "string", nullable: true },
+          iban: { type: "string", nullable: true },
+          sortCode: { type: "string", nullable: true },
+          routingNumber: { type: "string", nullable: true },
+          bankAddress: { type: "string", nullable: true },
+          isActive: { type: "boolean" },
+          isPrimary: { type: "boolean" },
+          displayOrder: { type: "integer" },
+          instructions: { type: "string", nullable: true },
+          notes: { type: "string", nullable: true }
+        }
+      },
     },
   },
   security: [
@@ -2267,6 +2334,155 @@ Send as **multipart/form-data** so images can be included.
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
         security: [{ bearerAuth: [] }],
         responses: { 200: { description: "Status updated" } }
+      }
+    },
+
+    // ── Platform Bank Accounts ──────────────────────────────────────────────
+    "/api/platform-bank-accounts": {
+      get: {
+        summary: "List active platform bank accounts",
+        description: "Returns all active bank accounts Afronxon uses to receive manual (bank transfer) payments. No authentication required — shown to buyers on the payment page.",
+        tags: ["Platform Bank Accounts"],
+        security: [],
+        responses: {
+          200: {
+            description: "Active bank accounts",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean" },
+                    data: {
+                      type: "object",
+                      properties: {
+                        data: {
+                          type: "array",
+                          items: { $ref: "#/components/schemas/PlatformBankAccount" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      post: {
+        summary: "Create a platform bank account (Admin)",
+        description: "Add a new bank account to the manual payment listing.",
+        tags: ["Platform Bank Accounts"],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/CreatePlatformBankAccountInput" }
+            }
+          }
+        },
+        responses: {
+          201: { description: "Bank account created" },
+          400: { description: "Validation error" },
+          403: { description: "Admin access required" }
+        }
+      }
+    },
+
+    "/api/platform-bank-accounts/by-currency/{currency}": {
+      get: {
+        summary: "List active bank accounts by currency",
+        description: "Returns active platform bank accounts filtered by currency. Primary account is listed first.",
+        tags: ["Platform Bank Accounts"],
+        security: [],
+        parameters: [
+          {
+            name: "currency",
+            in: "path",
+            required: true,
+            schema: { type: "string", enum: ["USD", "NGN", "GBP", "EUR", "GHS", "KES", "ZAR"] },
+            description: "Currency code"
+          }
+        ],
+        responses: {
+          200: { description: "Filtered bank accounts" },
+          400: { description: "Invalid currency" }
+        }
+      }
+    },
+
+    "/api/platform-bank-accounts/admin/all": {
+      get: {
+        summary: "List all platform bank accounts including inactive (Admin)",
+        tags: ["Platform Bank Accounts"],
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: "All bank accounts" },
+          403: { description: "Admin access required" }
+        }
+      }
+    },
+
+    "/api/platform-bank-accounts/{id}": {
+      patch: {
+        summary: "Update a platform bank account (Admin)",
+        tags: ["Platform Bank Accounts"],
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/UpdatePlatformBankAccountInput" }
+            }
+          }
+        },
+        responses: {
+          200: { description: "Bank account updated" },
+          404: { description: "Bank account not found" },
+          403: { description: "Admin access required" }
+        }
+      },
+      delete: {
+        summary: "Delete a platform bank account (Admin)",
+        tags: ["Platform Bank Accounts"],
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          200: { description: "Bank account deleted" },
+          404: { description: "Bank account not found" },
+          403: { description: "Admin access required" }
+        }
+      }
+    },
+
+    "/api/platform-bank-accounts/{id}/set-primary": {
+      patch: {
+        summary: "Set bank account as primary for its currency (Admin)",
+        description: "Marks this account as primary and demotes any other primary in the same currency.",
+        tags: ["Platform Bank Accounts"],
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          200: { description: "Primary account updated" },
+          404: { description: "Bank account not found" },
+          403: { description: "Admin access required" }
+        }
+      }
+    },
+
+    "/api/platform-bank-accounts/{id}/toggle": {
+      patch: {
+        summary: "Toggle bank account active/inactive (Admin)",
+        tags: ["Platform Bank Accounts"],
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          200: { description: "Active status toggled" },
+          404: { description: "Bank account not found" },
+          403: { description: "Admin access required" }
+        }
       }
     },
   },

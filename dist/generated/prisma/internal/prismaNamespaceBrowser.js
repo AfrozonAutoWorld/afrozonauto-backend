@@ -48,7 +48,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.QueryMode = exports.SortOrder = exports.TestimonialScalarFieldEnum = exports.SourcingRequestScalarFieldEnum = exports.VehicleCategoryScalarFieldEnum = exports.MediaFileScalarFieldEnum = exports.RecommendedDefinitionScalarFieldEnum = exports.TrendingDefinitionScalarFieldEnum = exports.SavedVehicleScalarFieldEnum = exports.VehicleScalarFieldEnum = exports.ProfileScalarFieldEnum = exports.WithdrawalRequestScalarFieldEnum = exports.BankAccountScalarFieldEnum = exports.UserScalarFieldEnum = exports.TokenScalarFieldEnum = exports.ShipmentScalarFieldEnum = exports.PaymentScalarFieldEnum = exports.OrderScalarFieldEnum = exports.ContentScalarFieldEnum = exports.NotificationScalarFieldEnum = exports.MessageScalarFieldEnum = exports.InspectionScalarFieldEnum = exports.FileInfoScalarFieldEnum = exports.ApiRequestLogScalarFieldEnum = exports.ApiIntegrationScalarFieldEnum = exports.FeeSettingsScalarFieldEnum = exports.SystemSettingScalarFieldEnum = exports.PricingConfigScalarFieldEnum = exports.ActivityLogScalarFieldEnum = exports.AdminNoteScalarFieldEnum = exports.AddressScalarFieldEnum = exports.ModelName = exports.AnyNull = exports.JsonNull = exports.DbNull = exports.NullTypes = exports.Decimal = void 0;
+exports.QueryMode = exports.SortOrder = exports.TestimonialScalarFieldEnum = exports.SourcingRequestScalarFieldEnum = exports.VehicleCategoryScalarFieldEnum = exports.MediaFileScalarFieldEnum = exports.RecommendedDefinitionScalarFieldEnum = exports.TrendingDefinitionScalarFieldEnum = exports.SavedVehicleScalarFieldEnum = exports.VehicleScalarFieldEnum = exports.ProfileScalarFieldEnum = exports.WithdrawalRequestScalarFieldEnum = exports.BankAccountScalarFieldEnum = exports.PlatformBankAccountScalarFieldEnum = exports.UserScalarFieldEnum = exports.TokenScalarFieldEnum = exports.ShipmentScalarFieldEnum = exports.PaymentScalarFieldEnum = exports.OrderScalarFieldEnum = exports.ContentScalarFieldEnum = exports.NotificationScalarFieldEnum = exports.MessageScalarFieldEnum = exports.InspectionScalarFieldEnum = exports.FileInfoScalarFieldEnum = exports.ApiRequestLogScalarFieldEnum = exports.ApiIntegrationScalarFieldEnum = exports.FeeSettingsScalarFieldEnum = exports.SystemSettingScalarFieldEnum = exports.PricingConfigScalarFieldEnum = exports.ActivityLogScalarFieldEnum = exports.AdminNoteScalarFieldEnum = exports.AddressScalarFieldEnum = exports.ModelName = exports.AnyNull = exports.JsonNull = exports.DbNull = exports.NullTypes = exports.Decimal = void 0;
 const runtime = __importStar(require("@prisma/client/runtime/index-browser"));
 exports.Decimal = runtime.Decimal;
 exports.NullTypes = {
@@ -93,6 +93,7 @@ exports.ModelName = {
     Shipment: 'Shipment',
     Token: 'Token',
     User: 'User',
+    PlatformBankAccount: 'PlatformBankAccount',
     BankAccount: 'BankAccount',
     WithdrawalRequest: 'WithdrawalRequest',
     Profile: 'Profile',
@@ -451,6 +452,28 @@ exports.UserScalarFieldEnum = {
     timezone: 'timezone',
     notificationPreferences: 'notificationPreferences',
     lastLoginAt: 'lastLoginAt',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+};
+exports.PlatformBankAccountScalarFieldEnum = {
+    id: 'id',
+    label: 'label',
+    bankName: 'bankName',
+    bankCode: 'bankCode',
+    accountName: 'accountName',
+    accountNumber: 'accountNumber',
+    currency: 'currency',
+    country: 'country',
+    swiftCode: 'swiftCode',
+    iban: 'iban',
+    sortCode: 'sortCode',
+    routingNumber: 'routingNumber',
+    bankAddress: 'bankAddress',
+    isActive: 'isActive',
+    isPrimary: 'isPrimary',
+    displayOrder: 'displayOrder',
+    instructions: 'instructions',
+    notes: 'notes',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
 };

@@ -858,6 +858,56 @@ model User {
 }
 
 // ============================================
+// PLATFORM BANK ACCOUNTS (Manual Payments)
+// ============================================
+
+enum PlatformBankAccountCurrency {
+  USD
+  NGN
+  GBP
+  EUR
+  GHS
+  KES
+  ZAR
+}
+
+model PlatformBankAccount {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+
+  // Identity
+  label       String  // e.g. "USD - Domiciliary Account", "NGN - Naira Account"
+  bankName    String  // e.g. "Guaranty Trust Bank"
+  bankCode    String? // Local bank code (Nigeria CBN code etc.)
+  accountName String  // Beneficiary name
+  accountNumber String
+
+  // Currency & Region
+  currency    PlatformBankAccountCurrency
+  country     String // ISO 3166-1 alpha-2 e.g. "NG", "US", "GB"
+
+  // International Wire Details
+  swiftCode   String? // SWIFT/BIC code for international transfers
+  iban        String? // International Bank Account Number
+  sortCode    String? // UK sort code
+  routingNumber String? // US ACH routing number
+  bankAddress String? // Full bank address for wire transfers
+
+  // Display
+  isActive    Boolean  @default(true)
+  isPrimary   Boolean  @default(false) // Highlighted/default for that currency
+  displayOrder Int     @default(0)    // Sort order on UI
+  instructions String? // Custom instructions shown to buyer e.g. "Use order ID as reference"
+  notes       String? // Internal admin note
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([currency, isActive])
+  @@index([isActive, displayOrder])
+  @@map("platform_bank_accounts")
+}
+
+// ============================================
 // PAYOUT & WITHDRAWALS
 // ============================================
 

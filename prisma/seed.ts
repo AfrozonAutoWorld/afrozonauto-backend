@@ -16,6 +16,7 @@ import {
   InspectionCondition,
   SourcingRequestStatus,
   WithdrawalStatus,
+  PlatformBankAccountCurrency,
 } from '../src/generated/prisma/enums';
 
 const prisma = new PrismaClient();
@@ -1743,7 +1744,58 @@ async function main() {
     });
   }
   await seedAdminData();
+  await seedPlatformBankAccounts();
   console.log('Seed completed.');
+}
+
+async function seedPlatformBankAccounts() {
+  console.log('Seeding platform bank accounts...');
+
+  const accounts = [
+    {
+      label: 'NGN - GTBank Naira Account',
+      bankName: 'Guaranty Trust Bank (GTBank)',
+      bankCode: '058',
+      accountName: 'Afronxon AutoGlobal Ltd',
+      accountNumber: '0123456789',
+      currency: PlatformBankAccountCurrency.NGN,
+      country: 'NG',
+      isPrimary: true,
+      displayOrder: 0,
+      instructions: 'Use your Order ID as the payment reference when making the transfer.',
+    },
+    {
+      label: 'USD - GTBank Domiciliary Account',
+      bankName: 'Guaranty Trust Bank (GTBank)',
+      bankCode: '058',
+      accountName: 'Afronxon AutoGlobal Ltd',
+      accountNumber: '0012345678',
+      currency: PlatformBankAccountCurrency.USD,
+      country: 'NG',
+      swiftCode: 'GTBINGLA',
+      bankAddress: 'GTBank Plc, Plot 635, Akin Adesola Street, Victoria Island, Lagos, Nigeria',
+      isPrimary: true,
+      displayOrder: 0,
+      instructions: 'Use your Order ID as the payment reference. International wire transfers only.',
+    },
+  ];
+
+  for (const account of accounts) {
+    const existing = await prisma.platformBankAccount.findFirst({
+      where: { accountNumber: account.accountNumber, currency: account.currency },
+    });
+
+    if (existing) {
+      await prisma.platformBankAccount.update({
+        where: { id: existing.id },
+        data: account,
+      });
+    } else {
+      await prisma.platformBankAccount.create({ data: account });
+    }
+  }
+
+  console.log(`Seeded ${accounts.length} platform bank accounts.`);
 }
 
 main()

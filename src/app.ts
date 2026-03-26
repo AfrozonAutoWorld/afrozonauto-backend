@@ -21,6 +21,7 @@ import SellerRoutes from './routes/SellerRoutes';
 import SourcingRequestRoutes from './routes/SourcingRequestRoutes';
 import AdminRoutes from './routes/AdminRoutes';
 import PayoutRoutes from './routes/PayoutRoutes';
+import PlatformBankAccountRoutes from './routes/PlatformBankAccountRoutes';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './config/swagger';
 
@@ -169,6 +170,7 @@ class App {
     this.app.use('/api/sellers', SellerRoutes);
     this.app.use('/api/admin', AdminRoutes);
     this.app.use('/api/payout', PayoutRoutes);
+    this.app.use('/api/platform-bank-accounts', PlatformBankAccountRoutes);
 
     // 404 handler - catch all unmatched routes
     this.app.use((req: Request, res: Response) => {

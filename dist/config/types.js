@@ -70,4 +70,8 @@ exports.TYPES = {
     PayoutRepository: Symbol.for('PayoutRepository'),
     PayoutService: Symbol.for('PayoutService'),
     PayoutController: Symbol.for('PayoutController'),
+    // Platform Bank Accounts (manual payment showcase)
+    PlatformBankAccountRepository: Symbol.for('PlatformBankAccountRepository'),
+    PlatformBankAccountService: Symbol.for('PlatformBankAccountService'),
+    PlatformBankAccountController: Symbol.for('PlatformBankAccountController'),
 };

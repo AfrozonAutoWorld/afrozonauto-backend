@@ -69,6 +69,9 @@ const NotificationController_1 = require("../controllers/NotificationController"
 const PayoutRepository_1 = require("../repositories/PayoutRepository");
 const PayoutService_1 = require("../services/PayoutService");
 const PayoutController_1 = require("../controllers/PayoutController");
+const PlatformBankAccountRepository_1 = require("../repositories/PlatformBankAccountRepository");
+const PlatformBankAccountService_1 = require("../services/PlatformBankAccountService");
+const PlatformBankAccountController_1 = require("../controllers/PlatformBankAccountController");
 const container = new inversify_1.Container();
 exports.container = container;
 container.bind(types_1.TYPES.UserRepository).to(UserRepository_1.UserRepository);
@@ -144,3 +147,7 @@ container.bind(types_1.TYPES.NotificationController).to(NotificationController_1
 container.bind(types_1.TYPES.PayoutRepository).to(PayoutRepository_1.PayoutRepository);
 container.bind(types_1.TYPES.PayoutService).to(PayoutService_1.PayoutService);
 container.bind(types_1.TYPES.PayoutController).to(PayoutController_1.PayoutController);
+// Platform Bank Account bindings
+container.bind(types_1.TYPES.PlatformBankAccountRepository).to(PlatformBankAccountRepository_1.PlatformBankAccountRepository);
+container.bind(types_1.TYPES.PlatformBankAccountService).to(PlatformBankAccountService_1.PlatformBankAccountService);
+container.bind(types_1.TYPES.PlatformBankAccountController).to(PlatformBankAccountController_1.PlatformBankAccountController);

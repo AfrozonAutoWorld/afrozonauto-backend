@@ -66,6 +66,9 @@ import { NotificationController } from '../controllers/NotificationController';
 import { PayoutRepository } from '../repositories/PayoutRepository';
 import { PayoutService } from '../services/PayoutService';
 import { PayoutController } from '../controllers/PayoutController';
+import { PlatformBankAccountRepository } from '../repositories/PlatformBankAccountRepository';
+import { PlatformBankAccountService } from '../services/PlatformBankAccountService';
+import { PlatformBankAccountController } from '../controllers/PlatformBankAccountController';
 
 
 
@@ -151,5 +154,10 @@ container.bind<NotificationController>(TYPES.NotificationController).to(Notifica
 container.bind<PayoutRepository>(TYPES.PayoutRepository).to(PayoutRepository);
 container.bind<PayoutService>(TYPES.PayoutService).to(PayoutService);
 container.bind<PayoutController>(TYPES.PayoutController).to(PayoutController);
+
+// Platform Bank Account bindings
+container.bind<PlatformBankAccountRepository>(TYPES.PlatformBankAccountRepository).to(PlatformBankAccountRepository);
+container.bind<PlatformBankAccountService>(TYPES.PlatformBankAccountService).to(PlatformBankAccountService);
+container.bind<PlatformBankAccountController>(TYPES.PlatformBankAccountController).to(PlatformBankAccountController);
 
 export { container };

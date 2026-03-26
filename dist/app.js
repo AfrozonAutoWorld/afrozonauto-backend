@@ -26,6 +26,7 @@ const SellerRoutes_1 = __importDefault(require("./routes/SellerRoutes"));
 const SourcingRequestRoutes_1 = __importDefault(require("./routes/SourcingRequestRoutes"));
 const AdminRoutes_1 = __importDefault(require("./routes/AdminRoutes"));
 const PayoutRoutes_1 = __importDefault(require("./routes/PayoutRoutes"));
+const PlatformBankAccountRoutes_1 = __importDefault(require("./routes/PlatformBankAccountRoutes"));
 const swagger_ui_express_1 = __importDefault(require("swagger-ui-express"));
 const swagger_1 = __importDefault(require("./config/swagger"));
 class App {
@@ -143,6 +144,7 @@ class App {
         this.app.use('/api/sellers', SellerRoutes_1.default);
         this.app.use('/api/admin', AdminRoutes_1.default);
         this.app.use('/api/payout', PayoutRoutes_1.default);
+        this.app.use('/api/platform-bank-accounts', PlatformBankAccountRoutes_1.default);
         // 404 handler - catch all unmatched routes
         this.app.use((req, res) => {
             res.status(404).json({
