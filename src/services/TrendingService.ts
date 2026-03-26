@@ -31,6 +31,8 @@ export class TrendingService {
       const orderedVehicleIds = await this.orderRepo.findOrderedVehicleIds(MAX_ORDERED_VEHICLES);
       const orderedVehicles = await this.vehicleRepo.findManyByIds(orderedVehicleIds);
       for (const v of orderedVehicles) {
+        // Skip manually-seeded or seller-submitted vehicles — only real API listings qualify
+        if (v.source !== 'API') continue;
         if (v.vin && !seenVins.has(v.vin)) {
           seenVins.add(v.vin);
           result.push(v);

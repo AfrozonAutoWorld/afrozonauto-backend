@@ -1526,6 +1526,88 @@ async function seedAdminData() {
     if (!existing) { await prisma.testimonial.create({ data: t }); }
   }
 
+  // ── 24. Featured Vehicles ────────────────────────────────────────────────────
+
+  const featuredUntil = new Date(now.getFullYear(), now.getMonth() + 3, 1); // 3 months from now
+
+  // Mark 4 existing seed vehicles as featured
+  const featuredVins = [
+    'SEED2LEXUS2021002',  // Lexus RX 350 — SUV flagship
+    'SEED3BMW2023003',    // BMW X5 — premium SUV
+    'SEED7PORSCHE2019007', // Porsche 911 — sports highlight
+    'SEED8FORD2023008',   // Ford F-150 — truck spotlight
+  ];
+  for (const vin of featuredVins) {
+    await prisma.vehicle.updateMany({
+      where: { vin },
+      data: { featured: true, featuredUntil },
+    });
+  }
+
+  // Create 2 additional featured vehicles not already in the base seed
+  const featuredVehicleDefs = [
+    {
+      vin: 'FEAT1RANGE2023FV1',
+      slug: 'seed-2023-range-rover-sport-fv1',
+      make: 'Land Rover', model: 'Range Rover Sport', year: 2023,
+      vehicleType: VehicleType.SUV,
+      priceUsd: 88000,
+      originalPriceUsd: 92000,
+      mileage: 9800,
+      transmission: 'Automatic',
+      fuelType: 'Gasoline',
+      drivetrain: 'AWD',
+      exteriorColor: 'Santorini Black',
+      interiorColor: 'Ivory',
+      bodyStyle: 'SUV',
+      features: ['360-Degree Camera', 'Terrain Response', 'Meridian Sound', 'Pivi Pro Infotainment', 'Heated Seats', 'Head-Up Display'],
+      thumbnail: 'https://res.cloudinary.com/demo/image/upload/v1/samples/featured_car_01.jpg',
+      images: ['https://res.cloudinary.com/demo/image/upload/v1/samples/featured_car_01.jpg'],
+      status: VehicleStatus.AVAILABLE,
+      featured: true,
+      featuredUntil,
+      recommended: true,
+      recommendedSortOrder: 1,
+    },
+    {
+      vin: 'FEAT2TESLA2023FV2',
+      slug: 'seed-2023-tesla-model-x-fv2',
+      make: 'Tesla', model: 'Model X', year: 2023,
+      vehicleType: VehicleType.SUV,
+      priceUsd: 96000,
+      originalPriceUsd: 100000,
+      mileage: 6400,
+      transmission: 'Automatic',
+      fuelType: 'Electric',
+      drivetrain: 'AWD',
+      exteriorColor: 'Pearl White',
+      interiorColor: 'Black',
+      bodyStyle: 'SUV',
+      features: ['Autopilot', '22-inch Wheels', 'Falcon Wing Doors', '6-Seat Interior', 'HEPA Filtration', 'Full Self-Driving Capability'],
+      thumbnail: 'https://res.cloudinary.com/demo/image/upload/v1/samples/featured_car_02.jpg',
+      images: ['https://res.cloudinary.com/demo/image/upload/v1/samples/featured_car_02.jpg'],
+      status: VehicleStatus.AVAILABLE,
+      featured: true,
+      featuredUntil,
+      specialty: true,
+    },
+  ];
+  for (const fv of featuredVehicleDefs) {
+    await prisma.vehicle.upsert({
+      where: { vin: fv.vin },
+      create: {
+        ...fv,
+        source: VehicleSource.MANUAL,
+        dealerName: 'Afrozon Direct',
+        dealerState: 'CA',
+        dealerCity: 'Los Angeles',
+        isActive: true,
+        addedByName: 'Super Admin',
+      },
+      update: { featured: true, featuredUntil },
+    });
+  }
+
   console.log('Admin data seeding complete.');
   console.log('\n── Admin Credentials ────────────────────────────────');
   console.log('  Super Admin:  super.admin@afrozon.com  / Password123!');
