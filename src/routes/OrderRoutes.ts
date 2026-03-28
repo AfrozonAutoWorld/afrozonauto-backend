@@ -75,8 +75,8 @@ class OrderRoutes {
         );
 
         // Update order status
-        this.router.put('/:id/status',
-            authorize([UserRole.OPERATIONS_ADMIN, UserRole.SUPER_ADMIN]),
+        this.router.patch('/:id/status',
+            authorize([UserRole.OPERATIONS_ADMIN, UserRole.SUPER_ADMIN, UserRole.BUYER]),
             this.controller.updateOrderStatus
         );
 

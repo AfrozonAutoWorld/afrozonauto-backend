@@ -219,10 +219,12 @@ let OrderController = class OrderController {
             return res.status(200).json(ApiResponse_1.ApiResponse.success(updatedOrder, "Order updated successfully"));
         }));
         this.updateOrderStatus = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
-            var _a, _b;
             // Admin only
-            if (((_a = req.user) === null || _a === void 0 ? void 0 : _a.role) !== 'SUPER_ADMIN' && ((_b = req.user) === null || _b === void 0 ? void 0 : _b.role) !== 'OPERATIONS_ADMIN') {
-                throw new ApiError_1.ApiError(403, "Admin access required");
+            // if (req.user?.role !== 'SUPER_ADMIN' && req.user?.role !== 'OPERATIONS_ADMIN') {
+            //   throw new ApiError(403, "Admin access required");
+            // }
+            if (!req.user) {
+                return res.status(401).json(ApiError_1.ApiError.unauthorized("Admin access required"));
             }
             const { id } = req.params;
             const { status } = req.body;

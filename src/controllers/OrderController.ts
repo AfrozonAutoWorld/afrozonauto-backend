@@ -274,8 +274,11 @@ export class OrderController {
 
   updateOrderStatus = asyncHandler(async (req: Request, res: Response) => {
     // Admin only
-    if (req.user?.role !== 'SUPER_ADMIN' && req.user?.role !== 'OPERATIONS_ADMIN') {
-      throw new ApiError(403, "Admin access required");
+    // if (req.user?.role !== 'SUPER_ADMIN' && req.user?.role !== 'OPERATIONS_ADMIN') {
+    //   throw new ApiError(403, "Admin access required");
+    // }
+    if (!req.user) {
+      return res.status(401).json(ApiError.unauthorized("Admin access required"));
     }
 
     const { id } = req.params;
