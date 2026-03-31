@@ -8,6 +8,7 @@ import { date } from 'joi/lib';
 import { PricingConfigService } from './PricingConfigService';
 import { OrderStatus, PaymentStatus, PaymentType } from '../generated/prisma/enums';
 import { NotificationService } from './NotificationService';
+import { DEPOSIT_PERCENTAGE } from '../secrets';
 
 @injectable()
 export class PaymentService {
@@ -273,16 +274,17 @@ export class PaymentService {
     if (!payment) throw Object.assign(new Error('Payment not found'), { statusCode: 404 });
     if (payment.status === PaymentStatus.COMPLETED) throw Object.assign(new Error('Payment already confirmed'), { statusCode: 400 });
 
-    let newOrderStatus =
+    let newOrderStatus: OrderStatus =
       payment.paymentType === PaymentType.DEPOSIT
         ? OrderStatus.DEPOSIT_PAID
         : OrderStatus.BALANCE_PAID;
 
     if (payment.paymentType === PaymentType.DEPOSIT) {
       const breakdown = payment.order.paymentBreakdown as Record<string, any> | null;
+      const totalUsd = breakdown?.totalUsd as number | undefined;
       const expectedDepositUsd =
         (breakdown?.totalUsedDeposit as number) ??
-        ((breakdown?.totalUsd as number) ? (breakdown.totalUsd as number) * 0.3 : 0);
+        (totalUsd ? totalUsd * Number(DEPOSIT_PERCENTAGE) : 0);
 
       if (expectedDepositUsd > 0) {
         const completedDepositUsd =
