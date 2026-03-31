@@ -147,6 +147,38 @@ export class PaymentRepository {
     });
   }
 
+  saveEvidenceWithAmount(
+    id: string,
+    evidenceUrl: string,
+    evidencePublicId: string,
+    amountUsd?: number,
+  ) {
+    return prisma.payment.update({
+      where: { id },
+      data: {
+        evidenceUrl,
+        evidencePublicId,
+        evidenceUploadedAt: new Date(),
+        status: 'PROCESSING',
+        paymentMethod: 'BANK_TRANSFER',
+        ...(typeof amountUsd === 'number' && amountUsd > 0 ? { amountUsd } : {}),
+      },
+    });
+  }
+
+  async getCompletedDepositTotalUsdForOrder(orderId: string) {
+    const result = await prisma.payment.aggregate({
+      _sum: { amountUsd: true },
+      where: {
+        orderId,
+        paymentType: 'DEPOSIT',
+        status: 'COMPLETED',
+      },
+    });
+
+    return result._sum.amountUsd ?? 0;
+  }
+
   // ─── Admin Confirm / Reject ───────────────────────────────────────────────
 
   findPaymentWithOrder(id: string) {

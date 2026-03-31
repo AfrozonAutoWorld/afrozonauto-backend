@@ -232,6 +232,7 @@ export class PaymentService {
     evidenceUrl: string,
     evidencePublicId: string,
     paymentType: string = 'DEPOSIT',
+    transferredAmountUsd?: number,
   ) {
     // Verify order belongs to user
     const order = await this.orderRepo.findById(orderId);
@@ -257,7 +258,12 @@ export class PaymentService {
     // Find existing open payment or create one now
     const payment = await this.paymentRepo.findOrCreateBankTransferPayment(orderId, userId, paymentType, amountUsd);
 
-    return this.paymentRepo.saveEvidence(payment.id, evidenceUrl, evidencePublicId);
+    return this.paymentRepo.saveEvidenceWithAmount(
+      payment.id,
+      evidenceUrl,
+      evidencePublicId,
+      transferredAmountUsd,
+    );
   }
 
   // ─── Admin Confirm / Reject ───────────────────────────────────────────────
@@ -267,7 +273,28 @@ export class PaymentService {
     if (!payment) throw Object.assign(new Error('Payment not found'), { statusCode: 404 });
     if (payment.status === PaymentStatus.COMPLETED) throw Object.assign(new Error('Payment already confirmed'), { statusCode: 400 });
 
-    const newOrderStatus = payment.paymentType === PaymentType.DEPOSIT ? OrderStatus.DEPOSIT_PAID : OrderStatus.BALANCE_PAID;
+    let newOrderStatus =
+      payment.paymentType === PaymentType.DEPOSIT
+        ? OrderStatus.DEPOSIT_PAID
+        : OrderStatus.BALANCE_PAID;
+
+    if (payment.paymentType === PaymentType.DEPOSIT) {
+      const breakdown = payment.order.paymentBreakdown as Record<string, any> | null;
+      const expectedDepositUsd =
+        (breakdown?.totalUsedDeposit as number) ??
+        ((breakdown?.totalUsd as number) ? (breakdown.totalUsd as number) * 0.3 : 0);
+
+      if (expectedDepositUsd > 0) {
+        const completedDepositUsd =
+          await this.paymentRepo.getCompletedDepositTotalUsdForOrder(payment.orderId);
+        const totalConfirmedDepositUsd = completedDepositUsd + (payment.amountUsd || 0);
+
+        newOrderStatus =
+          totalConfirmedDepositUsd >= expectedDepositUsd
+            ? OrderStatus.DEPOSIT_PAID
+            : OrderStatus.HALF_DEPOSIT_PAID;
+      }
+    }
 
     await prisma.$transaction([
       this.paymentRepo.adminConfirmPayment(paymentId, adminId, note) as any,
