@@ -92,6 +92,37 @@ export class SellerVehicleService {
     }
 
     /**
+     * List seller-submitted vehicles for the authenticated user (dashboard).
+     */
+    async getMyListings(
+        userId: string,
+        pagination: { page?: number; limit?: number } = {}
+    ): Promise<{ listings: Vehicle[]; total: number }> {
+        return this.vehicleRepo.findSellerListings({ userId }, pagination);
+    }
+
+    /**
+     * Move a rejected seller listing back to pending review (seller resubmits).
+     */
+    async resubmitForReview(id: string, userId: string): Promise<Vehicle> {
+        const listing = await this.vehicleRepo.findSellerById(id);
+        if (!listing) throw ApiError.notFound('Listing not found');
+        if (listing.userId !== userId) throw ApiError.forbidden('Access denied');
+        if (listing.source !== VehicleSource.SELLER) {
+            throw ApiError.badRequest('Only seller listings can be resubmitted');
+        }
+        if (listing.status !== VehicleStatus.REJECTED) {
+            throw ApiError.badRequest('Only rejected listings can be resubmitted for review');
+        }
+        return this.vehicleRepo.update(id, {
+            status: VehicleStatus.PENDING_REVIEW,
+            reviewedAt: null,
+            reviewedBy: null,
+            adminNotes: null,
+        });
+    }
+
+    /**
      * Update listing status (Admin)
      */
     async updateStatus(

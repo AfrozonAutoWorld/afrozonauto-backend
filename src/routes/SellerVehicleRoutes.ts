@@ -19,6 +19,11 @@ class SellerVehicleRoutes {
     }
 
     private initializeRoutes(): void {
+        // Seller dashboard list — use /me/listings (two segments) so it can never match `GET /:id`.
+        // (Single-segment /my-listings was mistaken for an ObjectId when static route order/build was stale.)
+        this.router.get('/me/listings', authenticate, this.controller.getMyListings);
+        this.router.post('/:id/resubmit', authenticate, this.controller.resubmitForReview);
+
         // Public/User endpoints
         this.router.post('/submit', 
             optionalAuthenticate,
