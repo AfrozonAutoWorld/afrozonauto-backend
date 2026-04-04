@@ -31,6 +31,21 @@ class SellerVehicleRoutes {
             uploadToCloudinary, 
             validateBody(createSellerVehicleSchema),
             this.controller.submitListing);
+
+        this.router.patch(
+            '/:id/mark-sold',
+            authenticate,
+            this.controller.markAsSold,
+        );
+        this.router.patch(
+            '/:id',
+            authenticate,
+            upload.array('files', 10),
+            uploadToCloudinary,
+            validateBody(createSellerVehicleSchema),
+            this.controller.updateMyListing,
+        );
+
         this.router.get('/:id', authenticate, this.controller.getListing);
         this.router.delete('/:id', authenticate, this.controller.deleteListing);
 

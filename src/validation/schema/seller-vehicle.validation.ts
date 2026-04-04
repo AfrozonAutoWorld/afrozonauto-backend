@@ -105,7 +105,9 @@ export const createSellerVehicleSchema = Joi.object({
         Joi.string(),
         Joi.array().items(Joi.string())
       ).optional(),
-      
+
+    /** JSON string array (9 slots) of kept image URLs when updating a listing; empty string = new upload fills slot */
+    existingImageUrls: Joi.string().allow('', null).optional(),
 });
 
 export const updateSellerVehicleStatusSchema = Joi.object({

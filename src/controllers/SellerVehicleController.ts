@@ -39,6 +39,64 @@ export class SellerVehicleController {
     });
 
     /**
+     * Mark an approved (live) seller listing as sold.
+     */
+    markAsSold = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        const { id } = req.params;
+        if (!isMongoObjectId(id)) {
+            throw ApiError.badRequest('Invalid listing id');
+        }
+        const listing = await this.service.markAsSold(id, req.user!.id);
+        return res.json(ApiResponse.success(listing, 'Listing marked as sold'));
+    });
+
+    /**
+     * Update seller listing (multipart — same shape as submit + existingImageUrls JSON for photo slots).
+     */
+    updateMyListing = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        const { id } = req.params;
+        if (!isMongoObjectId(id)) {
+            throw ApiError.badRequest('Invalid listing id');
+        }
+        const { uploadedFiles, askingPrice, existingImageUrls, ...vehicleData } = req.body;
+
+        const newImageUrls = (uploadedFiles ?? [])
+            .filter((f: any) => f.fileType === 'image')
+            .map((f: any) => f.url);
+        const videoUrls = (uploadedFiles ?? [])
+            .filter((f: any) => f.fileType === 'video')
+            .map((f: any) => f.url);
+
+        let slots: (string | null)[] = [];
+        try {
+            const raw = existingImageUrls;
+            const parsed =
+                typeof raw === 'string' ? JSON.parse(raw || '[]') : Array.isArray(raw) ? raw : [];
+            slots = Array.isArray(parsed) ? parsed : [];
+        } catch {
+            slots = [];
+        }
+
+        let ni = 0;
+        const mergedImages = slots
+            .map((slot) => {
+                const s = slot != null && String(slot).trim();
+                if (s) return String(slot).trim();
+                return newImageUrls[ni++] ?? null;
+            })
+            .filter((u): u is string => u != null && u.length > 0);
+
+        const listing = await this.service.updateMyListing(id, req.user!.id, {
+            ...vehicleData,
+            askingPrice,
+            images: mergedImages,
+            videos: videoUrls,
+        });
+
+        return res.json(ApiResponse.success(listing, 'Listing updated successfully'));
+    });
+
+    /**
      * Submit a new vehicle listing (Public/Authenticated)
      */
     submitListing = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
