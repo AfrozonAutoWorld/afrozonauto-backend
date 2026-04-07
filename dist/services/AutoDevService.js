@@ -69,6 +69,10 @@ let AutoDevService = class AutoDevService {
                     params.append('vehicle.model', filters.model);
                 if (filters.year)
                     params.append('vehicle.year', filters.year.toString());
+                if (filters.bodyStyle)
+                    params.append('vehicle.bodyStyle', filters.bodyStyle);
+                if (filters.type)
+                    params.append('vehicle.type', filters.type);
                 if (filters.zip)
                     params.append('zip', filters.zip);
                 if (filters.distance)
@@ -113,7 +117,7 @@ let AutoDevService = class AutoDevService {
             }
             const searchParams = new URLSearchParams();
             const keys = [
-                'vehicle.make', 'vehicle.model', 'vehicle.year', 'vehicle.bodyStyle', 'vehicle.fuel', 'vehicle.trim',
+                'vehicle.make', 'vehicle.model', 'vehicle.year', 'vehicle.bodyStyle', 'vehicle.type', 'vehicle.fuel', 'vehicle.trim',
                 'vehicle.transmission', 'vehicle.exteriorColor', 'vehicle.interiorColor', 'vehicle.drivetrain',
                 'retailListing.price', 'retailListing.miles', 'retailListing.state', 'retailListing.used', 'retailListing.cpo',
                 'wholesaleListing.state', 'wholesaleListing.miles', 'wholesaleListing.buyNowPrice',

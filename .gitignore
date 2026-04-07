@@ -9,3 +9,4 @@ node_modules
 ./dist
 
 .claude
+seed_custom_admin.ts

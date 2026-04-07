@@ -7,7 +7,7 @@ class VehicleTransformer {
      * Transform Auto.dev listing to our Vehicle model
      */
     static fromAutoDevListing(listing, photos = [], specs) {
-        var _a, _b, _c, _d, _e;
+        var _a, _b, _c;
         const vehicle = listing.vehicle || listing;
         const retailListing = listing.retailListing || {};
         // Use fetched photos when present; otherwise fall back to primaryImage from listing (e.g. from GET /listings)
@@ -15,7 +15,12 @@ class VehicleTransformer {
         const images = photos.length > 0 ? photos : primaryImage ? [primaryImage] : [];
         const bodyStyleSource = vehicle.bodyStyle ||
             listing.bodyStyle ||
-            `${(_a = vehicle.make) !== null && _a !== void 0 ? _a : ''} ${(_b = vehicle.model) !== null && _b !== void 0 ? _b : ''}`;
+            '';
+        const typeSource = vehicle.type ||
+            listing.type ||
+            vehicle.style ||
+            listing.style ||
+            '';
         return {
             vin: listing.vin || vehicle.vin,
             slug: this.generateSlug(vehicle.make, vehicle.model, vehicle.year, listing.vin || vehicle.vin),
@@ -23,8 +28,10 @@ class VehicleTransformer {
             model: vehicle.model,
             year: vehicle.year,
             priceUsd: retailListing.price || listing.price || 0,
-            mileage: (_e = (_d = (_c = retailListing.miles) !== null && _c !== void 0 ? _c : retailListing.mileage) !== null && _d !== void 0 ? _d : listing.miles) !== null && _e !== void 0 ? _e : listing.mileage,
-            vehicleType: this.mapVehicleType(bodyStyleSource || ''),
+            mileage: (_c = (_b = (_a = retailListing.miles) !== null && _a !== void 0 ? _a : retailListing.mileage) !== null && _b !== void 0 ? _b : listing.miles) !== null && _c !== void 0 ? _c : listing.mileage,
+            vehicleType: this.mapVehicleTypeFromAutoDev(typeSource, bodyStyleSource),
+            // Keep original broad body style from Auto.dev (e.g. Car, SUV, Truck, Van).
+            bodyStyle: bodyStyleSource || undefined,
             transmission: vehicle.transmission || listing.transmission,
             fuelType: vehicle.fuel || listing.fuelType,
             engineSize: vehicle.engine || listing.engineSize,
@@ -56,7 +63,7 @@ class VehicleTransformer {
             make: decode.make,
             model: decode.model,
             year: decode.year,
-            vehicleType: this.mapVehicleType(decode.bodyStyle || ''),
+            vehicleType: this.mapVehicleTypeFromAutoDev(decode.type, decode.bodyStyle || ''),
             transmission: decode.transmission,
             fuelType: decode.fuelType,
             engineSize: decode.engineSize,
@@ -82,55 +89,70 @@ class VehicleTransformer {
     static mapVehicleType(bodyStyle) {
         const style = (bodyStyle || '').toLowerCase();
         if (!style)
-            return client_1.VehicleType.CAR;
+            return 'CAR';
         // SUVs and crossovers
         if (style.includes('suv') || style.includes('crossover'))
-            return client_1.VehicleType.SUV;
+            return 'SUV';
         // Trucks and pickups
         if (style.includes('truck') || style.includes('pickup'))
-            return client_1.VehicleType.TRUCK;
+            return 'TRUCK';
         // Vans / minivans
         if (style.includes('van') || style.includes('minivan'))
-            return client_1.VehicleType.VAN;
+            return 'VAN';
         if (style.includes('coupe'))
-            return client_1.VehicleType.COUPE;
+            return 'COUPE';
         // Sedans / saloons
         if (style.includes('sedan') || style.includes('saloon'))
-            return client_1.VehicleType.SEDAN;
+            return 'SEDAN';
         if (style.includes('hatchback'))
-            return client_1.VehicleType.HATCHBACK;
+            return 'HATCHBACK';
         // Wagons / estates
         if (style.includes('wagon') || style.includes('estate'))
-            return client_1.VehicleType.WAGON;
+            return 'WAGON';
         // Convertibles / cabriolets
         if (style.includes('convertible') || style.includes('cabrio'))
-            return client_1.VehicleType.CONVERTIBLE;
+            return 'CONVERTIBLE';
         // Motorcycles / bikes
         if (style.includes('motorcycle') || style.includes('motorbike') || style.includes('bike')) {
-            return client_1.VehicleType.MOTORCYCLE;
+            return 'MOTORCYCLE';
         }
         // Hummer (often missing bodyStyle in API) – treat as SUV
         if (style.includes('hummer'))
-            return client_1.VehicleType.SUV;
+            return 'SUV';
         // Fallback
-        return client_1.VehicleType.CAR;
+        return 'CAR';
     }
-    static vehicleTypeToBodyStyle(vehicleType) {
-        var _a;
-        const map = {
-            [client_1.VehicleType.CAR]: 'sedan',
-            [client_1.VehicleType.SEDAN]: 'sedan',
-            [client_1.VehicleType.SUV]: 'suv',
-            [client_1.VehicleType.TRUCK]: 'truck',
-            [client_1.VehicleType.VAN]: 'van',
-            [client_1.VehicleType.COUPE]: 'coupe',
-            [client_1.VehicleType.HATCHBACK]: 'hatchback',
-            [client_1.VehicleType.WAGON]: 'wagon',
-            [client_1.VehicleType.CONVERTIBLE]: 'convertible',
-            [client_1.VehicleType.MOTORCYCLE]: '',
-            [client_1.VehicleType.OTHER]: '',
-        };
-        return (_a = map[vehicleType]) !== null && _a !== void 0 ? _a : '';
+    /**
+     * Prefer Auto.dev `vehicle.type` (more specific), then fall back to bodyStyle.
+     * Example: bodyStyle can be "Car" while type is "Sedan".
+     */
+    static mapVehicleTypeFromAutoDev(typeValue, bodyStyle) {
+        const type = (typeValue || '').toLowerCase();
+        if (type) {
+            if (type.includes('crossover') || type.includes('suv'))
+                return 'SUV';
+            if (type.includes('pickup') || type.includes('truck'))
+                return 'TRUCK';
+            if (type.includes('minivan') || type.includes('van'))
+                return 'VAN';
+            if (type.includes('coupe'))
+                return 'COUPE';
+            if (type.includes('sedan') || type.includes('saloon'))
+                return 'SEDAN';
+            if (type.includes('hatchback'))
+                return 'HATCHBACK';
+            if (type.includes('wagon') || type.includes('estate'))
+                return 'WAGON';
+            if (type.includes('convertible') || type.includes('cabrio') || type.includes('roadster')) {
+                return 'CONVERTIBLE';
+            }
+            if (type.includes('motorcycle') || type.includes('motorbike') || type.includes('bike')) {
+                return 'MOTORCYCLE';
+            }
+            if (type.includes('car'))
+                return 'CAR';
+        }
+        return this.mapVehicleType(bodyStyle || '');
     }
 }
 exports.VehicleTransformer = VehicleTransformer;

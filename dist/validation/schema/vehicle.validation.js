@@ -12,9 +12,7 @@ exports.createVehicleSchema = joi_1.default.object({
     make: joi_1.default.string().required(),
     model: joi_1.default.string().required(),
     year: joi_1.default.number().integer().required(),
-    vehicleType: joi_1.default.string()
-        .valid(...Object.values(client_1.VehicleType))
-        .required(),
+    vehicleType: joi_1.default.string().required(),
     priceUsd: joi_1.default.number().required(),
     originalPriceUsd: joi_1.default.number().optional(),
     mileage: joi_1.default.number().integer().optional(),

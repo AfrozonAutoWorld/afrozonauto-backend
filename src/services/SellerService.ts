@@ -212,6 +212,8 @@ async registerSeller(data: {
                 isSeller: true,
                 sellerVerifiedAt: new Date(),
                 sellerRejectedReason: null,
+                isVerified: true,
+                verifiedAt: new Date(),
             });
 
             // 2. Update User Role

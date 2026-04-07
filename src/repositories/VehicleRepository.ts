@@ -72,7 +72,15 @@ export class VehicleRepository {
   async findManyByIds(ids: string[]): Promise<Vehicle[]> {
     if (ids.length === 0) return [];
     const vehicles = await prisma.vehicle.findMany({
-      where: { id: { in: ids }, isActive: true, isHidden: false },
+      where: {
+        id: { in: ids },
+        isActive: true,
+        isHidden: false,
+        OR: [
+          { source: { not: VehicleSource.SELLER } },
+          { user: { profile: { sellerStatus: 'APPROVED' } } }
+        ]
+      },
     });
     const byId = new Map(vehicles.map((v) => [v.id, v]));
     return ids.map((id) => byId.get(id)).filter((v): v is Vehicle => v != null);
@@ -93,6 +101,14 @@ export class VehicleRepository {
       isActive: filters.isActive !== false,
       isHidden: filters.isHidden !== true,
       priceUsd: { gt: 0 },
+      AND: [
+        {
+          OR: [
+            { source: { not: VehicleSource.SELLER } },
+            { user: { profile: { sellerStatus: 'APPROVED' } } }
+          ]
+        }
+      ]
     };
 
     if (filters.luxuryMakes?.length) {
@@ -101,7 +117,7 @@ export class VehicleRepository {
       where.make = { equals: filters.make, mode: 'insensitive' };
     }
     if (filters.model) where.model = { equals: filters.model, mode: 'insensitive' };
-    if (filters.vehicleType) where.vehicleType = filters.vehicleType;
+    if (filters.vehicleType) where.vehicleType = filters.vehicleType as any;
     if (filters.status) where.status = filters.status;
     if (filters.source) where.source = filters.source;
     if (filters.dealerState) where.dealerState = filters.dealerState;
@@ -179,7 +195,7 @@ export class VehicleRepository {
       }
       
       if (searchConditions.length > 0) {
-        where.OR = searchConditions;
+        (where.AND as any[]).push({ OR: searchConditions });
       }
     }
 
@@ -223,6 +239,10 @@ export class VehicleRepository {
         isActive: true,
         isHidden: false,
         priceUsd: { gt: 0 },
+        OR: [
+          { source: { not: VehicleSource.SELLER } },
+          { user: { profile: { sellerStatus: 'APPROVED' } } }
+        ]
       },
       orderBy: [{ recommendedSortOrder: 'asc' }, { createdAt: 'desc' }],
       take: limit,
@@ -239,6 +259,10 @@ export class VehicleRepository {
         isActive: true,
         isHidden: false,
         priceUsd: { gt: 0 },
+        OR: [
+          { source: { not: VehicleSource.SELLER } },
+          { user: { profile: { sellerStatus: 'APPROVED' } } }
+        ]
       } as any,
       orderBy: [{ createdAt: 'desc' }],
       take: limit,

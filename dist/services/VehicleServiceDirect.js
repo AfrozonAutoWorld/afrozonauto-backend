@@ -39,6 +39,7 @@ const vehicleLogs_1 = require("../helpers/vehicleLogs");
 const client_1 = require("../generated/prisma/client");
 const ApiError_1 = require("../utils/ApiError");
 const loggers_1 = __importDefault(require("../utils/loggers"));
+const vehicleFilterMatching_1 = require("../utils/vehicleFilterMatching");
 let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
     constructor(vehicleRepo, savedVehicleRepo, autoDevService, trendingService, recommendedService, categoryService) {
         this.vehicleRepo = vehicleRepo;
@@ -144,7 +145,13 @@ let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
     }
     getMakeModelsReference() {
         return __awaiter(this, void 0, void 0, function* () {
-            return yield this.autoDevService.fetchMakeModelsReference();
+            try {
+                return yield this.autoDevService.fetchMakeModelsReference();
+            }
+            catch (error) {
+                loggers_1.default.warn('Auto.dev make/models unavailable, returning empty reference map', error);
+                return {};
+            }
         });
     }
     /**
@@ -204,12 +211,32 @@ let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
             params['retailListing.state'] = filters.dealerState;
         }
         if (filters.vehicleType) {
-            const bodyStyle = vehicle_transformer_1.VehicleTransformer.vehicleTypeToBodyStyle(filters.vehicleType);
-            if (bodyStyle)
-                params['vehicle.bodyStyle'] = bodyStyle;
+            const vt = String(filters.vehicleType).toUpperCase();
+            // Broad buckets map to Auto.dev broad bodyStyle.
+            if (vt === 'CAR' || vt === 'SEDAN')
+                params['vehicle.bodyStyle'] = 'Car';
+            else if (vt === 'SUV')
+                params['vehicle.bodyStyle'] = 'SUV';
+            else if (vt === 'TRUCK')
+                params['vehicle.bodyStyle'] = 'Truck';
+            else if (vt === 'VAN')
+                params['vehicle.bodyStyle'] = 'Van';
+            // Specific buckets map to Auto.dev type.
+            else if (vt === 'COUPE')
+                params['vehicle.type'] = 'Coupe';
+            else if (vt === 'HATCHBACK')
+                params['vehicle.type'] = 'Hatchback';
+            else if (vt === 'WAGON')
+                params['vehicle.type'] = 'Wagon';
+            else if (vt === 'CONVERTIBLE')
+                params['vehicle.type'] = 'Convertible';
+            else if (vt === 'MOTORCYCLE')
+                params['vehicle.type'] = 'Motorcycle';
         }
-        if (filters.bodyStyle)
+        if (filters.bodyStyle) {
+            // bodyStyle is its own dimension: broad style as provided by Auto.dev
             params['vehicle.bodyStyle'] = filters.bodyStyle;
+        }
         if (filters.fuel)
             params['vehicle.fuel'] = filters.fuel;
         if (filters.transmission)
@@ -446,9 +473,23 @@ let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
                             return false;
                         });
                     }
-                    const vinsToCheck = filteredListings.map((l) => l.vin).filter(Boolean);
-                    const existingVins = yield this.vehicleRepo.findExistingVINs(vinsToCheck);
-                    const apiOnlyList = filteredListings.filter((l) => l.vin && !existingVins.has(l.vin));
+                    // Safety net: enforce vehicleType/bodyStyle after fetch.
+                    // Auto.dev can occasionally return mixed results even when params are passed.
+                    if (filters.vehicleType) {
+                        filteredListings = filteredListings.filter((listing) => {
+                            return (0, vehicleFilterMatching_1.matchesVehicleTypeFilter)(filters.vehicleType, listing);
+                        });
+                    }
+                    if (filters.bodyStyle) {
+                        filteredListings = filteredListings.filter((listing) => (0, vehicleFilterMatching_1.matchesBodyStyleFilter)(filters.bodyStyle, listing));
+                    }
+                    // De-dup only against DB vehicles already in this filtered page result.
+                    // If we de-dup against all DB VINs globally, valid API matches can disappear
+                    // when the DB copy doesn't satisfy current filters.
+                    const pageDbVins = new Set(dbResult.vehicles
+                        .map((v) => v.vin)
+                        .filter((vin) => typeof vin === 'string' && vin.length > 0));
+                    const apiOnlyList = filteredListings.filter((l) => l.vin && !pageDbVins.has(l.vin));
                     apiOnlyCount = apiOnlyList.length;
                     const needCount = limit - dbResult.vehicles.length;
                     // Take first needCount valid (de-dup done above; here we skip no/zero price and stop when we have enough).
@@ -578,7 +619,7 @@ let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
             const existing = yield this.vehicleRepo.findByVIN(dto.vin);
             if (existing)
                 throw ApiError_1.ApiError.conflict('Vehicle with this VIN already exists');
-            return this.vehicleRepo.create(Object.assign(Object.assign({}, dto), { source: dto.source || client_1.VehicleSource.MANUAL, addedBy, isActive: dto.isActive !== false, isHidden: dto.isHidden || false }));
+            return this.vehicleRepo.create(Object.assign(Object.assign({}, dto), { vehicleType: dto.vehicleType, source: dto.source || client_1.VehicleSource.MANUAL, addedBy, isActive: dto.isActive !== false, isHidden: dto.isHidden || false }));
         });
     }
     syncFromAutoDev(vin) {

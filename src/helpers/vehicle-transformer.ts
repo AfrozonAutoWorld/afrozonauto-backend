@@ -68,7 +68,7 @@ export class VehicleTransformer {
       year: vehicle.year,
       priceUsd: retailListing.price || listing.price || 0,
       mileage: retailListing.miles ?? retailListing.mileage ?? listing.miles ?? listing.mileage,
-      vehicleType: this.mapVehicleTypeFromAutoDev(typeSource, bodyStyleSource),
+      vehicleType: this.mapVehicleTypeFromAutoDev(typeSource, bodyStyleSource) as any,
       // Keep original broad body style from Auto.dev (e.g. Car, SUV, Truck, Van).
       bodyStyle: bodyStyleSource || undefined,
       transmission: vehicle.transmission || listing.transmission,
@@ -103,7 +103,7 @@ export class VehicleTransformer {
       make: decode.make,
       model: decode.model,
       year: decode.year,
-      vehicleType: this.mapVehicleTypeFromAutoDev((decode as any).type, decode.bodyStyle || ''),
+      vehicleType: this.mapVehicleTypeFromAutoDev((decode as any).type, decode.bodyStyle || '') as any,
       transmission: decode.transmission,
       fuelType: decode.fuelType,
       engineSize: decode.engineSize,

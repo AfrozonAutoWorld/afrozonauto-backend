@@ -647,6 +647,7 @@ export class VehicleServiceDirect {
     if (existing) throw ApiError.conflict('Vehicle with this VIN already exists');
     return this.vehicleRepo.create({
       ...dto,
+      vehicleType: dto.vehicleType as any,
       source: dto.source || VehicleSource.MANUAL,
       addedBy,
       isActive: dto.isActive !== false,

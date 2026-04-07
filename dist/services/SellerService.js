@@ -189,6 +189,8 @@ let SellerService = class SellerService {
                     isSeller: true,
                     sellerVerifiedAt: new Date(),
                     sellerRejectedReason: null,
+                    isVerified: true,
+                    verifiedAt: new Date(),
                 });
                 // 2. Update User Role
                 yield this.userRepo.update(profile.userId, {

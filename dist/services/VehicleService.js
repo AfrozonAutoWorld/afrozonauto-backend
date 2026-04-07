@@ -241,6 +241,30 @@ let VehicleService = class VehicleService {
                         apiFilters.make = filters.make;
                     if (filters.model)
                         apiFilters.model = filters.model;
+                    if (filters.vehicleType) {
+                        const vt = String(filters.vehicleType);
+                        if (vt === 'CAR' || vt === 'SEDAN')
+                            apiFilters.bodyStyle = 'Car';
+                        else if (vt === 'SUV')
+                            apiFilters.bodyStyle = 'SUV';
+                        else if (vt === 'TRUCK')
+                            apiFilters.bodyStyle = 'Truck';
+                        else if (vt === 'VAN')
+                            apiFilters.bodyStyle = 'Van';
+                        else if (vt === 'COUPE')
+                            apiFilters.type = 'Coupe';
+                        else if (vt === 'HATCHBACK')
+                            apiFilters.type = 'Hatchback';
+                        else if (vt === 'WAGON')
+                            apiFilters.type = 'Wagon';
+                        else if (vt === 'CONVERTIBLE')
+                            apiFilters.type = 'Convertible';
+                        else if (vt === 'MOTORCYCLE')
+                            apiFilters.type = 'Motorcycle';
+                    }
+                    if (filters.bodyStyle) {
+                        apiFilters.bodyStyle = filters.bodyStyle;
+                    }
                     if (filters.yearMin || filters.yearMax) {
                         if (filters.yearMin && filters.yearMax && filters.yearMin === filters.yearMax) {
                             apiFilters.year = filters.yearMin;
@@ -298,8 +322,8 @@ let VehicleService = class VehicleService {
                         if (filters.yearMax != null && (listingYear == null || listingYear > filters.yearMax))
                             return false;
                         if (filters.vehicleType) {
-                            const bodyStyle = vehicle.bodyStyle || listing.bodyStyle || '';
-                            if (vehicle_transformer_1.VehicleTransformer.mapVehicleType(bodyStyle) !== filters.vehicleType)
+                            const vehicleType = vehicle_transformer_1.VehicleTransformer.mapVehicleTypeFromAutoDev(vehicle.type || listing.type || vehicle.style || listing.style || '', vehicle.bodyStyle || listing.bodyStyle || '');
+                            if (vehicleType !== filters.vehicleType)
                                 return false;
                         }
                         if (filters.bodyStyle) {
@@ -322,9 +346,12 @@ let VehicleService = class VehicleService {
                         }
                         return true;
                     });
-                    const vinsToCheck = filteredListings.map((l) => l.vin).filter(Boolean);
-                    const existingVins = yield this.vehicleRepo.findExistingVINs(vinsToCheck);
-                    const apiOnlyList = filteredListings.filter((l) => l.vin && !existingVins.has(l.vin));
+                    // De-dup only against DB vehicles in current filtered page to avoid
+                    // hiding valid API results when DB copies exist but don't match filters.
+                    const pageDbVins = new Set(dbResult.vehicles
+                        .map((v) => v.vin)
+                        .filter((vin) => typeof vin === 'string' && vin.length > 0));
+                    const apiOnlyList = filteredListings.filter((l) => l.vin && !pageDbVins.has(l.vin));
                     apiOnlyCount = apiOnlyList.length;
                     // Paginate API slice for this page: DB fills first, then API fills the rest of the page
                     const apiOffset = Math.max(0, (page - 1) * limit - dbResult.total);
@@ -487,7 +514,7 @@ let VehicleService = class VehicleService {
             if (existing) {
                 throw ApiError_1.ApiError.conflict('Vehicle with this VIN already exists');
             }
-            return this.vehicleRepo.create(Object.assign(Object.assign({}, dto), { source: dto.source || client_1.VehicleSource.MANUAL, addedBy, isActive: dto.isActive !== false, isHidden: dto.isHidden || false }));
+            return this.vehicleRepo.create(Object.assign(Object.assign({}, dto), { vehicleType: dto.vehicleType, source: dto.source || client_1.VehicleSource.MANUAL, addedBy, isActive: dto.isActive !== false, isHidden: dto.isHidden || false }));
         });
     }
     /**
