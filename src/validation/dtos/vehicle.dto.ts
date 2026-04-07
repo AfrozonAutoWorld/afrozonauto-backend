@@ -8,7 +8,6 @@ import {
     IsArray,
   } from 'class-validator';
   import {
-    VehicleType,
     VehicleSource,
     VehicleStatus,
     VehicleAvailability,
@@ -30,8 +29,8 @@ import {
     @IsInt()
     year!: number;
   
-    @IsEnum(VehicleType)
-    vehicleType!: VehicleType;
+    @IsString()
+    vehicleType!: string;
   
     @IsNumber()
     priceUsd!: number;

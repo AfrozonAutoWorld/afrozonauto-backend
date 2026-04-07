@@ -1028,7 +1028,7 @@ model Vehicle {
   make        String
   model       String
   year        Int
-  vehicleType VehicleType
+  vehicleType String
 
   // Pricing (flexible for price changes)
   priceUsd         Float
@@ -1148,20 +1148,6 @@ model Vehicle {
   @@index([isActive, isHidden])
   @@index([dealerState])
   @@map("vehicles")
-}
-
-enum VehicleType {
-  CAR
-  SUV
-  TRUCK
-  VAN
-  COUPE
-  SEDAN
-  HATCHBACK
-  WAGON
-  CONVERTIBLE
-  MOTORCYCLE
-  OTHER
 }
 
 enum VehicleSource {

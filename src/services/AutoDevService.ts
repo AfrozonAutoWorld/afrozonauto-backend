@@ -20,6 +20,8 @@ export class AutoDevService {
     make?: string;
     model?: string;
     year?: number;
+    bodyStyle?: string;
+    type?: string;
     zip?: string;
     distance?: number;
     page?: number;
@@ -35,6 +37,8 @@ export class AutoDevService {
       if (filters.make) params.append('vehicle.make', filters.make);
       if (filters.model) params.append('vehicle.model', filters.model);
       if (filters.year) params.append('vehicle.year', filters.year.toString());
+      if (filters.bodyStyle) params.append('vehicle.bodyStyle', filters.bodyStyle);
+      if (filters.type) params.append('vehicle.type', filters.type);
       if (filters.zip) params.append('zip', filters.zip);
       if (filters.distance) params.append('distance', filters.distance.toString());
       if (filters.page) params.append('page', filters.page.toString());
@@ -79,7 +83,7 @@ export class AutoDevService {
 
     const searchParams = new URLSearchParams();
     const keys: (keyof AutoDevListingsParams)[] = [
-      'vehicle.make', 'vehicle.model', 'vehicle.year', 'vehicle.bodyStyle', 'vehicle.fuel', 'vehicle.trim',
+      'vehicle.make', 'vehicle.model', 'vehicle.year', 'vehicle.bodyStyle', 'vehicle.type', 'vehicle.fuel', 'vehicle.trim',
       'vehicle.transmission', 'vehicle.exteriorColor', 'vehicle.interiorColor', 'vehicle.drivetrain',
       'retailListing.price', 'retailListing.miles', 'retailListing.state', 'retailListing.used', 'retailListing.cpo',
       'wholesaleListing.state', 'wholesaleListing.miles', 'wholesaleListing.buyNowPrice',
@@ -208,6 +212,8 @@ export class AutoDevService {
     make?: string;
     model?: string;
     year?: number;
+    bodyStyle?: string;
+    type?: string;
     zip?: string;
     distance?: number;
   }, maxPages: number = 50): Promise<AutoDevListing[]> {

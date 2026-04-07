@@ -211,6 +211,31 @@ let VehicleService = class VehicleService {
             let apiOnlyCount = 0; // count of API-only listings (not in DB) after filters
             if (includeApiResults) {
                 try {
+                    const normalizeBodyStyle = (value) => {
+                        return String(value !== null && value !== void 0 ? value : '')
+                            .toLowerCase()
+                            .replace(/[^a-z0-9]/g, '');
+                    };
+                    const toCanonicalBodyStyle = (value) => {
+                        const normalized = normalizeBodyStyle(value);
+                        if (!normalized)
+                            return '';
+                        if (normalized.includes('pickup'))
+                            return 'pickuptruck';
+                        if (normalized === 'truck')
+                            return 'truck';
+                        if (normalized.includes('hatchback'))
+                            return 'hatchback';
+                        if (normalized.includes('convertible'))
+                            return 'convertible';
+                        if (normalized.includes('coupe'))
+                            return 'coupe';
+                        if (normalized.includes('wagon'))
+                            return 'wagon';
+                        if (normalized.includes('sedan'))
+                            return 'sedan';
+                        return normalized;
+                    };
                     const apiFilters = {};
                     if (filters.make)
                         apiFilters.make = filters.make;
@@ -276,6 +301,19 @@ let VehicleService = class VehicleService {
                             const bodyStyle = vehicle.bodyStyle || listing.bodyStyle || '';
                             if (vehicle_transformer_1.VehicleTransformer.mapVehicleType(bodyStyle) !== filters.vehicleType)
                                 return false;
+                        }
+                        if (filters.bodyStyle) {
+                            const selected = toCanonicalBodyStyle(filters.bodyStyle);
+                            const listingBody = toCanonicalBodyStyle(vehicle.bodyStyle || listing.bodyStyle || '');
+                            if (!selected || !listingBody)
+                                return false;
+                            if (selected === 'pickuptruck') {
+                                if (!(listingBody === 'pickuptruck' || listingBody === 'truck'))
+                                    return false;
+                            }
+                            else if (listingBody !== selected) {
+                                return false;
+                            }
                         }
                         if (filters.dealerState) {
                             const listingState = (retailListing.state || listing.dealerState || '').toLowerCase();

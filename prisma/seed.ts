@@ -1617,7 +1617,52 @@ async function seedAdminData() {
   console.log('─────────────────────────────────────────────────────\n');
 }
 
+async function seedSingleAdminFromEnv() {
+  const email = process.env.SEED_ADMIN_EMAIL?.trim();
+  if (!email) {
+    throw new Error('SEED_ADMIN_EMAIL is required for admin-only seed mode');
+  }
+  const fullName = process.env.SEED_ADMIN_NAME?.trim() || 'Admin User';
+  const password = process.env.SEED_ADMIN_PASSWORD?.trim() || 'Password123!';
+  const roleInput = process.env.SEED_ADMIN_ROLE?.trim().toUpperCase();
+  const role =
+    roleInput === UserRole.SUPER_ADMIN || roleInput === UserRole.OPERATIONS_ADMIN
+      ? (roleInput as UserRole.SUPER_ADMIN | UserRole.OPERATIONS_ADMIN)
+      : UserRole.OPERATIONS_ADMIN;
+  const passwordHash = await bcrypt.hash(password, 10);
+  const existing = await prisma.user.findUnique({ where: { email } });
+  const user = existing
+    ? await prisma.user.update({
+        where: { email },
+        data: {
+          fullName,
+          passwordHash,
+          role,
+          emailVerified: true,
+          isActive: true,
+        },
+      })
+    : await prisma.user.create({
+        data: {
+          email,
+          fullName,
+          passwordHash,
+          role,
+          emailVerified: true,
+          isActive: true,
+        },
+      });
+  console.log('Admin-only seed complete.');
+  console.log(`  Email: ${user.email}`);
+  console.log(`  Role:  ${user.role}`);
+}
 async function main() {
+  const adminOnly =
+    process.argv.includes('--admin-only') || process.env.SEED_MODE?.toLowerCase() === 'admin-only';
+  if (adminOnly) {
+    await seedSingleAdminFromEnv();
+    return;
+  }
   console.log('Seeding vehicle categories...');
   for (const c of defaultCategories) {
     await prisma.vehicleCategory.upsert({

@@ -9,11 +9,12 @@ import { RecommendedService } from './RecommendedService';
 import { CategoryService } from './CategoryService';
 import { VehicleTransformer } from '../helpers/vehicle-transformer';
 import { VehicleLogs } from '../helpers/vehicleLogs';
-import { Vehicle, VehicleSource, VehicleType, Prisma } from '../generated/prisma/client';
+import { Vehicle, VehicleSource, Prisma } from '../generated/prisma/client';
 import { CreateVehicleDto } from '../validation/dtos/vehicle.dto';
 import { ApiError } from '../utils/ApiError';
 import loggers from '../utils/loggers';
 import { AutoDevListingsParams } from '../validation/interfaces/IAutoDev';
+import { matchesBodyStyleFilter, matchesVehicleTypeFilter } from '../utils/vehicleFilterMatching';
 
 @injectable()
 export class VehicleServiceDirect {
@@ -135,7 +136,12 @@ export class VehicleServiceDirect {
   }
 
   async getMakeModelsReference(): Promise<Record<string, string[]>> {
-    return await this.autoDevService.fetchMakeModelsReference();
+    try {
+      return await this.autoDevService.fetchMakeModelsReference();
+    } catch (error) {
+      loggers.warn('Auto.dev make/models unavailable, returning empty reference map', error);
+      return {};
+    }
   }
 
   /**
@@ -204,10 +210,23 @@ export class VehicleServiceDirect {
       params['retailListing.state'] = filters.dealerState;
     }
     if (filters.vehicleType) {
-      const bodyStyle = VehicleTransformer.vehicleTypeToBodyStyle(filters.vehicleType as VehicleType);
-      if (bodyStyle) params['vehicle.bodyStyle'] = bodyStyle;
+      const vt = String(filters.vehicleType).toUpperCase();
+      // Broad buckets map to Auto.dev broad bodyStyle.
+      if (vt === 'CAR' || vt === 'SEDAN') params['vehicle.bodyStyle'] = 'Car';
+      else if (vt === 'SUV') params['vehicle.bodyStyle'] = 'SUV';
+      else if (vt === 'TRUCK') params['vehicle.bodyStyle'] = 'Truck';
+      else if (vt === 'VAN') params['vehicle.bodyStyle'] = 'Van';
+      // Specific buckets map to Auto.dev type.
+      else if (vt === 'COUPE') params['vehicle.type'] = 'Coupe';
+      else if (vt === 'HATCHBACK') params['vehicle.type'] = 'Hatchback';
+      else if (vt === 'WAGON') params['vehicle.type'] = 'Wagon';
+      else if (vt === 'CONVERTIBLE') params['vehicle.type'] = 'Convertible';
+      else if (vt === 'MOTORCYCLE') params['vehicle.type'] = 'Motorcycle';
     }
-    if (filters.bodyStyle) params['vehicle.bodyStyle'] = filters.bodyStyle;
+    if (filters.bodyStyle) {
+      // bodyStyle is its own dimension: broad style as provided by Auto.dev
+      params['vehicle.bodyStyle'] = filters.bodyStyle;
+    }
     if (filters.fuel) params['vehicle.fuel'] = filters.fuel;
     if (filters.transmission) params['vehicle.transmission'] = filters.transmission;
     if (filters.exteriorColor) params['vehicle.exteriorColor'] = filters.exteriorColor;
@@ -419,7 +438,7 @@ export class VehicleServiceDirect {
           (resolvedFilters as any).bodyStyle = category.bodyStyle;
           resolvedFilters.vehicleType = VehicleTransformer.mapVehicleType(
             category.bodyStyle
-          ) as VehicleType;
+          );
         }
         if (category.fuel) (resolvedFilters as any).fuel = category.fuel;
         if (category.luxuryMakes?.length) (resolvedFilters as any).luxuryMakes = category.luxuryMakes;
@@ -471,10 +490,29 @@ export class VehicleServiceDirect {
           });
         }
 
-        const vinsToCheck = filteredListings.map((l: any) => l.vin).filter(Boolean);
-        const existingVins = await this.vehicleRepo.findExistingVINs(vinsToCheck);
+        // Safety net: enforce vehicleType/bodyStyle after fetch.
+        // Auto.dev can occasionally return mixed results even when params are passed.
+        if (filters.vehicleType) {
+          filteredListings = filteredListings.filter((listing: any) => {
+            return matchesVehicleTypeFilter(filters.vehicleType as string, listing);
+          });
+        }
+        if (filters.bodyStyle) {
+          filteredListings = filteredListings.filter((listing: any) =>
+            matchesBodyStyleFilter(filters.bodyStyle as string, listing)
+          );
+        }
+
+        // De-dup only against DB vehicles already in this filtered page result.
+        // If we de-dup against all DB VINs globally, valid API matches can disappear
+        // when the DB copy doesn't satisfy current filters.
+        const pageDbVins = new Set(
+          dbResult.vehicles
+            .map((v) => v.vin)
+            .filter((vin): vin is string => typeof vin === 'string' && vin.length > 0)
+        );
         const apiOnlyList = filteredListings.filter(
-          (l: any) => l.vin && !existingVins.has(l.vin)
+          (l: any) => l.vin && !pageDbVins.has(l.vin)
         );
         apiOnlyCount = apiOnlyList.length;
 

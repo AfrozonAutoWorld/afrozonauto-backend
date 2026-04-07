@@ -127,6 +127,23 @@ export class VehicleRepository {
       where.mileage = { lte: filters.mileageMax };
     }
 
+    if (filters.bodyStyle) {
+      const style = filters.bodyStyle.trim().toLowerCase();
+      if (style === 'sedan') {
+        where.bodyStyle = {
+          in: ['Sedan', 'Car'],
+          mode: 'insensitive',
+        };
+      } else if (style === 'pickup truck') {
+        where.bodyStyle = {
+          in: ['Pickup Truck', 'Pickup', 'Truck'],
+          mode: 'insensitive',
+        };
+      } else {
+        where.bodyStyle = { equals: filters.bodyStyle, mode: 'insensitive' };
+      }
+    }
+
     if (filters.transmission) {
       where.transmission = { equals: filters.transmission, mode: 'insensitive' };
     }

@@ -10,6 +10,7 @@ export interface AutoDevListingsParams {
   'vehicle.model'?: string;
   'vehicle.year'?: string; // single year or range e.g. "2018-2020"
   'vehicle.bodyStyle'?: string;
+  'vehicle.type'?: string;
   'vehicle.fuel'?: string; // Electric, Hybrid, Diesel, Plug-In Hybrid, etc.
   'vehicle.trim'?: string;
   'vehicle.transmission'?: string;
