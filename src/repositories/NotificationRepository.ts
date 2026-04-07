@@ -48,6 +48,31 @@ export class NotificationRepository {
     });
   }
 
+  async createForUser(
+    userId: string,
+    data: {
+      orderId?: string;
+      type: NotificationType;
+      title: string;
+      message: string;
+      actionUrl?: string;
+      actionLabel?: string;
+    }
+  ) {
+    return prisma.notification.create({
+      data: {
+        userId,
+        orderId: data.orderId,
+        type: data.type,
+        title: data.title,
+        message: data.message,
+        actionUrl: data.actionUrl,
+        actionLabel: data.actionLabel,
+        isRead: false,
+      },
+    });
+  }
+
   // ─── Paginated admin notifications (with recipient email) ─────────────────
 
   async findAdminNotificationsPaginated(

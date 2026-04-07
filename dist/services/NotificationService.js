@@ -26,6 +26,7 @@ const inversify_1 = require("inversify");
 const types_1 = require("../config/types");
 const NotificationRepository_1 = require("../repositories/NotificationRepository");
 const enums_1 = require("../generated/prisma/enums");
+const mailer_1 = require("../utils/mailer");
 let NotificationService = class NotificationService {
     constructor(repo) {
         this.repo = repo;
@@ -76,6 +77,40 @@ let NotificationService = class NotificationService {
                 message: `Payment of $${payload.amountUsd.toLocaleString()} received for Order #${payload.orderRef}`,
                 actionUrl: payload.orderId ? `/admin/orders/${payload.orderId}` : undefined,
             });
+        });
+    }
+    notifySellerPaymentComplete(payload) {
+        return __awaiter(this, void 0, void 0, function* () {
+            // 1. Create In-App Notification
+            yield this.repo.createForUser(payload.userId, {
+                orderId: payload.orderId,
+                type: enums_1.NotificationType.SYSTEM_ALERT,
+                title: 'Vehicle Payment Completed',
+                message: `Full payment has been completed for your vehicle ${payload.vehicleName} (Order #${payload.orderRef}).`,
+                actionUrl: `/seller/orders/${payload.orderId}`,
+            });
+            // 2. Send email
+            const emailHtml = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+        <h2 style="color: #2c3e50;">Payment Completed!</h2>
+        <p>Hello,</p>
+        <p>Great news! Full payment has been completed for your vehicle: <strong>${payload.vehicleName}</strong>.</p>
+        <p><strong>Order Reference:</strong> ${payload.orderRef}</p>
+        <p><strong>Amount:</strong> $${payload.amountUsd.toLocaleString()}</p>
+        <p>Please log in to your seller dashboard to proceed with the next steps.</p>
+        <br/>
+        <a href="https://afrozonauto.com/seller/orders/${payload.orderId}" style="display: inline-block; padding: 10px 20px; font-weight: bold; color: #fff; background-color: #27ae60; text-decoration: none; border-radius: 5px;">View Order</a>
+        <br/><br/>
+        <p>Best regards,</p>
+        <p>Afrozon AutoGlobal Team</p>
+      </div>
+    `;
+            try {
+                yield (0, mailer_1.sendMail)(payload.userEmail, 'Vehicle Sold - Payment Completed', emailHtml);
+            }
+            catch (e) {
+                // safe ignore wrapper to ensure in-app notification completes
+            }
         });
     }
 };

@@ -1364,26 +1364,28 @@ const swaggerSpec = {
         "/api/admin/payments/{id}/confirm": {
             patch: {
                 summary: "Confirm bank transfer payment (Admin)",
-                description: "Confirms the buyer's bank transfer evidence. Sets payment to COMPLETED and updates the order status to DEPOSIT_PAID or BALANCE_PAID based on payment type.",
+                description: "Confirms the buyer's bank transfer evidence. Sets payment to the specified status (e.g. COMPLETED) and conditionally updates the order status if status is COMPLETED.",
                 tags: ["Admin – Payments"],
                 security: [{ bearerAuth: [] }],
                 parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" }, description: "Payment ID" }],
                 requestBody: {
-                    required: false,
+                    required: true,
                     content: {
                         "application/json": {
                             schema: {
                                 type: "object",
+                                required: ["status"],
                                 properties: {
-                                    note: { type: "string", description: "Optional confirmation note" }
+                                    status: { type: "string", enum: ["PENDING", "PROCESSING", "COMPLETED", "FAILED", "CANCELLED", "REFUNDED", "PARTIALLY_REFUNDED"], description: "The payment status to set" },
+                                    note: { type: "string", description: "Optional confirmation or admin note" }
                                 }
                             }
                         }
                     }
                 },
                 responses: {
-                    200: { description: "Payment confirmed — order status updated" },
-                    400: { description: "Payment already confirmed" },
+                    200: { description: "Payment status updated" },
+                    400: { description: "Payment already this status or invalid status" },
                     401: { description: "Unauthorized" },
                     403: { description: "Forbidden – admin only" },
                     404: { description: "Payment not found" }
@@ -1417,6 +1419,22 @@ const swaggerSpec = {
                     401: { description: "Unauthorized" },
                     403: { description: "Forbidden – admin only" },
                     404: { description: "Payment not found" }
+                }
+            }
+        },
+        "/api/admin/payments/{id}/notify-seller": {
+            post: {
+                summary: "Notify seller of complete payment (Admin)",
+                description: "Triggers an email and in-app notification to the seller informing them that full payment for their vehicle has been completed.",
+                tags: ["Admin – Payments"],
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" }, description: "Payment ID" }],
+                responses: {
+                    200: { description: "Seller notified successfully" },
+                    400: { description: "Payment must be COMPLETED before notifying the seller" },
+                    401: { description: "Unauthorized" },
+                    403: { description: "Forbidden – admin only" },
+                    404: { description: "Payment or Seller not found" }
                 }
             }
         },

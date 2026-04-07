@@ -46,6 +46,7 @@ class AdminRoutes {
     this.router.get('/payments/:id',                ...adminOnly, this.paymentController.getPaymentById);
     this.router.patch('/payments/:id/confirm',      ...adminOnly, this.paymentController.confirmPayment);
     this.router.patch('/payments/:id/reject',       ...adminOnly, this.paymentController.rejectPayment);
+    this.router.post('/payments/:id/notify-seller', ...adminOnly, this.paymentController.notifySellerOfCompletePayment);
 
     // ── Notifications ──────────────────────────────────────────────────────
     this.router.get('/notifications/stats',             ...adminOnly, this.notificationController.getStats);

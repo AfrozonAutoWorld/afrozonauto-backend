@@ -111,9 +111,9 @@ export class PaymentRepository {
   // ─── Bank Transfer Evidence ───────────────────────────────────────────────
 
   async findOrCreateBankTransferPayment(orderId: string, userId: string, paymentType: string, amountUsd: number) {
-    // Return existing open bank-transfer payment for this order if one exists
+    // Return existing open bank-transfer payment for this order/type if one exists
     const existing = await prisma.payment.findFirst({
-      where: { orderId, userId, status: { in: ['PENDING', 'PROCESSING'] } },
+      where: { orderId, userId, paymentType: paymentType as any, status: { in: ['PENDING', 'PROCESSING'] } },
       include: { order: { select: { id: true, requestNumber: true, status: true, userId: true } } },
     });
     if (existing) return existing;
@@ -134,12 +134,12 @@ export class PaymentRepository {
     });
   }
 
-  saveEvidence(id: string, evidenceUrl: string, evidencePublicId: string) {
+  saveEvidence(id: string, evidenceUrls: string[], evidencePublicIds: string[]) {
     return prisma.payment.update({
       where: { id },
       data: {
-        evidenceUrl,
-        evidencePublicId,
+        evidenceUrls: { push: evidenceUrls },
+        evidencePublicIds: { push: evidencePublicIds },
         evidenceUploadedAt: new Date(),
         status: 'PROCESSING',
         paymentMethod: 'BANK_TRANSFER',
@@ -156,13 +156,14 @@ export class PaymentRepository {
     });
   }
 
-  adminConfirmPayment(id: string, adminId: string, note?: string) {
+  adminUpdatePaymentStatus(id: string, adminId: string, status: PaymentStatus, note?: string) {
+    const isCompleted = status === PaymentStatus.COMPLETED;
     return prisma.payment.update({
       where: { id },
       data: {
-        status: 'COMPLETED',
-        escrowStatus: 'HELD',
-        completedAt: new Date(),
+        status,
+        escrowStatus: isCompleted ? 'HELD' : undefined,
+        completedAt: isCompleted ? new Date() : undefined,
         adminConfirmedBy: adminId,
         adminConfirmedAt: new Date(),
         adminNote: note,

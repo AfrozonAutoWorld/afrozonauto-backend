@@ -56,6 +56,22 @@ let NotificationRepository = class NotificationRepository {
             });
         });
     }
+    createForUser(userId, data) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return db_1.default.notification.create({
+                data: {
+                    userId,
+                    orderId: data.orderId,
+                    type: data.type,
+                    title: data.title,
+                    message: data.message,
+                    actionUrl: data.actionUrl,
+                    actionLabel: data.actionLabel,
+                    isRead: false,
+                },
+            });
+        });
+    }
     // ─── Paginated admin notifications (with recipient email) ─────────────────
     findAdminNotificationsPaginated(filters, pagination) {
         return __awaiter(this, void 0, void 0, function* () {

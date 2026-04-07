@@ -627,8 +627,8 @@ model Payment {
   receiptUrl            String?
 
   // Bank Transfer Evidence (buyer uploads proof of payment)
-  evidenceUrl         String?
-  evidencePublicId    String? // Cloudinary public_id for deletion
+  evidenceUrls        String[]
+  evidencePublicIds   String[] // Cloudinary public_ids for deletion
   evidenceUploadedAt  DateTime?
 
   // Admin Confirmation

@@ -157,8 +157,9 @@ let PaymentController = class PaymentController {
                 specialRequests,
             });
             // 4. Create payment record + attach evidence → status PROCESSING
-            const { url, publicId } = uploadedFiles[0];
-            const payment = yield this.paymentService.uploadPaymentEvidence(order.id, req.user.id, url, publicId, paymentType);
+            const urls = uploadedFiles.map((f) => f.url);
+            const publicIds = uploadedFiles.map((f) => f.publicId);
+            const payment = yield this.paymentService.uploadPaymentEvidence(order.id, req.user.id, urls, publicIds, paymentType);
             return res.status(201).json(ApiResponse_1.ApiResponse.success({ order, payment }, 'Order and payment evidence submitted. Awaiting admin confirmation.'));
         }));
         // ─── Bank Transfer Evidence (existing order) ─────────────────────────────
@@ -171,8 +172,9 @@ let PaymentController = class PaymentController {
             const uploadedFiles = (_b = req.body.uploadedFiles) !== null && _b !== void 0 ? _b : [];
             if (!uploadedFiles.length)
                 return res.status(400).json(ApiError_1.ApiError.badRequest('No evidence file uploaded'));
-            const { url, publicId } = uploadedFiles[0];
-            const payment = yield this.paymentService.uploadPaymentEvidence(orderId, req.user.id, url, publicId, paymentType);
+            const urls = uploadedFiles.map((f) => f.url);
+            const publicIds = uploadedFiles.map((f) => f.publicId);
+            const payment = yield this.paymentService.uploadPaymentEvidence(orderId, req.user.id, urls, publicIds, paymentType);
             return res.status(200).json(ApiResponse_1.ApiResponse.success(payment, 'Payment evidence uploaded. Awaiting admin confirmation.'));
         }));
         // ─── Admin Confirm / Reject ─────────────────────────────────────────────
@@ -180,9 +182,16 @@ let PaymentController = class PaymentController {
             if (!req.user)
                 return res.status(401).json(ApiError_1.ApiError.unauthorized('Not authenticated'));
             const { id } = req.params;
-            const { note } = req.body;
-            const payment = yield this.paymentService.adminConfirmPayment(id, req.user.id, note);
-            return res.status(200).json(ApiResponse_1.ApiResponse.success(payment, 'Payment confirmed and order status updated'));
+            const { note, status } = req.body;
+            if (!status) {
+                return res.status(400).json(ApiError_1.ApiError.badRequest('Payment status is required'));
+            }
+            const validStatuses = Object.values(enums_1.PaymentStatus);
+            if (!validStatuses.includes(status)) {
+                return res.status(400).json(ApiError_1.ApiError.badRequest(`Invalid payment status. Must be one of: ${validStatuses.join(', ')}`));
+            }
+            const payment = yield this.paymentService.adminConfirmPayment(id, req.user.id, status, note);
+            return res.status(200).json(ApiResponse_1.ApiResponse.success(payment, 'Payment status updated'));
         }));
         this.rejectPayment = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             if (!req.user)
@@ -193,6 +202,13 @@ let PaymentController = class PaymentController {
                 return res.status(400).json(ApiError_1.ApiError.badRequest('Rejection reason (note) is required'));
             const payment = yield this.paymentService.adminRejectPayment(id, req.user.id, note);
             return res.status(200).json(ApiResponse_1.ApiResponse.success(payment, 'Payment evidence rejected'));
+        }));
+        this.notifySellerOfCompletePayment = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            if (!req.user)
+                return res.status(401).json(ApiError_1.ApiError.unauthorized('Not authenticated'));
+            const { id } = req.params;
+            const result = yield this.paymentService.notifySellerOfCompletePayment(id);
+            return res.status(200).json(ApiResponse_1.ApiResponse.success(result, 'Seller notified successfully'));
         }));
     }
 };

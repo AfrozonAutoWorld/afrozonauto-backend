@@ -118,9 +118,9 @@ let PaymentRepository = class PaymentRepository {
     // ─── Bank Transfer Evidence ───────────────────────────────────────────────
     findOrCreateBankTransferPayment(orderId, userId, paymentType, amountUsd) {
         return __awaiter(this, void 0, void 0, function* () {
-            // Return existing open bank-transfer payment for this order if one exists
+            // Return existing open bank-transfer payment for this order/type if one exists
             const existing = yield db_1.default.payment.findFirst({
-                where: { orderId, userId, status: { in: ['PENDING', 'PROCESSING'] } },
+                where: { orderId, userId, paymentType: paymentType, status: { in: ['PENDING', 'PROCESSING'] } },
                 include: { order: { select: { id: true, requestNumber: true, status: true, userId: true } } },
             });
             if (existing)
@@ -141,12 +141,12 @@ let PaymentRepository = class PaymentRepository {
             });
         });
     }
-    saveEvidence(id, evidenceUrl, evidencePublicId) {
+    saveEvidence(id, evidenceUrls, evidencePublicIds) {
         return db_1.default.payment.update({
             where: { id },
             data: {
-                evidenceUrl,
-                evidencePublicId,
+                evidenceUrls: { push: evidenceUrls },
+                evidencePublicIds: { push: evidencePublicIds },
                 evidenceUploadedAt: new Date(),
                 status: 'PROCESSING',
                 paymentMethod: 'BANK_TRANSFER',
@@ -160,13 +160,14 @@ let PaymentRepository = class PaymentRepository {
             include: { order: true, user: { select: { id: true, email: true, fullName: true } } },
         });
     }
-    adminConfirmPayment(id, adminId, note) {
+    adminUpdatePaymentStatus(id, adminId, status, note) {
+        const isCompleted = status === enums_1.PaymentStatus.COMPLETED;
         return db_1.default.payment.update({
             where: { id },
             data: {
-                status: 'COMPLETED',
-                escrowStatus: 'HELD',
-                completedAt: new Date(),
+                status,
+                escrowStatus: isCompleted ? 'HELD' : undefined,
+                completedAt: isCompleted ? new Date() : undefined,
                 adminConfirmedBy: adminId,
                 adminConfirmedAt: new Date(),
                 adminNote: note,

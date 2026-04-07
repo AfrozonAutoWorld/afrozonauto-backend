@@ -229,8 +229,8 @@ export class PaymentService {
   async uploadPaymentEvidence(
     orderId: string,
     userId: string,
-    evidenceUrl: string,
-    evidencePublicId: string,
+    evidenceUrls: string[],
+    evidencePublicIds: string[],
     paymentType: string = 'DEPOSIT',
   ) {
     // Verify order belongs to user
@@ -257,30 +257,37 @@ export class PaymentService {
     // Find existing open payment or create one now
     const payment = await this.paymentRepo.findOrCreateBankTransferPayment(orderId, userId, paymentType, amountUsd);
 
-    return this.paymentRepo.saveEvidence(payment.id, evidenceUrl, evidencePublicId);
+    return this.paymentRepo.saveEvidence(payment.id, evidenceUrls, evidencePublicIds);
   }
 
   // ─── Admin Confirm / Reject ───────────────────────────────────────────────
 
-  async adminConfirmPayment(paymentId: string, adminId: string, note?: string) {
+  async adminConfirmPayment(paymentId: string, adminId: string, status: PaymentStatus, note?: string) {
     const payment = await this.paymentRepo.findPaymentWithOrder(paymentId);
     if (!payment) throw Object.assign(new Error('Payment not found'), { statusCode: 404 });
-    if (payment.status === PaymentStatus.COMPLETED) throw Object.assign(new Error('Payment already confirmed'), { statusCode: 400 });
+    if (payment.status === status) throw Object.assign(new Error(`Payment is already ${status}`), { statusCode: 400 });
 
     const newOrderStatus = payment.paymentType === PaymentType.DEPOSIT ? OrderStatus.DEPOSIT_PAID : OrderStatus.BALANCE_PAID;
 
-    await prisma.$transaction([
-      this.paymentRepo.adminConfirmPayment(paymentId, adminId, note) as any,
-      this.orderRepo.updateOrderStatus(payment.orderId, newOrderStatus) as any,
-    ]);
+    const transactions: any[] = [];
+    
+    transactions.push(this.paymentRepo.adminUpdatePaymentStatus(paymentId, adminId, status, note) as any);
+    
+    if (status === PaymentStatus.COMPLETED) {
+      transactions.push(this.orderRepo.updateOrderStatus(payment.orderId, newOrderStatus) as any);
+    }
+    
+    await prisma.$transaction(transactions);
 
-    // Notify buyer
-    this.notificationService.notifyAdminsPaymentReceived({
-      orderId: payment.orderId,
-      orderRef: payment.order.requestNumber,
-      customerName: payment.user.fullName ?? payment.user.email,
-      amountUsd: payment.amountUsd,
-    }).catch(() => {});
+    // Notify admins (fails silently)
+    if (status === PaymentStatus.COMPLETED) {
+      this.notificationService.notifyAdminsPaymentReceived({
+        orderId: payment.orderId,
+        orderRef: payment.order?.requestNumber || 'UNKNOWN',
+        customerName: payment.user?.fullName ?? payment.user?.email ?? 'Unknown Customer',
+        amountUsd: payment.amountUsd,
+      }).catch(() => {});
+    }
 
     return this.paymentRepo.findPaymentWithOrder(paymentId);
   }
@@ -293,5 +300,50 @@ export class PaymentService {
     }
 
     return this.paymentRepo.adminRejectPayment(paymentId, adminId, note);
+  }
+
+  // ─── Admin Notify Seller ──────────────────────────────────────────────────
+
+  async notifySellerOfCompletePayment(paymentId: string) {
+    const payment = await this.paymentRepo.findById(paymentId);
+    if (!payment) throw Object.assign(new Error('Payment not found'), { statusCode: 404 });
+    
+    // Accept either status if business allows, but generally should be COMPLETED
+    if (payment.status !== PaymentStatus.COMPLETED) {
+      throw Object.assign(new Error('Payment must be COMPLETED before notifying the seller'), { statusCode: 400 });
+    }
+
+    const order = await prisma.order.findUnique({
+      where: { id: payment.orderId },
+      include: {
+        vehicle: {
+          include: {
+            user: true
+          }
+        }
+      }
+    });
+
+    if (!order || !order.vehicle || !order.vehicle.userId || !order.vehicle.user) {
+      throw Object.assign(new Error('Seller not found for this vehicle/order'), { statusCode: 404 });
+    }
+
+    if (payment.paymentType === PaymentType.DEPOSIT && order.status !== OrderStatus.BALANCE_PAID) {
+      throw Object.assign(new Error('This payment is a deposit. Vehicle must be fully paid before notifying the seller.'), { statusCode: 400 });
+    }
+
+    const seller = order.vehicle.user;
+    const vehicleName = `${order.vehicle.year} ${order.vehicle.make} ${order.vehicle.model}`;
+
+    await this.notificationService.notifySellerPaymentComplete({
+      userId: seller.id,
+      userEmail: seller.email,
+      orderId: order.id,
+      orderRef: order.requestNumber,
+      amountUsd: payment.amountUsd,
+      vehicleName
+    });
+
+    return { message: "Seller notified successfully via email and in-app notification" };
   }
 }

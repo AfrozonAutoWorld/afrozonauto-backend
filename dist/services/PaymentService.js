@@ -192,8 +192,8 @@ let PaymentService = class PaymentService {
         return this.paymentRepo.getStats();
     }
     // ─── Bank Transfer Evidence ───────────────────────────────────────────────
-    uploadPaymentEvidence(orderId_1, userId_1, evidenceUrl_1, evidencePublicId_1) {
-        return __awaiter(this, arguments, void 0, function* (orderId, userId, evidenceUrl, evidencePublicId, paymentType = 'DEPOSIT') {
+    uploadPaymentEvidence(orderId_1, userId_1, evidenceUrls_1, evidencePublicIds_1) {
+        return __awaiter(this, arguments, void 0, function* (orderId, userId, evidenceUrls, evidencePublicIds, paymentType = 'DEPOSIT') {
             var _a, _b, _c;
             // Verify order belongs to user
             const order = yield this.orderRepo.findById(orderId);
@@ -218,30 +218,34 @@ let PaymentService = class PaymentService {
             }
             // Find existing open payment or create one now
             const payment = yield this.paymentRepo.findOrCreateBankTransferPayment(orderId, userId, paymentType, amountUsd);
-            return this.paymentRepo.saveEvidence(payment.id, evidenceUrl, evidencePublicId);
+            return this.paymentRepo.saveEvidence(payment.id, evidenceUrls, evidencePublicIds);
         });
     }
     // ─── Admin Confirm / Reject ───────────────────────────────────────────────
-    adminConfirmPayment(paymentId, adminId, note) {
+    adminConfirmPayment(paymentId, adminId, status, note) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a;
+            var _a, _b, _c, _d, _e;
             const payment = yield this.paymentRepo.findPaymentWithOrder(paymentId);
             if (!payment)
                 throw Object.assign(new Error('Payment not found'), { statusCode: 404 });
-            if (payment.status === enums_1.PaymentStatus.COMPLETED)
-                throw Object.assign(new Error('Payment already confirmed'), { statusCode: 400 });
+            if (payment.status === status)
+                throw Object.assign(new Error(`Payment is already ${status}`), { statusCode: 400 });
             const newOrderStatus = payment.paymentType === enums_1.PaymentType.DEPOSIT ? enums_1.OrderStatus.DEPOSIT_PAID : enums_1.OrderStatus.BALANCE_PAID;
-            yield db_1.default.$transaction([
-                this.paymentRepo.adminConfirmPayment(paymentId, adminId, note),
-                this.orderRepo.updateOrderStatus(payment.orderId, newOrderStatus),
-            ]);
-            // Notify buyer
-            this.notificationService.notifyAdminsPaymentReceived({
-                orderId: payment.orderId,
-                orderRef: payment.order.requestNumber,
-                customerName: (_a = payment.user.fullName) !== null && _a !== void 0 ? _a : payment.user.email,
-                amountUsd: payment.amountUsd,
-            }).catch(() => { });
+            const transactions = [];
+            transactions.push(this.paymentRepo.adminUpdatePaymentStatus(paymentId, adminId, status, note));
+            if (status === enums_1.PaymentStatus.COMPLETED) {
+                transactions.push(this.orderRepo.updateOrderStatus(payment.orderId, newOrderStatus));
+            }
+            yield db_1.default.$transaction(transactions);
+            // Notify admins (fails silently)
+            if (status === enums_1.PaymentStatus.COMPLETED) {
+                this.notificationService.notifyAdminsPaymentReceived({
+                    orderId: payment.orderId,
+                    orderRef: ((_a = payment.order) === null || _a === void 0 ? void 0 : _a.requestNumber) || 'UNKNOWN',
+                    customerName: (_e = (_c = (_b = payment.user) === null || _b === void 0 ? void 0 : _b.fullName) !== null && _c !== void 0 ? _c : (_d = payment.user) === null || _d === void 0 ? void 0 : _d.email) !== null && _e !== void 0 ? _e : 'Unknown Customer',
+                    amountUsd: payment.amountUsd,
+                }).catch(() => { });
+            }
             return this.paymentRepo.findPaymentWithOrder(paymentId);
         });
     }
@@ -254,6 +258,45 @@ let PaymentService = class PaymentService {
                 throw Object.assign(new Error('Only pending/processing payments can be rejected'), { statusCode: 400 });
             }
             return this.paymentRepo.adminRejectPayment(paymentId, adminId, note);
+        });
+    }
+    // ─── Admin Notify Seller ──────────────────────────────────────────────────
+    notifySellerOfCompletePayment(paymentId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const payment = yield this.paymentRepo.findById(paymentId);
+            if (!payment)
+                throw Object.assign(new Error('Payment not found'), { statusCode: 404 });
+            // Accept either status if business allows, but generally should be COMPLETED
+            if (payment.status !== enums_1.PaymentStatus.COMPLETED) {
+                throw Object.assign(new Error('Payment must be COMPLETED before notifying the seller'), { statusCode: 400 });
+            }
+            const order = yield db_1.default.order.findUnique({
+                where: { id: payment.orderId },
+                include: {
+                    vehicle: {
+                        include: {
+                            user: true
+                        }
+                    }
+                }
+            });
+            if (!order || !order.vehicle || !order.vehicle.userId || !order.vehicle.user) {
+                throw Object.assign(new Error('Seller not found for this vehicle/order'), { statusCode: 404 });
+            }
+            if (payment.paymentType === enums_1.PaymentType.DEPOSIT && order.status !== enums_1.OrderStatus.BALANCE_PAID) {
+                throw Object.assign(new Error('This payment is a deposit. Vehicle must be fully paid before notifying the seller.'), { statusCode: 400 });
+            }
+            const seller = order.vehicle.user;
+            const vehicleName = `${order.vehicle.year} ${order.vehicle.make} ${order.vehicle.model}`;
+            yield this.notificationService.notifySellerPaymentComplete({
+                userId: seller.id,
+                userEmail: seller.email,
+                orderId: order.id,
+                orderRef: order.requestNumber,
+                amountUsd: payment.amountUsd,
+                vehicleName
+            });
+            return { message: "Seller notified successfully via email and in-app notification" };
         });
     }
 };

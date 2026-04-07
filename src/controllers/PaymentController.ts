@@ -219,9 +219,10 @@ export class PaymentController {
         });
 
         // 4. Create payment record + attach evidence → status PROCESSING
-        const { url, publicId } = uploadedFiles[0];
+        const urls = uploadedFiles.map((f: any) => f.url);
+        const publicIds = uploadedFiles.map((f: any) => f.publicId);
         const payment = await this.paymentService.uploadPaymentEvidence(
-            order.id, req.user.id, url, publicId, paymentType,
+            order.id, req.user.id, urls, publicIds, paymentType,
         );
 
         return res.status(201).json(
@@ -236,8 +237,9 @@ export class PaymentController {
         const paymentType = req.body.paymentType ?? 'DEPOSIT';
         const uploadedFiles: any[] = req.body.uploadedFiles ?? [];
         if (!uploadedFiles.length) return res.status(400).json(ApiError.badRequest('No evidence file uploaded'));
-        const { url, publicId } = uploadedFiles[0];
-        const payment = await this.paymentService.uploadPaymentEvidence(orderId, req.user.id, url, publicId, paymentType);
+        const urls = uploadedFiles.map((f: any) => f.url);
+        const publicIds = uploadedFiles.map((f: any) => f.publicId);
+        const payment = await this.paymentService.uploadPaymentEvidence(orderId, req.user.id, urls, publicIds, paymentType);
         return res.status(200).json(ApiResponse.success(payment, 'Payment evidence uploaded. Awaiting admin confirmation.'));
     });
 
@@ -246,10 +248,19 @@ export class PaymentController {
     confirmPayment = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
         if (!req.user) return res.status(401).json(ApiError.unauthorized('Not authenticated'));
         const { id } = req.params;
-        const { note } = req.body;
+        const { note, status } = req.body;
 
-        const payment = await this.paymentService.adminConfirmPayment(id, req.user.id, note);
-        return res.status(200).json(ApiResponse.success(payment, 'Payment confirmed and order status updated'));
+        if (!status) {
+             return res.status(400).json(ApiError.badRequest('Payment status is required'));
+        }
+
+        const validStatuses = Object.values(PaymentStatus);
+        if (!validStatuses.includes(status)) {
+             return res.status(400).json(ApiError.badRequest(`Invalid payment status. Must be one of: ${validStatuses.join(', ')}`));
+        }
+
+        const payment = await this.paymentService.adminConfirmPayment(id, req.user.id, status as PaymentStatus, note);
+        return res.status(200).json(ApiResponse.success(payment, 'Payment status updated'));
     });
 
     rejectPayment = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
@@ -260,5 +271,12 @@ export class PaymentController {
 
         const payment = await this.paymentService.adminRejectPayment(id, req.user.id, note);
         return res.status(200).json(ApiResponse.success(payment, 'Payment evidence rejected'));
+    });
+
+    notifySellerOfCompletePayment = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        if (!req.user) return res.status(401).json(ApiError.unauthorized('Not authenticated'));
+        const { id } = req.params;
+        const result = await this.paymentService.notifySellerOfCompletePayment(id);
+        return res.status(200).json(ApiResponse.success(result, 'Seller notified successfully'));
     });
 }
