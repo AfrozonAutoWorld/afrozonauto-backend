@@ -251,7 +251,21 @@ export class VehicleService {
         const apiFilters: Record<string, unknown> = {};
         if (filters.make) apiFilters.make = filters.make;
         if (filters.model) apiFilters.model = filters.model;
-        if (filters.bodyStyle) apiFilters.bodyStyle = filters.bodyStyle;
+        if (filters.vehicleType) {
+          const vt = String(filters.vehicleType);
+          if (vt === 'CAR' || vt === 'SEDAN') apiFilters.bodyStyle = 'Car';
+          else if (vt === 'SUV') apiFilters.bodyStyle = 'SUV';
+          else if (vt === 'TRUCK') apiFilters.bodyStyle = 'Truck';
+          else if (vt === 'VAN') apiFilters.bodyStyle = 'Van';
+          else if (vt === 'COUPE') (apiFilters as any).type = 'Coupe';
+          else if (vt === 'HATCHBACK') (apiFilters as any).type = 'Hatchback';
+          else if (vt === 'WAGON') (apiFilters as any).type = 'Wagon';
+          else if (vt === 'CONVERTIBLE') (apiFilters as any).type = 'Convertible';
+          else if (vt === 'MOTORCYCLE') (apiFilters as any).type = 'Motorcycle';
+        }
+        if (filters.bodyStyle) {
+          apiFilters.bodyStyle = filters.bodyStyle;
+        }
         if (filters.yearMin || filters.yearMax) {
           if (filters.yearMin && filters.yearMax && filters.yearMin === filters.yearMax) {
             apiFilters.year = filters.yearMin;
@@ -306,8 +320,11 @@ export class VehicleService {
           if (filters.yearMax != null && (listingYear == null || listingYear > filters.yearMax)) return false;
 
           if (filters.vehicleType) {
-            const bodyStyle = vehicle.bodyStyle || listing.bodyStyle || '';
-            if (VehicleTransformer.mapVehicleType(bodyStyle) !== filters.vehicleType) return false;
+            const vehicleType = VehicleTransformer.mapVehicleTypeFromAutoDev(
+              vehicle.type || listing.type || vehicle.style || listing.style || '',
+              vehicle.bodyStyle || listing.bodyStyle || ''
+            );
+            if (vehicleType !== filters.vehicleType) return false;
           }
 
           if (filters.bodyStyle) {
@@ -329,9 +346,14 @@ export class VehicleService {
           return true;
         });
 
-        const vinsToCheck = filteredListings.map((l: any) => l.vin).filter(Boolean);
-        const existingVins = await this.vehicleRepo.findExistingVINs(vinsToCheck);
-        const apiOnlyList = filteredListings.filter((l: any) => l.vin && !existingVins.has(l.vin));
+        // De-dup only against DB vehicles in current filtered page to avoid
+        // hiding valid API results when DB copies exist but don't match filters.
+        const pageDbVins = new Set(
+          dbResult.vehicles
+            .map((v) => v.vin)
+            .filter((vin): vin is string => typeof vin === 'string' && vin.length > 0)
+        );
+        const apiOnlyList = filteredListings.filter((l: any) => l.vin && !pageDbVins.has(l.vin));
         apiOnlyCount = apiOnlyList.length;
 
         // Paginate API slice for this page: DB fills first, then API fills the rest of the page

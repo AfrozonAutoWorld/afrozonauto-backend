@@ -1,16 +1,12 @@
 import Joi from 'joi';
-import { VehicleStatus, VehicleListingCondition, VehicleType } from '../../generated/prisma/client';
+import { VehicleStatus, VehicleListingCondition } from '../../generated/prisma/client';
 
 export const createSellerVehicleSchema = Joi.object({
     // Step 1: Vehicle Details
     year: Joi.number().integer().min(1900).max(new Date().getFullYear() + 1).required(),
     make: Joi.string().required(),
     model: Joi.string().required(),
-    vehicleType: Joi.string()
-        .uppercase()
-        .valid(...Object.values(VehicleType))
-        .default(VehicleType.OTHER)
-        .messages({ 'any.only': `vehicleType must be one of: ${Object.values(VehicleType).join(', ')}` }),
+    vehicleType: Joi.string().trim().default('OTHER'),
     trim: Joi.string().allow('', null).optional(),
     bodyStyle: Joi.string().allow('', null).optional(),
     mileage: Joi.number().integer().min(0).required(),

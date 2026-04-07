@@ -1,6 +1,5 @@
 import Joi from 'joi';
 import {
-    VehicleType,
     VehicleSource,
     VehicleStatus,
     VehicleAvailability,
@@ -15,9 +14,7 @@ export const createVehicleSchema = Joi.object({
 
     year: Joi.number().integer().required(),
 
-    vehicleType: Joi.string()
-        .valid(...Object.values(VehicleType))
-        .required(),
+    vehicleType: Joi.string().required(),
 
     priceUsd: Joi.number().required(),
     originalPriceUsd: Joi.number().optional(),

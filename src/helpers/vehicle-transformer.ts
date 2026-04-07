@@ -1,4 +1,4 @@
-import { Vehicle, VehicleType, VehicleSource, VehicleStatus } from '../generated/prisma/client';
+import { Vehicle, VehicleSource, VehicleStatus } from '../generated/prisma/client';
 
 export interface AutoDevListing {
   vin: string;
@@ -52,7 +52,13 @@ export class VehicleTransformer {
     const bodyStyleSource =
       (vehicle as any).bodyStyle ||
       (listing as any).bodyStyle ||
-      `${(vehicle as any).make ?? ''} ${(vehicle as any).model ?? ''}`;
+      '';
+    const typeSource =
+      (vehicle as any).type ||
+      (listing as any).type ||
+      (vehicle as any).style ||
+      (listing as any).style ||
+      '';
 
     return {
       vin: listing.vin || vehicle.vin,
@@ -62,7 +68,9 @@ export class VehicleTransformer {
       year: vehicle.year,
       priceUsd: retailListing.price || listing.price || 0,
       mileage: retailListing.miles ?? retailListing.mileage ?? listing.miles ?? listing.mileage,
-      vehicleType: this.mapVehicleType(bodyStyleSource || ''),
+      vehicleType: this.mapVehicleTypeFromAutoDev(typeSource, bodyStyleSource),
+      // Keep original broad body style from Auto.dev (e.g. Car, SUV, Truck, Van).
+      bodyStyle: bodyStyleSource || undefined,
       transmission: vehicle.transmission || listing.transmission,
       fuelType: vehicle.fuel || listing.fuelType,
       engineSize: vehicle.engine || listing.engineSize,
@@ -95,7 +103,7 @@ export class VehicleTransformer {
       make: decode.make,
       model: decode.model,
       year: decode.year,
-      vehicleType: this.mapVehicleType(decode.bodyStyle || ''),
+      vehicleType: this.mapVehicleTypeFromAutoDev((decode as any).type, decode.bodyStyle || ''),
       transmission: decode.transmission,
       fuelType: decode.fuelType,
       engineSize: decode.engineSize,
@@ -125,60 +133,68 @@ export class VehicleTransformer {
   /**
    * Map body style to VehicleType enum
    */
-  static mapVehicleType(bodyStyle: string): VehicleType {
+  static mapVehicleType(bodyStyle: string): string {
     const style = (bodyStyle || '').toLowerCase();
 
-    if (!style) return VehicleType.CAR;
+    if (!style) return 'CAR';
 
     // SUVs and crossovers
-    if (style.includes('suv') || style.includes('crossover')) return VehicleType.SUV;
+    if (style.includes('suv') || style.includes('crossover')) return 'SUV';
 
     // Trucks and pickups
-    if (style.includes('truck') || style.includes('pickup')) return VehicleType.TRUCK;
+    if (style.includes('truck') || style.includes('pickup')) return 'TRUCK';
 
     // Vans / minivans
-    if (style.includes('van') || style.includes('minivan')) return VehicleType.VAN;
+    if (style.includes('van') || style.includes('minivan')) return 'VAN';
 
-    if (style.includes('coupe')) return VehicleType.COUPE;
+    if (style.includes('coupe')) return 'COUPE';
 
     // Sedans / saloons
-    if (style.includes('sedan') || style.includes('saloon')) return VehicleType.SEDAN;
+    if (style.includes('sedan') || style.includes('saloon')) return 'SEDAN';
 
-    if (style.includes('hatchback')) return VehicleType.HATCHBACK;
+    if (style.includes('hatchback')) return 'HATCHBACK';
 
     // Wagons / estates
-    if (style.includes('wagon') || style.includes('estate')) return VehicleType.WAGON;
+    if (style.includes('wagon') || style.includes('estate')) return 'WAGON';
 
     // Convertibles / cabriolets
-    if (style.includes('convertible') || style.includes('cabrio')) return VehicleType.CONVERTIBLE;
+    if (style.includes('convertible') || style.includes('cabrio')) return 'CONVERTIBLE';
 
     // Motorcycles / bikes
     if (style.includes('motorcycle') || style.includes('motorbike') || style.includes('bike')) {
-      return VehicleType.MOTORCYCLE;
+      return 'MOTORCYCLE';
     }
 
     // Hummer (often missing bodyStyle in API) – treat as SUV
-    if (style.includes('hummer')) return VehicleType.SUV;
+    if (style.includes('hummer')) return 'SUV';
 
     // Fallback
-    return VehicleType.CAR;
+    return 'CAR';
   }
 
-  static vehicleTypeToBodyStyle(vehicleType: VehicleType): string {
-    const map: Partial<Record<VehicleType, string>> = {
-      [VehicleType.CAR]: 'sedan',
-      [VehicleType.SEDAN]: 'sedan',
-      [VehicleType.SUV]: 'suv',
-      [VehicleType.TRUCK]: 'truck',
-      [VehicleType.VAN]: 'van',
-      [VehicleType.COUPE]: 'coupe',
-      [VehicleType.HATCHBACK]: 'hatchback',
-      [VehicleType.WAGON]: 'wagon',
-      [VehicleType.CONVERTIBLE]: 'convertible',
-      [VehicleType.MOTORCYCLE]: '',
-      [VehicleType.OTHER]: '',
-    };
-    return map[vehicleType] ?? '';
+  /**
+   * Prefer Auto.dev `vehicle.type` (more specific), then fall back to bodyStyle.
+   * Example: bodyStyle can be "Car" while type is "Sedan".
+   */
+  static mapVehicleTypeFromAutoDev(typeValue?: string, bodyStyle?: string): string {
+    const type = (typeValue || '').toLowerCase();
+    if (type) {
+      if (type.includes('crossover') || type.includes('suv')) return 'SUV';
+      if (type.includes('pickup') || type.includes('truck')) return 'TRUCK';
+      if (type.includes('minivan') || type.includes('van')) return 'VAN';
+      if (type.includes('coupe')) return 'COUPE';
+      if (type.includes('sedan') || type.includes('saloon')) return 'SEDAN';
+      if (type.includes('hatchback')) return 'HATCHBACK';
+      if (type.includes('wagon') || type.includes('estate')) return 'WAGON';
+      if (type.includes('convertible') || type.includes('cabrio') || type.includes('roadster')) {
+        return 'CONVERTIBLE';
+      }
+      if (type.includes('motorcycle') || type.includes('motorbike') || type.includes('bike')) {
+        return 'MOTORCYCLE';
+      }
+      if (type.includes('car')) return 'CAR';
+    }
+    return this.mapVehicleType(bodyStyle || '');
   }
 }
 

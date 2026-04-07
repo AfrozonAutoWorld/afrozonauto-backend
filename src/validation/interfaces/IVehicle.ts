@@ -1,4 +1,4 @@
-import { VehicleSource, VehicleStatus, VehicleType } from "../../generated/prisma/enums";
+import { VehicleSource, VehicleStatus } from "../../generated/prisma/enums";
 
 export interface AutoDevResponse<T> {
     data?: T;
@@ -17,7 +17,7 @@ export interface AutoDevResponse<T> {
     priceMin?: number;
     priceMax?: number;
     mileageMax?: number;
-    vehicleType?: VehicleType;
+    vehicleType?: string;
     status?: VehicleStatus;
     source?: VehicleSource;
     dealerState?: string;

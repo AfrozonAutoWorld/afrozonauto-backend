@@ -129,7 +129,12 @@ export class VehicleRepository {
 
     if (filters.bodyStyle) {
       const style = filters.bodyStyle.trim().toLowerCase();
-      if (style === 'pickup truck') {
+      if (style === 'sedan') {
+        where.bodyStyle = {
+          in: ['Sedan', 'Car'],
+          mode: 'insensitive',
+        };
+      } else if (style === 'pickup truck') {
         where.bodyStyle = {
           in: ['Pickup Truck', 'Pickup', 'Truck'],
           mode: 'insensitive',
