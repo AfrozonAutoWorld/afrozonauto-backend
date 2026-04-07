@@ -96,11 +96,13 @@ export class SellerController {
      */
     verifySeller = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
         if (req.user?.role !== UserRole.SUPER_ADMIN && req.user?.role !== UserRole.OPERATIONS_ADMIN) {
-            throw ApiError.forbidden('Admin access required');
+            return res.status(403).json(
+                ApiError.forbidden('Admin access required')
+            )
         }
 
         const { id } = req.params;
-        const { approve, reason } = req.body;
+        const { approve , reason } = req.body;
 
         const profile = await this.service.verifySeller(id, approve, reason);
         const message = approve ? 'Seller verified successfully' : 'Seller application rejected';

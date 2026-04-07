@@ -15,7 +15,8 @@ const validateBody = (schema) => {
         var _a;
         try {
             // use validateAsync to support .external() async rules
-            const value = yield schema.validateAsync(req.body, {
+            // fallback to {} to ensure Joi runs required checks on empty bodies
+            const value = yield schema.validateAsync(req.body || {}, {
                 abortEarly: false,
                 stripUnknown: true,
             });

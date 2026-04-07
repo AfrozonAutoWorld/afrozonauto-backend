@@ -108,7 +108,7 @@ let SellerController = class SellerController {
         this.verifySeller = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             var _a, _b;
             if (((_a = req.user) === null || _a === void 0 ? void 0 : _a.role) !== client_1.UserRole.SUPER_ADMIN && ((_b = req.user) === null || _b === void 0 ? void 0 : _b.role) !== client_1.UserRole.OPERATIONS_ADMIN) {
-                throw ApiError_1.ApiError.forbidden('Admin access required');
+                return res.status(403).json(ApiError_1.ApiError.forbidden('Admin access required'));
             }
             const { id } = req.params;
             const { approve, reason } = req.body;

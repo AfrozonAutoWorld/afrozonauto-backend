@@ -688,7 +688,28 @@ const swaggerSpec = {
         tags: ["Sellers"],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
         security: [{ bearerAuth: [] }],
-        responses: { 200: { description: "Seller verified" } }
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["approve"],
+                properties: {
+                  approve: { type: "boolean", description: "Set to true to verify, false to reject" },
+                  reason: { type: "string", description: "Reason for rejection (required if approve is false)" }
+                }
+              }
+            }
+          }
+        },
+        responses: { 
+          200: { description: "Seller verified or rejected successfully" },
+          400: { description: "Validation failed (e.g. missing reason when false)" },
+          401: { description: "Unauthorized" },
+          403: { description: "Forbidden - admin only" },
+          404: { description: "Seller application not found" }
+        }
       }
     },
 
