@@ -229,6 +229,25 @@ export class VehicleService {
 
     if (includeApiResults) {
       try {
+        const normalizeBodyStyle = (value: unknown): string => {
+          return String(value ?? '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, '');
+        };
+
+        const toCanonicalBodyStyle = (value: unknown): string => {
+          const normalized = normalizeBodyStyle(value);
+          if (!normalized) return '';
+          if (normalized.includes('pickup')) return 'pickuptruck';
+          if (normalized === 'truck') return 'truck';
+          if (normalized.includes('hatchback')) return 'hatchback';
+          if (normalized.includes('convertible')) return 'convertible';
+          if (normalized.includes('coupe')) return 'coupe';
+          if (normalized.includes('wagon')) return 'wagon';
+          if (normalized.includes('sedan')) return 'sedan';
+          return normalized;
+        };
+
         const apiFilters: Record<string, unknown> = {};
         if (filters.make) apiFilters.make = filters.make;
         if (filters.model) apiFilters.model = filters.model;
@@ -288,6 +307,17 @@ export class VehicleService {
           if (filters.vehicleType) {
             const bodyStyle = vehicle.bodyStyle || listing.bodyStyle || '';
             if (VehicleTransformer.mapVehicleType(bodyStyle) !== filters.vehicleType) return false;
+          }
+
+          if (filters.bodyStyle) {
+            const selected = toCanonicalBodyStyle(filters.bodyStyle);
+            const listingBody = toCanonicalBodyStyle(vehicle.bodyStyle || listing.bodyStyle || '');
+            if (!selected || !listingBody) return false;
+            if (selected === 'pickuptruck') {
+              if (!(listingBody === 'pickuptruck' || listingBody === 'truck')) return false;
+            } else if (listingBody !== selected) {
+              return false;
+            }
           }
 
           if (filters.dealerState) {
