@@ -33,6 +33,7 @@ const db_1 = __importDefault(require("../db"));
 const PricingConfigService_1 = require("./PricingConfigService");
 const enums_1 = require("../generated/prisma/enums");
 const NotificationService_1 = require("./NotificationService");
+const secrets_1 = require("../secrets");
 let PaymentService = class PaymentService {
     constructor(paymentRepo, orderRepo, pricingService, stripe, paystack, notificationService) {
         this.paymentRepo = paymentRepo;
@@ -193,7 +194,7 @@ let PaymentService = class PaymentService {
     }
     // ─── Bank Transfer Evidence ───────────────────────────────────────────────
     uploadPaymentEvidence(orderId_1, userId_1, evidenceUrls_1, evidencePublicIds_1) {
-        return __awaiter(this, arguments, void 0, function* (orderId, userId, evidenceUrls, evidencePublicIds, paymentType = 'DEPOSIT') {
+        return __awaiter(this, arguments, void 0, function* (orderId, userId, evidenceUrls, evidencePublicIds, paymentType = 'DEPOSIT', transferredAmountUsd) {
             var _a, _b, _c;
             // Verify order belongs to user
             const order = yield this.orderRepo.findById(orderId);
@@ -218,19 +219,34 @@ let PaymentService = class PaymentService {
             }
             // Find existing open payment or create one now
             const payment = yield this.paymentRepo.findOrCreateBankTransferPayment(orderId, userId, paymentType, amountUsd);
-            return this.paymentRepo.saveEvidence(payment.id, evidenceUrls, evidencePublicIds);
+            return this.paymentRepo.saveEvidenceWithAmount(payment.id, evidenceUrls, evidencePublicIds, transferredAmountUsd);
         });
     }
     // ─── Admin Confirm / Reject ───────────────────────────────────────────────
     adminConfirmPayment(paymentId, adminId, status, note) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a, _b, _c, _d, _e;
+            var _a, _b, _c, _d, _e, _f;
             const payment = yield this.paymentRepo.findPaymentWithOrder(paymentId);
             if (!payment)
                 throw Object.assign(new Error('Payment not found'), { statusCode: 404 });
             if (payment.status === status)
                 throw Object.assign(new Error(`Payment is already ${status}`), { statusCode: 400 });
-            const newOrderStatus = payment.paymentType === enums_1.PaymentType.DEPOSIT ? enums_1.OrderStatus.DEPOSIT_PAID : enums_1.OrderStatus.BALANCE_PAID;
+            let newOrderStatus = payment.paymentType === enums_1.PaymentType.DEPOSIT
+                ? enums_1.OrderStatus.DEPOSIT_PAID
+                : enums_1.OrderStatus.BALANCE_PAID;
+            if (payment.paymentType === enums_1.PaymentType.DEPOSIT) {
+                const breakdown = payment.order.paymentBreakdown;
+                const totalUsd = breakdown === null || breakdown === void 0 ? void 0 : breakdown.totalUsd;
+                const expectedDepositUsd = (_a = breakdown === null || breakdown === void 0 ? void 0 : breakdown.totalUsedDeposit) !== null && _a !== void 0 ? _a : (totalUsd ? totalUsd * Number(secrets_1.DEPOSIT_PERCENTAGE) : 0);
+                if (expectedDepositUsd > 0) {
+                    const completedDepositUsd = yield this.paymentRepo.getCompletedDepositTotalUsdForOrder(payment.orderId);
+                    const totalConfirmedDepositUsd = completedDepositUsd + (payment.amountUsd || 0);
+                    newOrderStatus =
+                        totalConfirmedDepositUsd >= expectedDepositUsd
+                            ? enums_1.OrderStatus.DEPOSIT_PAID
+                            : enums_1.OrderStatus.HALF_DEPOSIT_PAID;
+                }
+            }
             const transactions = [];
             transactions.push(this.paymentRepo.adminUpdatePaymentStatus(paymentId, adminId, status, note));
             if (status === enums_1.PaymentStatus.COMPLETED) {
@@ -241,8 +257,8 @@ let PaymentService = class PaymentService {
             if (status === enums_1.PaymentStatus.COMPLETED) {
                 this.notificationService.notifyAdminsPaymentReceived({
                     orderId: payment.orderId,
-                    orderRef: ((_a = payment.order) === null || _a === void 0 ? void 0 : _a.requestNumber) || 'UNKNOWN',
-                    customerName: (_e = (_c = (_b = payment.user) === null || _b === void 0 ? void 0 : _b.fullName) !== null && _c !== void 0 ? _c : (_d = payment.user) === null || _d === void 0 ? void 0 : _d.email) !== null && _e !== void 0 ? _e : 'Unknown Customer',
+                    orderRef: ((_b = payment.order) === null || _b === void 0 ? void 0 : _b.requestNumber) || 'UNKNOWN',
+                    customerName: (_f = (_d = (_c = payment.user) === null || _c === void 0 ? void 0 : _c.fullName) !== null && _d !== void 0 ? _d : (_e = payment.user) === null || _e === void 0 ? void 0 : _e.email) !== null && _f !== void 0 ? _f : 'Unknown Customer',
                     amountUsd: payment.amountUsd,
                 }).catch(() => { });
             }

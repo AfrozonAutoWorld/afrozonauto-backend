@@ -8,12 +8,93 @@ import { ApiResponse } from '../utils/ApiResponse';
 import { ApiError } from '../utils/ApiError';
 import { UserRole, VehicleStatus } from '../generated/prisma/client';
 import { allowEnum } from '../utils/enumUtils';
+import { isMongoObjectId } from '../utils/mongoId';
 
 @injectable()
 export class SellerVehicleController {
     constructor(
         @inject(TYPES.SellerVehicleService) private service: SellerVehicleService
     ) { }
+
+    /**
+     * List authenticated user's seller submissions (dashboard table).
+     */
+    getMyListings = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+        const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 100;
+        const result = await this.service.getMyListings(req.user!.id, { page, limit });
+        return res.json(ApiResponse.success(result, 'Listings retrieved successfully'));
+    });
+
+    /**
+     * Resubmit a rejected listing for admin review.
+     */
+    resubmitForReview = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        const { id } = req.params;
+        if (!isMongoObjectId(id)) {
+            throw ApiError.badRequest('Invalid listing id');
+        }
+        const listing = await this.service.resubmitForReview(id, req.user!.id);
+        return res.json(ApiResponse.success(listing, 'Listing resubmitted for review'));
+    });
+
+    /**
+     * Mark an approved (live) seller listing as sold.
+     */
+    markAsSold = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        const { id } = req.params;
+        if (!isMongoObjectId(id)) {
+            throw ApiError.badRequest('Invalid listing id');
+        }
+        const listing = await this.service.markAsSold(id, req.user!.id);
+        return res.json(ApiResponse.success(listing, 'Listing marked as sold'));
+    });
+
+    /**
+     * Update seller listing (multipart — same shape as submit + existingImageUrls JSON for photo slots).
+     */
+    updateMyListing = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        const { id } = req.params;
+        if (!isMongoObjectId(id)) {
+            throw ApiError.badRequest('Invalid listing id');
+        }
+        const { uploadedFiles, askingPrice, existingImageUrls, ...vehicleData } = req.body;
+
+        const newImageUrls = (uploadedFiles ?? [])
+            .filter((f: any) => f.fileType === 'image')
+            .map((f: any) => f.url);
+        const videoUrls = (uploadedFiles ?? [])
+            .filter((f: any) => f.fileType === 'video')
+            .map((f: any) => f.url);
+
+        let slots: (string | null)[] = [];
+        try {
+            const raw = existingImageUrls;
+            const parsed =
+                typeof raw === 'string' ? JSON.parse(raw || '[]') : Array.isArray(raw) ? raw : [];
+            slots = Array.isArray(parsed) ? parsed : [];
+        } catch {
+            slots = [];
+        }
+
+        let ni = 0;
+        const mergedImages = slots
+            .map((slot) => {
+                const s = slot != null && String(slot).trim();
+                if (s) return String(slot).trim();
+                return newImageUrls[ni++] ?? null;
+            })
+            .filter((u): u is string => u != null && u.length > 0);
+
+        const listing = await this.service.updateMyListing(id, req.user!.id, {
+            ...vehicleData,
+            askingPrice,
+            images: mergedImages,
+            videos: videoUrls,
+        });
+
+        return res.json(ApiResponse.success(listing, 'Listing updated successfully'));
+    });
 
     /**
      * Submit a new vehicle listing (Public/Authenticated)
@@ -46,6 +127,9 @@ export class SellerVehicleController {
      */
     getListing = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
         const { id } = req.params;
+        if (!isMongoObjectId(id)) {
+            throw ApiError.badRequest('Invalid listing id');
+        }
         const listing = await this.service.getListingById(id);
 
         // If not admin, check if it's the user's own listing
@@ -97,6 +181,9 @@ export class SellerVehicleController {
         }
 
         const { id } = req.params;
+        if (!isMongoObjectId(id)) {
+            throw ApiError.badRequest('Invalid listing id');
+        }
         const { status, adminNotes } = req.body;
 
         const listing = await this.service.updateStatus(id, status, adminNotes, req.user.id);
@@ -108,6 +195,9 @@ export class SellerVehicleController {
      */
     deleteListing = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
         const { id } = req.params;
+        if (!isMongoObjectId(id)) {
+            throw ApiError.badRequest('Invalid listing id');
+        }
         const listing = await this.service.getListingById(id);
 
         if (req.user?.role !== UserRole.SUPER_ADMIN && req.user?.role !== UserRole.OPERATIONS_ADMIN) {

@@ -84,6 +84,8 @@ exports.createSellerVehicleSchema = joi_1.default.object({
     })).optional(),
     variantImageIndexes: joi_1.default.alternatives().try(joi_1.default.string(), joi_1.default.object().pattern(joi_1.default.string(), joi_1.default.array().items(joi_1.default.number().min(1)))).optional(),
     documentName: joi_1.default.alternatives().try(joi_1.default.string(), joi_1.default.array().items(joi_1.default.string())).optional(),
+    /** JSON string array (9 slots) of kept image URLs when updating a listing; empty string = new upload fills slot */
+    existingImageUrls: joi_1.default.string().allow('', null).optional(),
 });
 exports.updateSellerVehicleStatusSchema = joi_1.default.object({
     status: joi_1.default.string()

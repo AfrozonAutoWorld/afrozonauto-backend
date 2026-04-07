@@ -4,10 +4,10 @@ import { OrderRepository } from '../repositories/OrderRepository';
 import { IPaymentProvider } from '../validation/interfaces/IPaymentProvider';
 import { TYPES } from '../config/types';
 import prisma from '../db';
-import { date } from 'joi/lib';
 import { PricingConfigService } from './PricingConfigService';
 import { OrderStatus, PaymentStatus, PaymentType } from '../generated/prisma/enums';
 import { NotificationService } from './NotificationService';
+import { DEPOSIT_PERCENTAGE } from '../secrets';
 
 @injectable()
 export class PaymentService {
@@ -129,7 +129,7 @@ export class PaymentService {
       orderRef: payment.orderId,
       customerName: payment.userId,
       amountUsd: payment.amountUsd,
-    }).catch(() => {/* silent */});
+    }).catch(() => {/* silent */ });
   }
 
   /**
@@ -232,6 +232,7 @@ export class PaymentService {
     evidenceUrls: string[],
     evidencePublicIds: string[],
     paymentType: string = 'DEPOSIT',
+    transferredAmountUsd?: number,
   ) {
     // Verify order belongs to user
     const order = await this.orderRepo.findById(orderId);
@@ -257,7 +258,12 @@ export class PaymentService {
     // Find existing open payment or create one now
     const payment = await this.paymentRepo.findOrCreateBankTransferPayment(orderId, userId, paymentType, amountUsd);
 
-    return this.paymentRepo.saveEvidence(payment.id, evidenceUrls, evidencePublicIds);
+    return this.paymentRepo.saveEvidenceWithAmount(
+      payment.id,
+      evidenceUrls,
+      evidencePublicIds,
+      transferredAmountUsd,
+    );
   }
 
   // ─── Admin Confirm / Reject ───────────────────────────────────────────────
@@ -267,16 +273,38 @@ export class PaymentService {
     if (!payment) throw Object.assign(new Error('Payment not found'), { statusCode: 404 });
     if (payment.status === status) throw Object.assign(new Error(`Payment is already ${status}`), { statusCode: 400 });
 
-    const newOrderStatus = payment.paymentType === PaymentType.DEPOSIT ? OrderStatus.DEPOSIT_PAID : OrderStatus.BALANCE_PAID;
+    let newOrderStatus: OrderStatus =
+      payment.paymentType === PaymentType.DEPOSIT
+        ? OrderStatus.DEPOSIT_PAID
+        : OrderStatus.BALANCE_PAID;
+
+    if (payment.paymentType === PaymentType.DEPOSIT) {
+      const breakdown = payment.order.paymentBreakdown as Record<string, any> | null;
+      const totalUsd = breakdown?.totalUsd as number | undefined;
+      const expectedDepositUsd =
+        (breakdown?.totalUsedDeposit as number) ??
+        (totalUsd ? totalUsd * Number(DEPOSIT_PERCENTAGE) : 0);
+
+      if (expectedDepositUsd > 0) {
+        const completedDepositUsd =
+          await this.paymentRepo.getCompletedDepositTotalUsdForOrder(payment.orderId);
+        const totalConfirmedDepositUsd = completedDepositUsd + (payment.amountUsd || 0);
+
+        newOrderStatus =
+          totalConfirmedDepositUsd >= expectedDepositUsd
+            ? OrderStatus.DEPOSIT_PAID
+            : OrderStatus.HALF_DEPOSIT_PAID;
+      }
+    }
 
     const transactions: any[] = [];
-    
+
     transactions.push(this.paymentRepo.adminUpdatePaymentStatus(paymentId, adminId, status, note) as any);
-    
+
     if (status === PaymentStatus.COMPLETED) {
       transactions.push(this.orderRepo.updateOrderStatus(payment.orderId, newOrderStatus) as any);
     }
-    
+
     await prisma.$transaction(transactions);
 
     // Notify admins (fails silently)
@@ -286,7 +314,7 @@ export class PaymentService {
         orderRef: payment.order?.requestNumber || 'UNKNOWN',
         customerName: payment.user?.fullName ?? payment.user?.email ?? 'Unknown Customer',
         amountUsd: payment.amountUsd,
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     return this.paymentRepo.findPaymentWithOrder(paymentId);
@@ -307,7 +335,7 @@ export class PaymentService {
   async notifySellerOfCompletePayment(paymentId: string) {
     const payment = await this.paymentRepo.findById(paymentId);
     if (!payment) throw Object.assign(new Error('Payment not found'), { statusCode: 404 });
-    
+
     // Accept either status if business allows, but generally should be COMPLETED
     if (payment.status !== PaymentStatus.COMPLETED) {
       throw Object.assign(new Error('Payment must be COMPLETED before notifying the seller'), { statusCode: 400 });

@@ -19,6 +19,11 @@ class SellerVehicleRoutes {
     }
 
     private initializeRoutes(): void {
+        // Seller dashboard list — use /me/listings (two segments) so it can never match `GET /:id`.
+        // (Single-segment /my-listings was mistaken for an ObjectId when static route order/build was stale.)
+        this.router.get('/me/listings', authenticate, this.controller.getMyListings);
+        this.router.post('/:id/resubmit', authenticate, this.controller.resubmitForReview);
+
         // Public/User endpoints
         this.router.post('/submit', 
             optionalAuthenticate,
@@ -26,6 +31,21 @@ class SellerVehicleRoutes {
             uploadToCloudinary, 
             validateBody(createSellerVehicleSchema),
             this.controller.submitListing);
+
+        this.router.patch(
+            '/:id/mark-sold',
+            authenticate,
+            this.controller.markAsSold,
+        );
+        this.router.patch(
+            '/:id',
+            authenticate,
+            upload.array('files', 10),
+            uploadToCloudinary,
+            validateBody(createSellerVehicleSchema),
+            this.controller.updateMyListing,
+        );
+
         this.router.get('/:id', authenticate, this.controller.getListing);
         this.router.delete('/:id', authenticate, this.controller.deleteListing);
 

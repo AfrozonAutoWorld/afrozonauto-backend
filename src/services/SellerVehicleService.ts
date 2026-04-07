@@ -92,6 +92,105 @@ export class SellerVehicleService {
     }
 
     /**
+     * List seller-submitted vehicles for the authenticated user (dashboard).
+     */
+    async getMyListings(
+        userId: string,
+        pagination: { page?: number; limit?: number } = {}
+    ): Promise<{ listings: Vehicle[]; total: number }> {
+        return this.vehicleRepo.findSellerListings({ userId }, pagination);
+    }
+
+    /**
+     * Move a rejected seller listing back to pending review (seller resubmits).
+     */
+    async markAsSold(id: string, userId: string): Promise<Vehicle> {
+        const listing = await this.vehicleRepo.findSellerById(id);
+        if (!listing) throw ApiError.notFound('Listing not found');
+        if (listing.userId !== userId) throw ApiError.forbidden('Access denied');
+        if (listing.source !== VehicleSource.SELLER) {
+            throw ApiError.badRequest('Only seller listings can be updated');
+        }
+        if (listing.status !== VehicleStatus.AVAILABLE) {
+            throw ApiError.badRequest('Only approved (live) listings can be marked as sold');
+        }
+        return this.vehicleRepo.update(id, { status: VehicleStatus.SOLD });
+    }
+
+    /**
+     * Seller updates their listing (same field set as submit).
+     * - Rejected → pending review (clears rejection/admin review fields).
+     * - Approved (live) or in admin review → pending review so the team can verify edits before the listing is live again.
+     */
+    async updateMyListing(id: string, userId: string, data: Record<string, unknown>): Promise<Vehicle> {
+        const listing = await this.vehicleRepo.findSellerById(id);
+        if (!listing) throw ApiError.notFound('Listing not found');
+        if (listing.userId !== userId) throw ApiError.forbidden('Access denied');
+        if (listing.source !== VehicleSource.SELLER) {
+            throw ApiError.badRequest('Only seller listings can be updated');
+        }
+        const editable: VehicleStatus[] = [
+            VehicleStatus.PENDING_REVIEW,
+            VehicleStatus.REJECTED,
+            VehicleStatus.AVAILABLE,
+            VehicleStatus.REVIEWING,
+        ];
+        if (!editable.includes(listing.status)) {
+            throw ApiError.badRequest('This listing cannot be edited in its current state');
+        }
+
+        const { images, videos, askingPrice, ...rest } = data as any;
+        if (rest.additionalNotes !== undefined) {
+            rest.manualNotes = rest.additionalNotes;
+            delete rest.additionalNotes;
+        }
+        delete rest.existingImageUrls;
+        delete rest.uploadedFiles;
+        delete rest.userId;
+
+        const updatePayload: Prisma.VehicleUpdateInput = {
+            ...rest,
+            images: images as string[],
+            videos: videos as string[],
+            priceUsd: askingPrice as number,
+        } as Prisma.VehicleUpdateInput;
+
+        if (listing.status === VehicleStatus.REJECTED) {
+            updatePayload.status = VehicleStatus.PENDING_REVIEW;
+            updatePayload.adminNotes = null;
+            updatePayload.reviewedAt = null;
+            updatePayload.reviewedBy = null;
+        } else if (
+            listing.status === VehicleStatus.AVAILABLE ||
+            listing.status === VehicleStatus.REVIEWING
+        ) {
+            updatePayload.status = VehicleStatus.PENDING_REVIEW;
+            updatePayload.reviewedAt = null;
+            updatePayload.reviewedBy = null;
+        }
+
+        return this.vehicleRepo.update(id, updatePayload);
+    }
+
+    async resubmitForReview(id: string, userId: string): Promise<Vehicle> {
+        const listing = await this.vehicleRepo.findSellerById(id);
+        if (!listing) throw ApiError.notFound('Listing not found');
+        if (listing.userId !== userId) throw ApiError.forbidden('Access denied');
+        if (listing.source !== VehicleSource.SELLER) {
+            throw ApiError.badRequest('Only seller listings can be resubmitted');
+        }
+        if (listing.status !== VehicleStatus.REJECTED) {
+            throw ApiError.badRequest('Only rejected listings can be resubmitted for review');
+        }
+        return this.vehicleRepo.update(id, {
+            status: VehicleStatus.PENDING_REVIEW,
+            reviewedAt: null,
+            reviewedBy: null,
+            adminNotes: null,
+        });
+    }
+
+    /**
      * Update listing status (Admin)
      */
     async updateStatus(

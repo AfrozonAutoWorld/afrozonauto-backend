@@ -20,6 +20,17 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __rest = (this && this.__rest) || function (s, e) {
+    var t = {};
+    for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
+        t[p] = s[p];
+    if (s != null && typeof Object.getOwnPropertySymbols === "function")
+        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
+            if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
+                t[p[i]] = s[p[i]];
+        }
+    return t;
+};
 var SellerVehicleService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SellerVehicleService = void 0;
@@ -106,6 +117,102 @@ let SellerVehicleService = SellerVehicleService_1 = class SellerVehicleService {
     getListings(filters_1) {
         return __awaiter(this, arguments, void 0, function* (filters, pagination = {}) {
             return this.vehicleRepo.findSellerListings(filters, pagination);
+        });
+    }
+    /**
+     * List seller-submitted vehicles for the authenticated user (dashboard).
+     */
+    getMyListings(userId_1) {
+        return __awaiter(this, arguments, void 0, function* (userId, pagination = {}) {
+            return this.vehicleRepo.findSellerListings({ userId }, pagination);
+        });
+    }
+    /**
+     * Move a rejected seller listing back to pending review (seller resubmits).
+     */
+    markAsSold(id, userId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const listing = yield this.vehicleRepo.findSellerById(id);
+            if (!listing)
+                throw ApiError_1.ApiError.notFound('Listing not found');
+            if (listing.userId !== userId)
+                throw ApiError_1.ApiError.forbidden('Access denied');
+            if (listing.source !== client_1.VehicleSource.SELLER) {
+                throw ApiError_1.ApiError.badRequest('Only seller listings can be updated');
+            }
+            if (listing.status !== client_1.VehicleStatus.AVAILABLE) {
+                throw ApiError_1.ApiError.badRequest('Only approved (live) listings can be marked as sold');
+            }
+            return this.vehicleRepo.update(id, { status: client_1.VehicleStatus.SOLD });
+        });
+    }
+    /**
+     * Seller updates their listing (same field set as submit).
+     * - Rejected → pending review (clears rejection/admin review fields).
+     * - Approved (live) or in admin review → pending review so the team can verify edits before the listing is live again.
+     */
+    updateMyListing(id, userId, data) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const listing = yield this.vehicleRepo.findSellerById(id);
+            if (!listing)
+                throw ApiError_1.ApiError.notFound('Listing not found');
+            if (listing.userId !== userId)
+                throw ApiError_1.ApiError.forbidden('Access denied');
+            if (listing.source !== client_1.VehicleSource.SELLER) {
+                throw ApiError_1.ApiError.badRequest('Only seller listings can be updated');
+            }
+            const editable = [
+                client_1.VehicleStatus.PENDING_REVIEW,
+                client_1.VehicleStatus.REJECTED,
+                client_1.VehicleStatus.AVAILABLE,
+                client_1.VehicleStatus.REVIEWING,
+            ];
+            if (!editable.includes(listing.status)) {
+                throw ApiError_1.ApiError.badRequest('This listing cannot be edited in its current state');
+            }
+            const _a = data, { images, videos, askingPrice } = _a, rest = __rest(_a, ["images", "videos", "askingPrice"]);
+            if (rest.additionalNotes !== undefined) {
+                rest.manualNotes = rest.additionalNotes;
+                delete rest.additionalNotes;
+            }
+            delete rest.existingImageUrls;
+            delete rest.uploadedFiles;
+            delete rest.userId;
+            const updatePayload = Object.assign(Object.assign({}, rest), { images: images, videos: videos, priceUsd: askingPrice });
+            if (listing.status === client_1.VehicleStatus.REJECTED) {
+                updatePayload.status = client_1.VehicleStatus.PENDING_REVIEW;
+                updatePayload.adminNotes = null;
+                updatePayload.reviewedAt = null;
+                updatePayload.reviewedBy = null;
+            }
+            else if (listing.status === client_1.VehicleStatus.AVAILABLE ||
+                listing.status === client_1.VehicleStatus.REVIEWING) {
+                updatePayload.status = client_1.VehicleStatus.PENDING_REVIEW;
+                updatePayload.reviewedAt = null;
+                updatePayload.reviewedBy = null;
+            }
+            return this.vehicleRepo.update(id, updatePayload);
+        });
+    }
+    resubmitForReview(id, userId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const listing = yield this.vehicleRepo.findSellerById(id);
+            if (!listing)
+                throw ApiError_1.ApiError.notFound('Listing not found');
+            if (listing.userId !== userId)
+                throw ApiError_1.ApiError.forbidden('Access denied');
+            if (listing.source !== client_1.VehicleSource.SELLER) {
+                throw ApiError_1.ApiError.badRequest('Only seller listings can be resubmitted');
+            }
+            if (listing.status !== client_1.VehicleStatus.REJECTED) {
+                throw ApiError_1.ApiError.badRequest('Only rejected listings can be resubmitted for review');
+            }
+            return this.vehicleRepo.update(id, {
+                status: client_1.VehicleStatus.PENDING_REVIEW,
+                reviewedAt: null,
+                reviewedBy: null,
+                adminNotes: null,
+            });
         });
     }
     /**

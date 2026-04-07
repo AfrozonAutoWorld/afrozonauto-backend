@@ -169,12 +169,13 @@ let PaymentController = class PaymentController {
                 return res.status(401).json(ApiError_1.ApiError.unauthorized('Not authenticated'));
             const { orderId } = req.params;
             const paymentType = (_a = req.body.paymentType) !== null && _a !== void 0 ? _a : 'DEPOSIT';
+            const transferredAmountUsd = req.body.amountUsd ? Number(req.body.amountUsd) : undefined;
             const uploadedFiles = (_b = req.body.uploadedFiles) !== null && _b !== void 0 ? _b : [];
             if (!uploadedFiles.length)
                 return res.status(400).json(ApiError_1.ApiError.badRequest('No evidence file uploaded'));
             const urls = uploadedFiles.map((f) => f.url);
             const publicIds = uploadedFiles.map((f) => f.publicId);
-            const payment = yield this.paymentService.uploadPaymentEvidence(orderId, req.user.id, urls, publicIds, paymentType);
+            const payment = yield this.paymentService.uploadPaymentEvidence(orderId, req.user.id, urls, publicIds, paymentType, transferredAmountUsd);
             return res.status(200).json(ApiResponse_1.ApiResponse.success(payment, 'Payment evidence uploaded. Awaiting admin confirmation.'));
         }));
         // ─── Admin Confirm / Reject ─────────────────────────────────────────────

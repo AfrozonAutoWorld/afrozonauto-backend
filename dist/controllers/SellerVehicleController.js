@@ -41,9 +41,78 @@ const ApiResponse_1 = require("../utils/ApiResponse");
 const ApiError_1 = require("../utils/ApiError");
 const client_1 = require("../generated/prisma/client");
 const enumUtils_1 = require("../utils/enumUtils");
+const mongoId_1 = require("../utils/mongoId");
 let SellerVehicleController = class SellerVehicleController {
     constructor(service) {
         this.service = service;
+        /**
+         * List authenticated user's seller submissions (dashboard table).
+         */
+        this.getMyListings = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            const page = req.query.page ? parseInt(req.query.page, 10) : 1;
+            const limit = req.query.limit ? parseInt(req.query.limit, 10) : 100;
+            const result = yield this.service.getMyListings(req.user.id, { page, limit });
+            return res.json(ApiResponse_1.ApiResponse.success(result, 'Listings retrieved successfully'));
+        }));
+        /**
+         * Resubmit a rejected listing for admin review.
+         */
+        this.resubmitForReview = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            const { id } = req.params;
+            if (!(0, mongoId_1.isMongoObjectId)(id)) {
+                throw ApiError_1.ApiError.badRequest('Invalid listing id');
+            }
+            const listing = yield this.service.resubmitForReview(id, req.user.id);
+            return res.json(ApiResponse_1.ApiResponse.success(listing, 'Listing resubmitted for review'));
+        }));
+        /**
+         * Mark an approved (live) seller listing as sold.
+         */
+        this.markAsSold = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            const { id } = req.params;
+            if (!(0, mongoId_1.isMongoObjectId)(id)) {
+                throw ApiError_1.ApiError.badRequest('Invalid listing id');
+            }
+            const listing = yield this.service.markAsSold(id, req.user.id);
+            return res.json(ApiResponse_1.ApiResponse.success(listing, 'Listing marked as sold'));
+        }));
+        /**
+         * Update seller listing (multipart — same shape as submit + existingImageUrls JSON for photo slots).
+         */
+        this.updateMyListing = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            const { id } = req.params;
+            if (!(0, mongoId_1.isMongoObjectId)(id)) {
+                throw ApiError_1.ApiError.badRequest('Invalid listing id');
+            }
+            const _a = req.body, { uploadedFiles, askingPrice, existingImageUrls } = _a, vehicleData = __rest(_a, ["uploadedFiles", "askingPrice", "existingImageUrls"]);
+            const newImageUrls = (uploadedFiles !== null && uploadedFiles !== void 0 ? uploadedFiles : [])
+                .filter((f) => f.fileType === 'image')
+                .map((f) => f.url);
+            const videoUrls = (uploadedFiles !== null && uploadedFiles !== void 0 ? uploadedFiles : [])
+                .filter((f) => f.fileType === 'video')
+                .map((f) => f.url);
+            let slots = [];
+            try {
+                const raw = existingImageUrls;
+                const parsed = typeof raw === 'string' ? JSON.parse(raw || '[]') : Array.isArray(raw) ? raw : [];
+                slots = Array.isArray(parsed) ? parsed : [];
+            }
+            catch (_b) {
+                slots = [];
+            }
+            let ni = 0;
+            const mergedImages = slots
+                .map((slot) => {
+                var _a;
+                const s = slot != null && String(slot).trim();
+                if (s)
+                    return String(slot).trim();
+                return (_a = newImageUrls[ni++]) !== null && _a !== void 0 ? _a : null;
+            })
+                .filter((u) => u != null && u.length > 0);
+            const listing = yield this.service.updateMyListing(id, req.user.id, Object.assign(Object.assign({}, vehicleData), { askingPrice, images: mergedImages, videos: videoUrls }));
+            return res.json(ApiResponse_1.ApiResponse.success(listing, 'Listing updated successfully'));
+        }));
         /**
          * Submit a new vehicle listing (Public/Authenticated)
          */
@@ -66,6 +135,9 @@ let SellerVehicleController = class SellerVehicleController {
         this.getListing = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             var _a, _b, _c;
             const { id } = req.params;
+            if (!(0, mongoId_1.isMongoObjectId)(id)) {
+                throw ApiError_1.ApiError.badRequest('Invalid listing id');
+            }
             const listing = yield this.service.getListingById(id);
             // If not admin, check if it's the user's own listing
             if (((_a = req.user) === null || _a === void 0 ? void 0 : _a.role) !== client_1.UserRole.SUPER_ADMIN && ((_b = req.user) === null || _b === void 0 ? void 0 : _b.role) !== client_1.UserRole.OPERATIONS_ADMIN) {
@@ -111,6 +183,9 @@ let SellerVehicleController = class SellerVehicleController {
                 throw ApiError_1.ApiError.forbidden('Admin access required');
             }
             const { id } = req.params;
+            if (!(0, mongoId_1.isMongoObjectId)(id)) {
+                throw ApiError_1.ApiError.badRequest('Invalid listing id');
+            }
             const { status, adminNotes } = req.body;
             const listing = yield this.service.updateStatus(id, status, adminNotes, req.user.id);
             return res.json(ApiResponse_1.ApiResponse.success(listing, `Listing ${status.toLowerCase()} successfully`));
@@ -121,6 +196,9 @@ let SellerVehicleController = class SellerVehicleController {
         this.deleteListing = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             var _a, _b, _c;
             const { id } = req.params;
+            if (!(0, mongoId_1.isMongoObjectId)(id)) {
+                throw ApiError_1.ApiError.badRequest('Invalid listing id');
+            }
             const listing = yield this.service.getListingById(id);
             if (((_a = req.user) === null || _a === void 0 ? void 0 : _a.role) !== client_1.UserRole.SUPER_ADMIN && ((_b = req.user) === null || _b === void 0 ? void 0 : _b.role) !== client_1.UserRole.OPERATIONS_ADMIN) {
                 if (listing.userId !== ((_c = req.user) === null || _c === void 0 ? void 0 : _c.id)) {

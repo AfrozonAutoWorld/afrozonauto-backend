@@ -70,12 +70,14 @@ class OrderRoutes {
 
         // Bulk update order status (must be before /:id/status to prevent route shadowing)
         this.router.put('/bulk/status',
+            authenticate,
             authorize([UserRole.OPERATIONS_ADMIN, UserRole.SUPER_ADMIN]),
             this.controller.bulkUpdateOrderStatus
         );
 
         // Update order status
         this.router.patch('/:id/status',
+            authenticate,
             authorize([UserRole.OPERATIONS_ADMIN, UserRole.SUPER_ADMIN, UserRole.BUYER]),
             this.controller.updateOrderStatus
         );

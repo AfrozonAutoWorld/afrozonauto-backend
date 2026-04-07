@@ -153,6 +153,26 @@ let PaymentRepository = class PaymentRepository {
             },
         });
     }
+    saveEvidenceWithAmount(id, evidenceUrls, evidencePublicIds, amountUsd) {
+        return db_1.default.payment.update({
+            where: { id },
+            data: Object.assign({ evidenceUrls: { push: evidenceUrls }, evidencePublicIds: { push: evidencePublicIds }, evidenceUploadedAt: new Date(), status: 'PROCESSING', paymentMethod: 'BANK_TRANSFER' }, (typeof amountUsd === 'number' && amountUsd > 0 ? { amountUsd } : {})),
+        });
+    }
+    getCompletedDepositTotalUsdForOrder(orderId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            const result = yield db_1.default.payment.aggregate({
+                _sum: { amountUsd: true },
+                where: {
+                    orderId,
+                    paymentType: 'DEPOSIT',
+                    status: 'COMPLETED',
+                },
+            });
+            return (_a = result._sum.amountUsd) !== null && _a !== void 0 ? _a : 0;
+        });
+    }
     // ─── Admin Confirm / Reject ───────────────────────────────────────────────
     findPaymentWithOrder(id) {
         return db_1.default.payment.findUnique({

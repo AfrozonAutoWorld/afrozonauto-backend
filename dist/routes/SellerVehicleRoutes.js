@@ -15,8 +15,14 @@ class SellerVehicleRoutes {
         this.initializeRoutes();
     }
     initializeRoutes() {
+        // Seller dashboard list — use /me/listings (two segments) so it can never match `GET /:id`.
+        // (Single-segment /my-listings was mistaken for an ObjectId when static route order/build was stale.)
+        this.router.get('/me/listings', authMiddleware_1.authenticate, this.controller.getMyListings);
+        this.router.post('/:id/resubmit', authMiddleware_1.authenticate, this.controller.resubmitForReview);
         // Public/User endpoints
         this.router.post('/submit', authMiddleware_1.optionalAuthenticate, multer_config_1.upload.array('files', 10), cloudinaryUploads_1.uploadToCloudinary, (0, bodyValidate_1.validateBody)(seller_vehicle_validation_1.createSellerVehicleSchema), this.controller.submitListing);
+        this.router.patch('/:id/mark-sold', authMiddleware_1.authenticate, this.controller.markAsSold);
+        this.router.patch('/:id', authMiddleware_1.authenticate, multer_config_1.upload.array('files', 10), cloudinaryUploads_1.uploadToCloudinary, (0, bodyValidate_1.validateBody)(seller_vehicle_validation_1.createSellerVehicleSchema), this.controller.updateMyListing);
         this.router.get('/:id', authMiddleware_1.authenticate, this.controller.getListing);
         this.router.delete('/:id', authMiddleware_1.authenticate, this.controller.deleteListing);
         // Admin endpoints
