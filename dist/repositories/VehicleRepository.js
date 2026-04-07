@@ -140,6 +140,18 @@ let VehicleRepository = class VehicleRepository {
             if (filters.mileageMax) {
                 where.mileage = { lte: filters.mileageMax };
             }
+            if (filters.bodyStyle) {
+                const style = filters.bodyStyle.trim().toLowerCase();
+                if (style === 'pickup truck') {
+                    where.bodyStyle = {
+                        in: ['Pickup Truck', 'Pickup', 'Truck'],
+                        mode: 'insensitive',
+                    };
+                }
+                else {
+                    where.bodyStyle = { equals: filters.bodyStyle, mode: 'insensitive' };
+                }
+            }
             if (filters.transmission) {
                 where.transmission = { equals: filters.transmission, mode: 'insensitive' };
             }

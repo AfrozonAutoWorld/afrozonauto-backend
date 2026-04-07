@@ -251,6 +251,7 @@ export class VehicleService {
         const apiFilters: Record<string, unknown> = {};
         if (filters.make) apiFilters.make = filters.make;
         if (filters.model) apiFilters.model = filters.model;
+        if (filters.bodyStyle) apiFilters.bodyStyle = filters.bodyStyle;
         if (filters.yearMin || filters.yearMax) {
           if (filters.yearMin && filters.yearMax && filters.yearMin === filters.yearMax) {
             apiFilters.year = filters.yearMin;

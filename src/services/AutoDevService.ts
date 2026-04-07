@@ -20,6 +20,7 @@ export class AutoDevService {
     make?: string;
     model?: string;
     year?: number;
+    bodyStyle?: string;
     zip?: string;
     distance?: number;
     page?: number;
@@ -35,6 +36,7 @@ export class AutoDevService {
       if (filters.make) params.append('vehicle.make', filters.make);
       if (filters.model) params.append('vehicle.model', filters.model);
       if (filters.year) params.append('vehicle.year', filters.year.toString());
+      if (filters.bodyStyle) params.append('vehicle.bodyStyle', filters.bodyStyle);
       if (filters.zip) params.append('zip', filters.zip);
       if (filters.distance) params.append('distance', filters.distance.toString());
       if (filters.page) params.append('page', filters.page.toString());
@@ -208,6 +210,7 @@ export class AutoDevService {
     make?: string;
     model?: string;
     year?: number;
+    bodyStyle?: string;
     zip?: string;
     distance?: number;
   }, maxPages: number = 50): Promise<AutoDevListing[]> {

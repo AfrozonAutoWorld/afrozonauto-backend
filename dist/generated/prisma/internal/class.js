@@ -54,7 +54,7 @@ const config = {
             "value": "prisma-client"
         },
         "output": {
-            "value": "/Users/apple/Desktop/dox-tech/afrozonauto/src/generated/prisma",
+            "value": "/Users/timmy/Desktop/all_apps/afrozon_merge/afrozonauto-backend/src/generated/prisma",
             "fromEnvVar": null
         },
         "config": {
@@ -63,7 +63,7 @@ const config = {
         "binaryTargets": [
             {
                 "fromEnvVar": null,
-                "value": "darwin-arm64",
+                "value": "darwin",
                 "native": true
             },
             {
@@ -76,7 +76,7 @@ const config = {
             }
         ],
         "previewFeatures": [],
-        "sourceFilePath": "/Users/apple/Desktop/dox-tech/afrozonauto/prisma/schema.prisma",
+        "sourceFilePath": "/Users/timmy/Desktop/all_apps/afrozon_merge/afrozonauto-backend/prisma/schema.prisma",
         "isCustomOutput": true
     },
     "relativePath": "../../../prisma",
@@ -86,6 +86,7 @@ const config = {
         "db"
     ],
     "activeProvider": "mongodb",
+    "postinstall": false,
     "inlineDatasources": {
         "db": {
             "url": {
