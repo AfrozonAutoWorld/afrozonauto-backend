@@ -806,12 +806,12 @@ model User {
   phone         String?
 
   // Role & Permissions (hierarchical)
-  role             UserRole  @default(BUYER)
-  isActive         Boolean   @default(true)
-  isSuspended      Boolean   @default(false)
-  googleId         String?   @unique
-  appleId          String?   @unique
-  isDeleted        Boolean   @default(false)
+  roles            UserRole[] @default([BUYER])
+  isActive         Boolean    @default(true)
+  isSuspended      Boolean    @default(false)
+  googleId         String?    @unique
+  appleId          String?    @unique
+  isDeleted        Boolean    @default(false)
   suspensionReason String?
   suspensionUntil  DateTime?
 
@@ -852,7 +852,7 @@ model User {
   bankAccounts      BankAccount[]
   withdrawals       WithdrawalRequest[]
 
-  @@index([role])
+  @@index([roles])
   @@index([isActive])
   @@map("users")
 }

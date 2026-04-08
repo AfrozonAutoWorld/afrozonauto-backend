@@ -465,7 +465,7 @@ exports.UserScalarFieldEnum = {
     passwordHash: 'passwordHash',
     fullName: 'fullName',
     phone: 'phone',
-    role: 'role',
+    roles: 'roles',
     isActive: 'isActive',
     isSuspended: 'isSuspended',
     googleId: 'googleId',

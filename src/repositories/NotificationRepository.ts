@@ -10,7 +10,7 @@ export class NotificationRepository {
   async findAdminUserIds(): Promise<{ id: string; email: string }[]> {
     return prisma.user.findMany({
       where: {
-        role: { in: [UserRole.OPERATIONS_ADMIN, UserRole.SUPER_ADMIN] },
+        roles: { hasSome: [UserRole.OPERATIONS_ADMIN, UserRole.SUPER_ADMIN] },
         isDeleted: false,
         isActive: true,
       },

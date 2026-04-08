@@ -89,7 +89,7 @@ export class GoogleAuthService {
           {
             email,
             googleId,
-            role: UserRole.BUYER,
+            roles: [UserRole.BUYER],
             emailVerified: true,
             password: this.generateRandomPassword(),
             firstName: profile.name?.givenName ?? undefined,
@@ -114,7 +114,7 @@ export class GoogleAuthService {
   async generateTokens(user: any): Promise<string> {
     const payload: JWTPayload = {
       id: user._id.toString(),
-      role: user.role,
+      role: user.roles?.[0] || UserRole.BUYER,
       email: user.email,
     };
     const jtoken = container.get<Jtoken>(TYPES.Jtoken);

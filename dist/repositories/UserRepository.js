@@ -21,6 +21,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserRepository = void 0;
 const inversify_1 = require("inversify");
 const db_1 = __importDefault(require("../db"));
+const client_1 = require("../generated/prisma/client");
 let UserRepository = class UserRepository {
     constructor() {
         this.prisma = db_1.default;
@@ -44,7 +45,7 @@ let UserRepository = class UserRepository {
                 data: {
                     email: userData.email,
                     googleId: userData.googleId,
-                    role: userData.role,
+                    roles: userData.roles ? { set: userData.roles } : { set: [client_1.UserRole.BUYER] },
                     emailVerified: (_a = userData.verified) !== null && _a !== void 0 ? _a : false,
                     passwordHash: userData.password,
                     profile: profileData

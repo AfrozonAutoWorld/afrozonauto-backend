@@ -9,7 +9,7 @@
 * 🟢 You can import this file directly.
 */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VehicleListingCondition = exports.SellerVerificationStatus = exports.SourcingRequestStatus = exports.VehicleAvailability = exports.VehicleStatus = exports.ApiSyncStatus = exports.VehicleSource = exports.VehicleType = exports.UserRole = exports.WithdrawalStatus = exports.PlatformBankAccountCurrency = exports.TokenType = exports.ShipmentStatus = exports.EscrowStatus = exports.PaymentStatus = exports.PaymentMethod = exports.PaymentType = exports.OrderPriority = exports.ShippingMethod = exports.OrderStatus = exports.OrderVehicleSource = exports.ContentType = exports.NotificationType = exports.InspectionCondition = exports.DocumentName = exports.AddressType = void 0;
+exports.VehicleListingCondition = exports.SellerVerificationStatus = exports.SourcingRequestStatus = exports.VehicleAvailability = exports.VehicleStatus = exports.ApiSyncStatus = exports.VehicleSource = exports.UserRole = exports.WithdrawalStatus = exports.PlatformBankAccountCurrency = exports.TokenType = exports.ShipmentStatus = exports.EscrowStatus = exports.PaymentStatus = exports.PaymentMethod = exports.PaymentType = exports.OrderPriority = exports.ShippingMethod = exports.OrderStatus = exports.OrderVehicleSource = exports.ContentType = exports.NotificationType = exports.InspectionCondition = exports.DocumentName = exports.AddressType = void 0;
 exports.AddressType = {
     NORMAL: 'NORMAL',
     BILLING: 'BILLING',
@@ -181,19 +181,6 @@ exports.UserRole = {
     SELLER: 'SELLER',
     OPERATIONS_ADMIN: 'OPERATIONS_ADMIN',
     SUPER_ADMIN: 'SUPER_ADMIN'
-};
-exports.VehicleType = {
-    CAR: 'CAR',
-    SUV: 'SUV',
-    TRUCK: 'TRUCK',
-    VAN: 'VAN',
-    COUPE: 'COUPE',
-    SEDAN: 'SEDAN',
-    HATCHBACK: 'HATCHBACK',
-    WAGON: 'WAGON',
-    CONVERTIBLE: 'CONVERTIBLE',
-    MOTORCYCLE: 'MOTORCYCLE',
-    OTHER: 'OTHER'
 };
 exports.VehicleSource = {
     API: 'API',

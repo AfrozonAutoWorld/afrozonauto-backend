@@ -148,7 +148,7 @@ export class AuthController {
 
 
   login = asyncHandler(async (req: Request, res: Response) => {
-    const { email, password } = req.body;
+    const { email, password, loginAs } = req.body;
 
     if (!email || !password) {
       return res.status(400).json(ApiError.badRequest('Email and password are required'));
@@ -157,16 +157,25 @@ export class AuthController {
     const userLogged = await this.authService.login(email, password);
     const { passwordHash: pass, ...user } = userLogged;
 
+    // Resolve which role the user is logging in as
+    let activeRole = user.roles?.[0] || UserRole.BUYER; // Default primary role
+    
+    if (loginAs) {
+      if (!user.roles?.includes(loginAs as UserRole)) {
+        return res.status(403).json(ApiError.forbidden(`You do not have permission to login as ${loginAs}`));
+      }
+      activeRole = loginAs as UserRole;
+    }
+
     const jtoken = container.get<Jtoken>(TYPES.Jtoken);
     const { accessToken, refreshToken } = await jtoken.createToken({
       email: user.email,
-      role: user.role,
+      role: activeRole,
       id: user.id.toString()
     });
 
-
     return res.json(new ApiResponse(200, {
-      user: { ...user, online: true },
+      user: { ...user, role: activeRole, online: true },
       accessToken,
       refreshToken
     }, 'Login successful'));
@@ -369,7 +378,7 @@ export class AuthController {
         data: {
           email,
           googleId,
-          role: UserRole.BUYER,
+          roles: { set: [UserRole.BUYER] },
           emailVerified: true,
 
           profile: {
@@ -407,7 +416,7 @@ export class AuthController {
     const jtoken = container.get<Jtoken>(TYPES.Jtoken);
     const { accessToken, refreshToken } = await jtoken.createToken({
       email: user.email,
-      role: user.role,
+      role: user.roles?.[0] || UserRole.BUYER,
       id: user.id,
     });
 

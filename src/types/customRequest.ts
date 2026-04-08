@@ -26,7 +26,7 @@ export type UserWithProfile = Prisma.UserGetPayload<{
   include: {
     profile: true;
   };
-}>;
+}> & { role?: UserRole };
 
 
 export interface AuthenticatedRequest<

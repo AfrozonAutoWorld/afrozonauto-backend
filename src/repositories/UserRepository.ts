@@ -12,7 +12,7 @@ export class UserRepository {
     password: string;
     firstName?: string;
     lastName?: string;
-    role?: UserRole;
+    roles?: UserRole[];
     googleId?: string;
     emailVerified?: boolean;
   }){
@@ -31,7 +31,7 @@ export class UserRepository {
       email: string;
       googleId?: string;
       password?: string;
-      role: UserRole;
+      roles?: UserRole[];
       verified?: boolean;
     },
     profileData?: {
@@ -44,7 +44,7 @@ export class UserRepository {
       data: {
         email: userData.email,
         googleId: userData.googleId,
-        role: userData.role,
+        roles: userData.roles ? { set: userData.roles } : { set: [UserRole.BUYER] },
         emailVerified: userData.verified ?? false,
         passwordHash: userData.password,
 

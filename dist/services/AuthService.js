@@ -62,7 +62,7 @@ let AuthService = class AuthService {
                     email: data.email,
                     passwordHash,
                     phone: data.phone,
-                    role: (_a = data.role) !== null && _a !== void 0 ? _a : client_1.UserRole.BUYER,
+                    roles: { set: [(_a = data.role) !== null && _a !== void 0 ? _a : client_1.UserRole.BUYER] },
                     emailVerified: true,
                     googleId: uniqueGoogleId,
                     appleId: uniqueAppleId,

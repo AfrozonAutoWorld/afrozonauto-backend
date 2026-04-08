@@ -28,7 +28,7 @@ let NotificationRepository = class NotificationRepository {
         return __awaiter(this, void 0, void 0, function* () {
             return db_1.default.user.findMany({
                 where: {
-                    role: { in: [enums_1.UserRole.OPERATIONS_ADMIN, enums_1.UserRole.SUPER_ADMIN] },
+                    roles: { hasSome: [enums_1.UserRole.OPERATIONS_ADMIN, enums_1.UserRole.SUPER_ADMIN] },
                     isDeleted: false,
                     isActive: true,
                 },

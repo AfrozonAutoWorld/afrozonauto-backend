@@ -159,7 +159,7 @@ export class OrderController {
     );
   });
 
-  getOrderByRequestNumber = asyncHandler(async (req: Request, res: Response) => {
+  getOrderByRequestNumber = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { requestNumber } = req.params;
     const order = await this.service.getOrderByRequestNumber(requestNumber);
 
@@ -228,7 +228,7 @@ export class OrderController {
 
   // ========== UPDATE ==========
 
-  updateOrder = asyncHandler(async (req: Request, res: Response) => {
+  updateOrder = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     const order = await this.service.getOrderById(id);
 
@@ -272,7 +272,7 @@ export class OrderController {
     );
   });
 
-  updateOrderStatus = asyncHandler(async (req: Request, res: Response) => {
+  updateOrderStatus = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     // Admin only
     // if (req.user?.role !== 'SUPER_ADMIN' && req.user?.role !== 'OPERATIONS_ADMIN') {
     //   throw new ApiError(403, "Admin access required");
@@ -299,7 +299,7 @@ export class OrderController {
     );
   });
 
-  bulkUpdateOrderStatus = asyncHandler(async (req: Request, res: Response) => {
+  bulkUpdateOrderStatus = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     // Admin only
     if (req.user?.role !== 'SUPER_ADMIN' && req.user?.role !== 'OPERATIONS_ADMIN') {
       return res.status(400).json(ApiError.unauthorized("Admin access required"));
@@ -326,7 +326,7 @@ export class OrderController {
     );
   });
 
-  updateOrderPriority = asyncHandler(async (req: Request, res: Response) => {
+  updateOrderPriority = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     // Admin only
     if (req.user?.role !== 'SUPER_ADMIN' && req.user?.role !== 'OPERATIONS_ADMIN') {
       throw new ApiError(403, "Admin access required");
@@ -346,7 +346,7 @@ export class OrderController {
     );
   });
 
-  assignOrderTags = asyncHandler(async (req: Request, res: Response) => {
+  assignOrderTags = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     // Admin only
     if (req.user?.role !== 'SUPER_ADMIN' && req.user?.role !== 'OPERATIONS_ADMIN') {
       throw new ApiError(403, "Admin access required");
@@ -366,7 +366,7 @@ export class OrderController {
     );
   });
 
-  cancelOrder = asyncHandler(async (req: Request, res: Response) => {
+  cancelOrder = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     const { reason } = req.body;
 
@@ -393,7 +393,7 @@ export class OrderController {
     );
   });
 
-  requestRefund = asyncHandler(async (req: Request, res: Response) => {
+  requestRefund = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     const { reason } = req.body;
 
@@ -417,7 +417,7 @@ export class OrderController {
 
   // ========== ADMIN OPERATIONS ==========
 
-  addAdminNote = asyncHandler(async (req: Request, res: Response) => {
+  addAdminNote = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     // Admin only
     if (req.user?.role !== 'SUPER_ADMIN' && req.user?.role !== 'OPERATIONS_ADMIN') {
       throw new ApiError(403, "Admin access required");
@@ -443,7 +443,7 @@ export class OrderController {
     );
   });
 
-  getAdminNotes = asyncHandler(async (req: Request, res: Response) => {
+  getAdminNotes = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     // Admin only
     if (req.user?.role !== 'SUPER_ADMIN' && req.user?.role !== 'OPERATIONS_ADMIN') {
       throw new ApiError(403, "Admin access required");
@@ -459,7 +459,7 @@ export class OrderController {
 
   // ========== STATISTICS ==========
 
-  // getOrderStats = asyncHandler(async (req: Request, res: Response) => {
+  // getOrderStats = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   //   // Admin only
   //   if (req.user?.role !== 'SUPER_ADMIN' && req.user?.role !== 'OPERATIONS_ADMIN') {
   //     throw new ApiError(403, "Admin access required");
@@ -486,7 +486,7 @@ export class OrderController {
   //   );
   // });
 
-  getStatusCounts = asyncHandler(async (req: Request, res: Response) => {
+  getStatusCounts = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     // Admin only
     if (req.user?.role !== 'SUPER_ADMIN' && req.user?.role !== 'OPERATIONS_ADMIN') {
       throw new ApiError(403, "Admin access required");
@@ -499,7 +499,7 @@ export class OrderController {
     );
   });
 
-  getRevenueStats = asyncHandler(async (req: Request, res: Response) => {
+  getRevenueStats = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     // Admin only
     if (req.user?.role !== 'SUPER_ADMIN' && req.user?.role !== 'OPERATIONS_ADMIN') {
       throw new ApiError(403, "Admin access required");
@@ -519,7 +519,7 @@ export class OrderController {
 
   // ========== DELETE ==========
 
-  deleteOrder = asyncHandler(async (req: Request, res: Response) => {
+  deleteOrder = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     // Admin only
     if (req.user?.role !== 'SUPER_ADMIN') {
       throw new ApiError(403, "Super admin access required");
@@ -537,7 +537,7 @@ export class OrderController {
     );
   });
 
-  softDeleteOrder = asyncHandler(async (req: Request, res: Response) => {
+  softDeleteOrder = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     // Admin only
     if (req.user?.role !== 'SUPER_ADMIN' && req.user?.role !== 'OPERATIONS_ADMIN') {
       throw new ApiError(403, "Admin access required");
