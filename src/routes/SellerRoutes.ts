@@ -24,7 +24,7 @@ class SellerRoutes {
         this.router.post('/verify-token', validateBody(verifyTokenSchema), this.controller.verifySellerEmail);
         this.router.post('/register', upload.array('files', 5), uploadToCloudinary, validateBody(registerSellerSchema), this.controller.registerSeller);
 
-        // Existing user flow: authenticated application
+        // Existing user Flow: authenticated application
         this.router.post('/apply', authenticate, upload.array('files', 5), uploadToCloudinary, validateBody(applyAsSellerSchema), this.controller.applyAsSeller);
 
         // Admin endpoints

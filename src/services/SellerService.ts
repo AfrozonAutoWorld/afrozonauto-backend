@@ -18,131 +18,171 @@ export class SellerService {
     ) { }
 
 
-/**
- * Register a new user as a seller (initial status: PENDING)
- */
-async registerSeller(data: {
-    email: string;
-    password: string;
-    phone?: string;
-    firstName: string;
-    lastName: string;
-    businessName?: string;
-    taxId?: string;
-    identificationNumber?: string;
-    identificationType?: string;
-    uploadedFiles?: any[];
-}): Promise<{ user: User; profile: Profile }> {
-    const existing = await this.userRepo.findByEmail(data.email);
-    if (existing) throw ApiError.badRequest('User already exists');
+    /**
+     * Register a new user as a seller (initial status: PENDING)
+     */
+    async registerSeller(data: {
+        email: string;
+        password: string;
+        phone?: string;
+        firstName: string;
+        lastName: string;
+        businessName?: string;
+        taxId?: string;
+        identificationNumber?: string;
+        identificationType?: string;
+        uploadedFiles?: any[];
+        registerAs?: string;
+    }): Promise<{ user: User; profile: Profile }> {
+        const existing = await this.userRepo.findByEmail(data.email);
 
-    const passwordHash = await bcrypt.hash(data.password, 10);
-    const uniqueGoogleId = `local_${randomUUID()}`;
-    const uniqueAppleId = `local_${randomUUID()}`;
-
-    // 1. Create User
-    const user = await prisma.user.create({
-        data: {
-            email: data.email,
-            passwordHash,
-            phone: data.phone,
-            roles: { set: [UserRole.SELLER] },
-            emailVerified: true,
-            googleId: uniqueGoogleId,
-            appleId: uniqueAppleId,
-        },
-    });
-
-    // Helper function to map document names
-    const mapDocumentName = (name: string | null | undefined): DocumentName | null => {
-        if (!name) return null;
-        
-        const upperName = name.toUpperCase().replace(/[\s_-]+/g, '_');
-        
-        const mapping: Record<string, DocumentName> = {
-            'NIN': DocumentName.NIN,
-            'NATIONAL_ID': DocumentName.NIN,
-            'VENDOR_NIN': DocumentName.vendorNIN,
-            'BVN': DocumentName.BVN,
-            'DRIVERS_LICENSE': DocumentName.driversLicense,
-            'PASSPORT': DocumentName.passport,
-            'VOTERS_CARD': DocumentName.votersCard,
-            'TAX_ID': DocumentName.taxId,
-            'BUSINESS_CERT': DocumentName.businessCertificate,
-            'BUSINESS_REGISTRATION': DocumentName.businessRegistration,
-            'CAC': DocumentName.cac,
-            'STORE_LOGO': DocumentName.storeLogo,
-            'PICTURE': DocumentName.picture,
-            'OTHER': DocumentName.others,
+        // Helper function to map document names
+        const mapDocumentName = (name: string | null | undefined): DocumentName | null => {
+            if (!name) return null;
+            const upperName = name.toUpperCase().replace(/[\s_-]+/g, '_');
+            const mapping: Record<string, DocumentName> = {
+                'NIN': DocumentName.NIN,
+                'NATIONAL_ID': DocumentName.NIN,
+                'VENDOR_NIN': DocumentName.vendorNIN,
+                'BVN': DocumentName.BVN,
+                'DRIVERS_LICENSE': DocumentName.driversLicense,
+                'PASSPORT': DocumentName.passport,
+                'VOTERS_CARD': DocumentName.votersCard,
+                'TAX_ID': DocumentName.taxId,
+                'BUSINESS_CERT': DocumentName.businessCertificate,
+                'BUSINESS_REGISTRATION': DocumentName.businessRegistration,
+                'CAC': DocumentName.cac,
+                'STORE_LOGO': DocumentName.storeLogo,
+                'PICTURE': DocumentName.picture,
+                'OTHER': DocumentName.others,
+            };
+            return mapping[upperName] || DocumentName.others;
         };
 
-        return mapping[upperName] || DocumentName.others;
-    };
+        // Helper to build file data object
+        interface FileCreateInput {
+            url: string;
+            fileSize: number;
+            fileType: string;
+            format: string;
+            publicId: string;
+            imageName?: string;
+            documentName?: DocumentName;
+        }
 
-    // Helper to build file data object
-    interface FileCreateInput {
-        url: string;
-        fileSize: number;
-        fileType: string;
-        format: string;
-        publicId: string;
-        imageName?: string;
-        documentName?: DocumentName;
-    }
-
-    const buildFileData = (f: any): FileCreateInput => {
-        const fileData: FileCreateInput = {
-            url: f.url,
-            fileSize: f.fileSize || 0,
-            fileType: f.fileType || 'unknown',
-            format: f.format || 'unknown',
-            publicId: f.publicId || '',
+        const buildFileData = (f: any): FileCreateInput => {
+            const fileData: FileCreateInput = {
+                url: f.url,
+                fileSize: f.fileSize || 0,
+                fileType: f.fileType || 'unknown',
+                format: f.format || 'unknown',
+                publicId: f.publicId || '',
+            };
+            const imageName = f.imageName || f.originalName;
+            if (imageName) fileData.imageName = imageName;
+            const mappedDocName = mapDocumentName(f.documentName);
+            if (mappedDocName) fileData.documentName = mappedDocName;
+            return fileData;
         };
 
-        // Add imageName if available (NOT originalName)
-        const imageName = f.imageName || f.originalName;
-        if (imageName) {
-            fileData.imageName = imageName;
-        }
+        if (existing) {
+            // If user exists, we check if they already have a seller application
+            const existingProfile = await this.profileRepo.findUserById(existing.id);
+            if (existingProfile?.sellerStatus === SellerVerificationStatus.PENDING || existingProfile?.sellerStatus === SellerVerificationStatus.APPROVED) {
+                throw ApiError.badRequest('This account is already a seller or has a pending application.');
+            }
 
-        // Map and add documentName if available
-        const mappedDocName = mapDocumentName(f.documentName);
-        if (mappedDocName) {
-            fileData.documentName = mappedDocName;
-        }
-
-        return fileData;
-    };
-
-    // 2. Create Profile with Seller fields
-    const profile = await prisma.profile.create({
-        data: {
-            userId: user.id,
-            firstName: data.firstName,
-            lastName: data.lastName,
-            businessName: data.businessName,
-            taxId: data.taxId,
-            identificationNumber: data.identificationNumber,
-            identificationType: data.identificationType,
-            sellerStatus: SellerVerificationStatus.PENDING,
-            isSeller: false,
-            ...(data.uploadedFiles && data.uploadedFiles.length > 0 && {
-                files: {
-                    createMany: {
-                        data: data.uploadedFiles
-                            .filter(f => f && f.url) // Filter out invalid entries
-                            .map(buildFileData)
+            // Append role if registerAs is provided
+            if (data.registerAs && !existing.roles?.includes(data.registerAs as UserRole)) {
+                await prisma.user.update({
+                    where: { id: existing.id },
+                    data: {
+                        roles: { push: data.registerAs as UserRole }
                     }
-                }
-            })
-        },
-        include: {
-            files: true
-        }
-    });
+                });
+            }
 
-    return { user, profile };
-}
+            // Update profile to include seller info and set status to PENDING
+            const profile = await prisma.profile.update({
+                where: { userId: existing.id },
+                data: {
+                    firstName: data.firstName,
+                    lastName: data.lastName,
+                    businessName: data.businessName,
+                    taxId: data.taxId,
+                    identificationNumber: data.identificationNumber,
+                    identificationType: data.identificationType,
+                    sellerStatus: SellerVerificationStatus.PENDING,
+                    isSeller: false,
+                    ...(data.uploadedFiles && data.uploadedFiles.length > 0 && {
+                        files: {
+                            createMany: {
+                                data: data.uploadedFiles
+                                    .filter(f => f && f.url)
+                                    .map(buildFileData)
+                            }
+                        }
+                    })
+                },
+                include: { files: true }
+            });
+
+            // We don't update roles here, role is updated upon admin verification
+            return { user: existing, profile };
+        }
+
+        const passwordHash = await bcrypt.hash(data.password, 10);
+        const uniqueGoogleId = `local_${randomUUID()}`;
+        const uniqueAppleId = `local_${randomUUID()}`;
+
+        // Initial roles: start with BUYER, and add registerAs if provided
+        const initialRoles: UserRole[] = [UserRole.BUYER];
+        if (data.registerAs && data.registerAs !== UserRole.BUYER) {
+            initialRoles.push(data.registerAs as UserRole);
+        }
+
+        // 1. Create User
+        const user = await prisma.user.create({
+            data: {
+                email: data.email,
+                passwordHash,
+                phone: data.phone,
+                roles: { set: initialRoles },
+                emailVerified: true,
+                googleId: uniqueGoogleId,
+                appleId: uniqueAppleId,
+            },
+        });
+
+        // 2. Create Profile with Seller fields
+        const profile = await prisma.profile.create({
+            data: {
+                userId: user.id,
+                firstName: data.firstName,
+                lastName: data.lastName,
+                businessName: data.businessName,
+                taxId: data.taxId,
+                identificationNumber: data.identificationNumber,
+                identificationType: data.identificationType,
+                sellerStatus: SellerVerificationStatus.PENDING,
+                isSeller: false,
+                ...(data.uploadedFiles && data.uploadedFiles.length > 0 && {
+                    files: {
+                        createMany: {
+                            data: data.uploadedFiles
+                                .filter(f => f && f.url)
+                                .map(buildFileData)
+                        }
+                    }
+                })
+            },
+            include: {
+                files: true
+            }
+        });
+
+        return { user, profile };
+    }
 
     /**
      * Existing user applies to become a seller

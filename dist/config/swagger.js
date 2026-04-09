@@ -141,7 +141,23 @@ const swaggerSpec = {
                 tags: ["Auth"],
                 requestBody: {
                     required: true,
-                    content: { "application/json": { schema: { type: "object", required: ["email", "password"], properties: { email: { type: "string" }, password: { type: "string" } } } } }
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["email", "password"],
+                                properties: {
+                                    email: { type: "string" },
+                                    password: { type: "string" },
+                                    loginAs: {
+                                        type: "string",
+                                        enum: ["BUYER", "SELLER", "OPERATIONS_ADMIN", "SUPER_ADMIN"],
+                                        description: "Optional role to active for this session. Must be one of the user's granted roles."
+                                    }
+                                }
+                            }
+                        }
+                    }
                 },
                 responses: { 200: { description: "Login successful" } }
             }
@@ -1635,10 +1651,13 @@ const swaggerSpec = {
                                     lastName: { type: "string" },
                                     email: { type: "string", format: "email" },
                                     phone: { type: "string" },
-                                    role: {
-                                        type: "string",
-                                        enum: ["BUYER", "SELLER", "OPERATIONS_ADMIN", "SUPER_ADMIN"],
-                                        default: "BUYER"
+                                    roles: {
+                                        type: "array",
+                                        items: {
+                                            type: "string",
+                                            enum: ["BUYER", "SELLER", "OPERATIONS_ADMIN", "SUPER_ADMIN"]
+                                        },
+                                        default: ["BUYER"]
                                     }
                                 }
                             }
@@ -1876,7 +1895,13 @@ const swaggerSpec = {
                                     lastName: { type: "string" },
                                     email: { type: "string", format: "email" },
                                     phone: { type: "string" },
-                                    role: { type: "string", enum: ["BUYER", "SELLER", "OPERATIONS_ADMIN", "SUPER_ADMIN"] }
+                                    roles: {
+                                        type: "array",
+                                        items: {
+                                            type: "string",
+                                            enum: ["BUYER", "SELLER", "OPERATIONS_ADMIN", "SUPER_ADMIN"]
+                                        }
+                                    }
                                 }
                             }
                         }

@@ -27,9 +27,7 @@ export class SellerController {
         const { email } = req.body;
         if (!email) throw ApiError.badRequest('Email is required');
 
-        const user = await this.userService.getUserByEmail(email);
-        if (user) throw ApiError.badRequest('User already exists');
-
+        // We allow both new and existing users to verify email for seller registration
         await this.tokenService.sendVerificationToken(undefined, email);
         return res.json(ApiResponse.success({ email }, 'Verification token sent to email'));
     });
@@ -52,7 +50,7 @@ export class SellerController {
      * This requires the email to have been verified in Parts 1 & 2.
      */
     registerSeller = asyncHandler(async (req: Request, res: Response) => {
-        const { email } = req.body;
+        const { email, registerAs } = req.body;
 
         // Validate that email has been verified via token
         const usedToken = await this.tokenService.getUsedTokenForUser({ email });
@@ -60,7 +58,7 @@ export class SellerController {
             throw ApiError.badRequest('Please verify your email before registering');
         }
 
-        const { user, profile } = await this.service.registerSeller(req.body);
+        const { user, profile } = await this.service.registerSeller({ ...req.body, registerAs });
 
         // Clean up the used token record
         await this.tokenService.deleteToken({ email });

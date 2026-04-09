@@ -46,13 +46,7 @@ export class AuthController {
       )
     }
 
-    const user = await this.userService.getUserByEmail(email);
-
-    if (user) {
-      return res.status(400).json(
-        ApiError.badRequest('User already exists')
-      )
-    }
+    // We allow both new and existing users to verify email for registration/role addition
     await this.tokenService.sendVerificationToken(undefined, email);
     return res.json(new ApiResponse(200, { email }, 'Verification token sent to email'));
   });
@@ -84,16 +78,10 @@ export class AuthController {
   });
 
   register = asyncHandler(async (req: Request, res: Response) => {
-    const { firstName, lastName, ...value } = req.body;
+    const { firstName, lastName, registerAs, ...value } = req.body;
 
     if (!value.email) {
       return res.status(400).json(ApiError.badRequest('Email is required'))
-    }
-
-    //explicit duplicate email guard before any further processing
-    const existingUser = await this.userService.getUserByEmail(value.email);
-    if (existingUser) {
-      return res.status(409).json(ApiError.badRequest('An account with this email already exists'));
     }
 
     const validateTokenVerification = await this.tokenService.getUsedTokenForUser({ email: value.email });
@@ -101,11 +89,36 @@ export class AuthController {
       return res.status(400).json(ApiError.badRequest('Please verify your email before completing registration'));
     }
 
-    const user = await this.authService.register(value);
+    const existingUser = await this.userService.getUserByEmail(value?.email);
+    
+    if (existingUser) {
+      if (registerAs) {
+        // If the user already has the role, just return success
+        if (!existingUser.roles?.includes(registerAs as UserRole)) {
+          await prisma.user.update({
+            where: { id: existingUser.id },
+            data: {
+              roles: { push: registerAs as UserRole }
+            }
+          });
+        }
+        
+        // Update profile names if provided
+        if (firstName || lastName) {
+          await this.profileService.updateProfileByUserId(existingUser.id, { firstName, lastName });
+        }
+        
+        await this.tokenService.deleteToken({ email: value.email });
+        return res.status(200).json(ApiResponse.success({ success: true }, 'Role added to existing account successfully'));
+      }
+      return res.status(409).json(ApiError.badRequest('An account with this email already exists'));
+    }
+
+    const user = await this.authService.register({ ...value, role: registerAs as UserRole });
     await this.profileService.updateProfileByUserId(user.id.toString(), { firstName, lastName });
 
     if (!user) {
-      res.status(500).json(
+      return res.status(500).json(
         ApiError.internal('User registration failed')
       )
     }

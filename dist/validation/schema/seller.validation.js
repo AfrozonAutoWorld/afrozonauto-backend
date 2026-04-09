@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.verifySellerSchema = exports.applyAsSellerSchema = exports.registerSellerSchema = exports.verifyTokenSchema = exports.checkEmailSchema = void 0;
 const joi_1 = __importDefault(require("joi"));
+const client_1 = require("../../generated/prisma/client");
 exports.checkEmailSchema = joi_1.default.object({
     email: joi_1.default.string().email().required(),
 });
@@ -30,6 +31,9 @@ exports.registerSellerSchema = joi_1.default.object({
         format: joi_1.default.string().optional(),
         publicId: joi_1.default.string().optional(),
     })).min(1).required(), // Seller needs documents
+    registerAs: joi_1.default.string()
+        .valid(...Object.values(client_1.UserRole))
+        .optional(),
 });
 exports.applyAsSellerSchema = joi_1.default.object({
     businessName: joi_1.default.string().optional(),

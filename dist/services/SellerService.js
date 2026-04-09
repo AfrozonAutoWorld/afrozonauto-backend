@@ -46,24 +46,8 @@ let SellerService = class SellerService {
      */
     registerSeller(data) {
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             const existing = yield this.userRepo.findByEmail(data.email);
-            if (existing)
-                throw ApiError_1.ApiError.badRequest('User already exists');
-            const passwordHash = yield bcrypt_1.default.hash(data.password, 10);
-            const uniqueGoogleId = `local_${(0, node_crypto_1.randomUUID)()}`;
-            const uniqueAppleId = `local_${(0, node_crypto_1.randomUUID)()}`;
-            // 1. Create User
-            const user = yield db_1.default.user.create({
-                data: {
-                    email: data.email,
-                    passwordHash,
-                    phone: data.phone,
-                    roles: { set: [client_1.UserRole.SELLER] },
-                    emailVerified: true,
-                    googleId: uniqueGoogleId,
-                    appleId: uniqueAppleId,
-                },
-            });
             // Helper function to map document names
             const mapDocumentName = (name) => {
                 if (!name)
@@ -95,25 +79,73 @@ let SellerService = class SellerService {
                     format: f.format || 'unknown',
                     publicId: f.publicId || '',
                 };
-                // Add imageName if available (NOT originalName)
                 const imageName = f.imageName || f.originalName;
-                if (imageName) {
+                if (imageName)
                     fileData.imageName = imageName;
-                }
-                // Map and add documentName if available
                 const mappedDocName = mapDocumentName(f.documentName);
-                if (mappedDocName) {
+                if (mappedDocName)
                     fileData.documentName = mappedDocName;
-                }
                 return fileData;
             };
+            if (existing) {
+                // If user exists, we check if they already have a seller application
+                const existingProfile = yield this.profileRepo.findUserById(existing.id);
+                if ((existingProfile === null || existingProfile === void 0 ? void 0 : existingProfile.sellerStatus) === client_1.SellerVerificationStatus.PENDING || (existingProfile === null || existingProfile === void 0 ? void 0 : existingProfile.sellerStatus) === client_1.SellerVerificationStatus.APPROVED) {
+                    throw ApiError_1.ApiError.badRequest('This account is already a seller or has a pending application.');
+                }
+                // Append role if registerAs is provided
+                if (data.registerAs && !((_a = existing.roles) === null || _a === void 0 ? void 0 : _a.includes(data.registerAs))) {
+                    yield db_1.default.user.update({
+                        where: { id: existing.id },
+                        data: {
+                            roles: { push: data.registerAs }
+                        }
+                    });
+                }
+                // Update profile to include seller info and set status to PENDING
+                const profile = yield db_1.default.profile.update({
+                    where: { userId: existing.id },
+                    data: Object.assign({ firstName: data.firstName, lastName: data.lastName, businessName: data.businessName, taxId: data.taxId, identificationNumber: data.identificationNumber, identificationType: data.identificationType, sellerStatus: client_1.SellerVerificationStatus.PENDING, isSeller: false }, (data.uploadedFiles && data.uploadedFiles.length > 0 && {
+                        files: {
+                            createMany: {
+                                data: data.uploadedFiles
+                                    .filter(f => f && f.url)
+                                    .map(buildFileData)
+                            }
+                        }
+                    })),
+                    include: { files: true }
+                });
+                // We don't update roles here, role is updated upon admin verification
+                return { user: existing, profile };
+            }
+            const passwordHash = yield bcrypt_1.default.hash(data.password, 10);
+            const uniqueGoogleId = `local_${(0, node_crypto_1.randomUUID)()}`;
+            const uniqueAppleId = `local_${(0, node_crypto_1.randomUUID)()}`;
+            // Initial roles: start with BUYER, and add registerAs if provided
+            const initialRoles = [client_1.UserRole.BUYER];
+            if (data.registerAs && data.registerAs !== client_1.UserRole.BUYER) {
+                initialRoles.push(data.registerAs);
+            }
+            // 1. Create User
+            const user = yield db_1.default.user.create({
+                data: {
+                    email: data.email,
+                    passwordHash,
+                    phone: data.phone,
+                    roles: { set: initialRoles },
+                    emailVerified: true,
+                    googleId: uniqueGoogleId,
+                    appleId: uniqueAppleId,
+                },
+            });
             // 2. Create Profile with Seller fields
             const profile = yield db_1.default.profile.create({
                 data: Object.assign({ userId: user.id, firstName: data.firstName, lastName: data.lastName, businessName: data.businessName, taxId: data.taxId, identificationNumber: data.identificationNumber, identificationType: data.identificationType, sellerStatus: client_1.SellerVerificationStatus.PENDING, isSeller: false }, (data.uploadedFiles && data.uploadedFiles.length > 0 && {
                     files: {
                         createMany: {
                             data: data.uploadedFiles
-                                .filter(f => f && f.url) // Filter out invalid entries
+                                .filter(f => f && f.url)
                                 .map(buildFileData)
                         }
                     }

@@ -50,6 +50,9 @@ export const createUserSchema = Joi.object({
   role: Joi.string()
     .valid(...Object.values(UserRole))
     .optional(),
+  registerAs: Joi.string()
+    .valid(...Object.values(UserRole))
+    .optional(),
   roles: Joi.array()
     .items(Joi.string().valid(...Object.values(UserRole)))
     .optional(),

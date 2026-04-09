@@ -72,10 +72,7 @@ let AuthController = class AuthController {
             if (!email) {
                 return res.status(400).json(ApiError_1.ApiError.badRequest('Email address is required'));
             }
-            const user = yield this.userService.getUserByEmail(email);
-            if (user) {
-                return res.status(400).json(ApiError_1.ApiError.badRequest('User already exists'));
-            }
+            // We allow both new and existing users to verify email for registration/role addition
             yield this.tokenService.sendVerificationToken(undefined, email);
             return res.json(new ApiResponse_1.ApiResponse(200, { email }, 'Verification token sent to email'));
         }));
@@ -98,23 +95,40 @@ let AuthController = class AuthController {
             return res.json(ApiResponse_1.ApiResponse.success(null, 'Email verified successfully'));
         }));
         this.register = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
-            const _a = req.body, { firstName, lastName } = _a, value = __rest(_a, ["firstName", "lastName"]);
+            var _a;
+            const _b = req.body, { firstName, lastName, registerAs } = _b, value = __rest(_b, ["firstName", "lastName", "registerAs"]);
             if (!value.email) {
                 return res.status(400).json(ApiError_1.ApiError.badRequest('Email is required'));
-            }
-            //explicit duplicate email guard before any further processing
-            const existingUser = yield this.userService.getUserByEmail(value.email);
-            if (existingUser) {
-                return res.status(409).json(ApiError_1.ApiError.badRequest('An account with this email already exists'));
             }
             const validateTokenVerification = yield this.tokenService.getUsedTokenForUser({ email: value.email });
             if (!validateTokenVerification) {
                 return res.status(400).json(ApiError_1.ApiError.badRequest('Please verify your email before completing registration'));
             }
-            const user = yield this.authService.register(value);
+            const existingUser = yield this.userService.getUserByEmail(value === null || value === void 0 ? void 0 : value.email);
+            if (existingUser) {
+                if (registerAs) {
+                    // If the user already has the role, just return success
+                    if (!((_a = existingUser.roles) === null || _a === void 0 ? void 0 : _a.includes(registerAs))) {
+                        yield db_1.default.user.update({
+                            where: { id: existingUser.id },
+                            data: {
+                                roles: { push: registerAs }
+                            }
+                        });
+                    }
+                    // Update profile names if provided
+                    if (firstName || lastName) {
+                        yield this.profileService.updateProfileByUserId(existingUser.id, { firstName, lastName });
+                    }
+                    yield this.tokenService.deleteToken({ email: value.email });
+                    return res.status(200).json(ApiResponse_1.ApiResponse.success({ success: true }, 'Role added to existing account successfully'));
+                }
+                return res.status(409).json(ApiError_1.ApiError.badRequest('An account with this email already exists'));
+            }
+            const user = yield this.authService.register(Object.assign(Object.assign({}, value), { role: registerAs }));
             yield this.profileService.updateProfileByUserId(user.id.toString(), { firstName, lastName });
             if (!user) {
-                res.status(500).json(ApiError_1.ApiError.internal('User registration failed'));
+                return res.status(500).json(ApiError_1.ApiError.internal('User registration failed'));
             }
             yield this.tokenService.deleteToken({ email: value.email });
             return res.status(201).json(ApiResponse_1.ApiResponse.created({ success: true }, 'Registration successful'));

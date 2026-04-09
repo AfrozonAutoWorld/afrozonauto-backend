@@ -205,7 +205,7 @@ let Jtoken = class Jtoken {
      */
     refreshAccessToken(refreshToken) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a;
+            var _a, _b;
             const decoded = yield this.verifyToken(refreshToken);
             if (!decoded) {
                 throw ApiError_1.ApiError.unauthorized("Invalid refresh token");
@@ -216,16 +216,24 @@ let Jtoken = class Jtoken {
             }
             try {
                 const { passwordHash } = user, userData = __rest(user, ["passwordHash"]);
+                // 1. Determine the role to include in the new token
+                // We try to preserve the role from the old token if the user still has it
+                let activeRole = decoded.role;
+                const hasRole = (_a = user.roles) === null || _a === void 0 ? void 0 : _a.includes(activeRole);
+                if (!hasRole) {
+                    // Fallback to the primary role or BUYER if the previous role is no longer valid
+                    activeRole = ((_b = user.roles) === null || _b === void 0 ? void 0 : _b[0]) || client_1.UserRole.BUYER;
+                }
                 const payload = {
                     id: user.id,
-                    role: ((_a = user.roles) === null || _a === void 0 ? void 0 : _a[0]) || client_1.UserRole.BUYER,
+                    role: activeRole,
                     email: user.email
                 };
                 const { accessToken, refreshToken: newRefreshToken } = yield this.createToken(payload);
                 return {
                     accessToken,
                     refreshToken: newRefreshToken,
-                    user: userData
+                    user: Object.assign(Object.assign({}, userData), { role: activeRole })
                 };
             }
             catch (error) {

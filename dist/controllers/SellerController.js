@@ -48,9 +48,7 @@ let SellerController = class SellerController {
             const { email } = req.body;
             if (!email)
                 throw ApiError_1.ApiError.badRequest('Email is required');
-            const user = yield this.userService.getUserByEmail(email);
-            if (user)
-                throw ApiError_1.ApiError.badRequest('User already exists');
+            // We allow both new and existing users to verify email for seller registration
             yield this.tokenService.sendVerificationToken(undefined, email);
             return res.json(ApiResponse_1.ApiResponse.success({ email }, 'Verification token sent to email'));
         }));
@@ -70,13 +68,13 @@ let SellerController = class SellerController {
          * This requires the email to have been verified in Parts 1 & 2.
          */
         this.registerSeller = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
-            const { email } = req.body;
+            const { email, registerAs } = req.body;
             // Validate that email has been verified via token
             const usedToken = yield this.tokenService.getUsedTokenForUser({ email });
             if (!usedToken) {
                 throw ApiError_1.ApiError.badRequest('Please verify your email before registering');
             }
-            const { user, profile } = yield this.service.registerSeller(req.body);
+            const { user, profile } = yield this.service.registerSeller(Object.assign(Object.assign({}, req.body), { registerAs }));
             // Clean up the used token record
             yield this.tokenService.deleteToken({ email });
             return res.status(201).json(ApiResponse_1.ApiResponse.created({ user, profile }, 'Seller registered successfully. Account pending administrative verification.'));

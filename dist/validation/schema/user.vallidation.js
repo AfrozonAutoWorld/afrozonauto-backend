@@ -47,6 +47,9 @@ exports.createUserSchema = joi_1.default.object({
     role: joi_1.default.string()
         .valid(...Object.values(client_1.UserRole))
         .optional(),
+    registerAs: joi_1.default.string()
+        .valid(...Object.values(client_1.UserRole))
+        .optional(),
     roles: joi_1.default.array()
         .items(joi_1.default.string().valid(...Object.values(client_1.UserRole)))
         .optional(),

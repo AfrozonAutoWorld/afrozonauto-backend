@@ -1,5 +1,5 @@
 import Joi from 'joi';
-import { SellerVerificationStatus } from '../../generated/prisma/client';
+import { SellerVerificationStatus, UserRole } from '../../generated/prisma/client';
 
 export const checkEmailSchema = Joi.object({
     email: Joi.string().email().required(),
@@ -28,6 +28,9 @@ export const registerSellerSchema = Joi.object({
         format: Joi.string().optional(),
         publicId: Joi.string().optional(),
     })).min(1).required(), // Seller needs documents
+    registerAs: Joi.string()
+        .valid(...Object.values(UserRole))
+        .optional(),
 });
 
 export const applyAsSellerSchema = Joi.object({
