@@ -10,7 +10,6 @@ import {
   EscrowStatus,
   ShipmentStatus,
   VehicleSource,
-  VehicleType,
   VehicleStatus,
   NotificationType,
   InspectionCondition,
@@ -250,23 +249,23 @@ async function seedAdminData() {
   };
 
   const superAdmin = await findOrCreateUser('super.admin@afrozon.com', {
-    fullName: 'Super Admin', passwordHash, role: UserRole.SUPER_ADMIN, emailVerified: true, isActive: true,
+    fullName: 'Super Admin', passwordHash, roles: [UserRole.SUPER_ADMIN], emailVerified: true, isActive: true,
   });
   const opsAdmin = await findOrCreateUser('ops.admin@afrozon.com', {
-    fullName: 'Operations Admin', passwordHash, role: UserRole.OPERATIONS_ADMIN, emailVerified: true, isActive: true,
+    fullName: 'Operations Admin', passwordHash, roles: [UserRole.OPERATIONS_ADMIN], emailVerified: true, isActive: true,
   });
 
   const buyerUsers = await Promise.all([
-    findOrCreateUser('aisha.bello@example.com', { fullName: 'Aisha Bello', phone: '+2348012345678', passwordHash, role: UserRole.BUYER, emailVerified: true, isActive: true }),
-    findOrCreateUser('chukwuemeka.obi@example.com', { fullName: 'Chukwuemeka Obi', phone: '+2348023456789', passwordHash, role: UserRole.BUYER, emailVerified: true, isActive: true }),
-    findOrCreateUser('fatima.hassan@example.com', { fullName: 'Fatima Hassan', phone: '+2348034567890', passwordHash, role: UserRole.BUYER, emailVerified: true, isActive: true }),
-    findOrCreateUser('kwame.asante@example.com', { fullName: 'Kwame Asante', phone: '+233244123456', passwordHash, role: UserRole.BUYER, emailVerified: true, currency: 'GHS', isActive: true }),
-    findOrCreateUser('ngozi.nwosu@example.com', { fullName: 'Ngozi Nwosu', phone: '+2348045678901', passwordHash, role: UserRole.BUYER, emailVerified: true, isActive: true }),
+    findOrCreateUser('aisha.bello@example.com', { fullName: 'Aisha Bello', phone: '+2348012345678', passwordHash, roles: [UserRole.BUYER], emailVerified: true, isActive: true }),
+    findOrCreateUser('chukwuemeka.obi@example.com', { fullName: 'Chukwuemeka Obi', phone: '+2348023456789', passwordHash, roles: [UserRole.BUYER], emailVerified: true, isActive: true }),
+    findOrCreateUser('fatima.hassan@example.com', { fullName: 'Fatima Hassan', phone: '+2348034567890', passwordHash, roles: [UserRole.BUYER], emailVerified: true, isActive: true }),
+    findOrCreateUser('kwame.asante@example.com', { fullName: 'Kwame Asante', phone: '+233244123456', passwordHash, roles: [UserRole.BUYER], emailVerified: true, currency: 'GHS', isActive: true }),
+    findOrCreateUser('ngozi.nwosu@example.com', { fullName: 'Ngozi Nwosu', phone: '+2348045678901', passwordHash, roles: [UserRole.BUYER], emailVerified: true, isActive: true }),
   ]);
 
   const sellerUsers = await Promise.all([
-    findOrCreateUser('autohub.lagos@example.com', { fullName: 'AutoHub Lagos', phone: '+2341234567890', passwordHash, role: UserRole.SELLER, emailVerified: true, isActive: true }),
-    findOrCreateUser('premium.cars.abuja@example.com', { fullName: 'Premium Cars Abuja', phone: '+2349012345678', passwordHash, role: UserRole.SELLER, emailVerified: true, isActive: true }),
+    findOrCreateUser('autohub.lagos@example.com', { fullName: 'AutoHub Lagos', phone: '+2341234567890', passwordHash, roles: [UserRole.SELLER, UserRole.BUYER], emailVerified: true, isActive: true }),
+    findOrCreateUser('premium.cars.abuja@example.com', { fullName: 'Premium Cars Abuja', phone: '+2349012345678', passwordHash, roles: [UserRole.SELLER, UserRole.BUYER], emailVerified: true, isActive: true }),
   ]);
 
   // ── 2. Profiles ─────────────────────────────────────────────────────────────
@@ -330,7 +329,7 @@ async function seedAdminData() {
       vin: 'SEED1TOYOTA2022001',
       slug: 'seed-2022-toyota-camry-001',
       make: 'Toyota', model: 'Camry', year: 2022,
-      vehicleType: VehicleType.SEDAN,
+      vehicleType: 'SEDAN',
       priceUsd: 28500,
       mileage: 18400,
       transmission: 'Automatic',
@@ -343,7 +342,7 @@ async function seedAdminData() {
       vin: 'SEED2LEXUS2021002',
       slug: 'seed-2021-lexus-rx350-002',
       make: 'Lexus', model: 'RX 350', year: 2021,
-      vehicleType: VehicleType.SUV,
+      vehicleType: 'SUV',
       priceUsd: 46000,
       mileage: 24300,
       transmission: 'Automatic',
@@ -356,7 +355,7 @@ async function seedAdminData() {
       vin: 'SEED3BMW2023003',
       slug: 'seed-2023-bmw-x5-003',
       make: 'BMW', model: 'X5', year: 2023,
-      vehicleType: VehicleType.SUV,
+      vehicleType: 'SUV',
       priceUsd: 72000,
       mileage: 8100,
       transmission: 'Automatic',
@@ -369,7 +368,7 @@ async function seedAdminData() {
       vin: 'SEED4BENZ2020004',
       slug: 'seed-2020-mercedes-gle-004',
       make: 'Mercedes-Benz', model: 'GLE 450', year: 2020,
-      vehicleType: VehicleType.SUV,
+      vehicleType: 'SUV',
       priceUsd: 55000,
       mileage: 41000,
       transmission: 'Automatic',
@@ -382,7 +381,7 @@ async function seedAdminData() {
       vin: 'SEED5HONDA2022005',
       slug: 'seed-2022-honda-crv-005',
       make: 'Honda', model: 'CR-V', year: 2022,
-      vehicleType: VehicleType.SUV,
+      vehicleType: 'SUV',
       priceUsd: 31000,
       mileage: 15600,
       transmission: 'Automatic',
@@ -395,7 +394,7 @@ async function seedAdminData() {
       vin: 'SEED6TOYOTA2021006',
       slug: 'seed-2021-toyota-highlander-006',
       make: 'Toyota', model: 'Highlander', year: 2021,
-      vehicleType: VehicleType.SUV,
+      vehicleType: 'SUV',
       priceUsd: 42000,
       mileage: 29700,
       transmission: 'Automatic',
@@ -408,7 +407,7 @@ async function seedAdminData() {
       vin: 'SEED7PORSCHE2019007',
       slug: 'seed-2019-porsche-911-007',
       make: 'Porsche', model: '911 Carrera', year: 2019,
-      vehicleType: VehicleType.COUPE,
+      vehicleType: 'COUPE',
       priceUsd: 110000,
       mileage: 12500,
       transmission: 'Automatic',
@@ -421,7 +420,7 @@ async function seedAdminData() {
       vin: 'SEED8FORD2023008',
       slug: 'seed-2023-ford-f150-008',
       make: 'Ford', model: 'F-150', year: 2023,
-      vehicleType: VehicleType.TRUCK,
+      vehicleType: 'TRUCK',
       priceUsd: 48000,
       mileage: 5200,
       transmission: 'Automatic',
@@ -1126,21 +1125,21 @@ async function seedAdminData() {
   // ── 14. Additional Users (edge cases for admin testing) ─────────────────────
 
   const inactiveBuyer = await findOrCreateUser('tunde.adebayo@example.com', {
-    fullName: 'Tunde Adebayo', phone: '+2348056789012', passwordHash, role: UserRole.BUYER, emailVerified: true, isActive: false,
+    fullName: 'Tunde Adebayo', phone: '+2348056789012', passwordHash, roles: [UserRole.BUYER], emailVerified: true, isActive: false,
   });
   const suspendedBuyer = await findOrCreateUser('amara.okafor@example.com', {
-    fullName: 'Amara Okafor', phone: '+2348067890123', passwordHash, role: UserRole.BUYER,
+    fullName: 'Amara Okafor', phone: '+2348067890123', passwordHash, roles: [UserRole.BUYER],
     emailVerified: true, isActive: true, isSuspended: true,
     suspensionReason: 'Fraudulent payment attempt detected', suspensionUntil: new Date(2026, 5, 1),
   });
   const unverifiedBuyer = await findOrCreateUser('kofi.mensah@example.com', {
-    fullName: 'Kofi Mensah', phone: '+233244567890', passwordHash, role: UserRole.BUYER, emailVerified: false, isActive: true, currency: 'GHS',
+    fullName: 'Kofi Mensah', phone: '+233244567890', passwordHash, roles: [UserRole.BUYER], emailVerified: false, isActive: true, currency: 'GHS',
   });
   const seller3 = await findOrCreateUser('kings.motors.ph@example.com', {
-    fullName: 'Kings Motors Port Harcourt', phone: '+2348078901234', passwordHash, role: UserRole.SELLER, emailVerified: true, isActive: true, walletBalance: 1850.00,
+    fullName: 'Kings Motors Port Harcourt', phone: '+2348078901234', passwordHash, roles: [UserRole.SELLER, UserRole.BUYER], emailVerified: true, isActive: true, walletBalance: 1850.00,
   });
   const seller4 = await findOrCreateUser('topcar.kano@example.com', {
-    fullName: 'TopCar Kano', phone: '+2348089012345', passwordHash, role: UserRole.SELLER, emailVerified: true, isActive: true, walletBalance: 3200.50,
+    fullName: 'TopCar Kano', phone: '+2348089012345', passwordHash, roles: [UserRole.SELLER, UserRole.BUYER], emailVerified: true, isActive: true, walletBalance: 3200.50,
   });
 
   // Set wallet balances on existing sellers
@@ -1179,7 +1178,7 @@ async function seedAdminData() {
     {
       vin: 'SELLV1NISSAN2020001', slug: 'seller-2020-nissan-pathfinder-001',
       make: 'Nissan', model: 'Pathfinder', year: 2020,
-      vehicleType: VehicleType.SUV, priceUsd: 24500, mileage: 52000,
+      vehicleType: 'SUV', priceUsd: 24500, mileage: 52000,
       transmission: 'Automatic', fuelType: 'Gasoline', exteriorColor: 'Midnight Black',
       status: VehicleStatus.PENDING_REVIEW, userId: sellerUsers[0].id,
       condition: 'GOOD', contactFirstName: 'AutoHub', contactLastName: 'Lagos', city: 'Lagos',
@@ -1187,7 +1186,7 @@ async function seedAdminData() {
     {
       vin: 'SELLV2HONDA2019002', slug: 'seller-2019-honda-pilot-002',
       make: 'Honda', model: 'Pilot', year: 2019,
-      vehicleType: VehicleType.SUV, priceUsd: 19800, mileage: 78000,
+      vehicleType: 'SUV', priceUsd: 19800, mileage: 78000,
       transmission: 'Automatic', fuelType: 'Gasoline', exteriorColor: 'Lunar Silver',
       status: VehicleStatus.REVIEWING, userId: sellerUsers[1].id,
       condition: 'FAIR', contactFirstName: 'Premium', contactLastName: 'Cars', city: 'Abuja',
@@ -1195,7 +1194,7 @@ async function seedAdminData() {
     {
       vin: 'SELLV3FORD2018003', slug: 'seller-2018-ford-explorer-003',
       make: 'Ford', model: 'Explorer', year: 2018,
-      vehicleType: VehicleType.SUV, priceUsd: 15000, mileage: 112000,
+      vehicleType: 'SUV', priceUsd: 15000, mileage: 112000,
       transmission: 'Automatic', fuelType: 'Gasoline', exteriorColor: 'Ruby Red',
       status: VehicleStatus.REJECTED, userId: sellerUsers[0].id,
       condition: 'BAD',
@@ -1551,7 +1550,7 @@ async function seedAdminData() {
       vin: 'FEAT1RANGE2023FV1',
       slug: 'seed-2023-range-rover-sport-fv1',
       make: 'Land Rover', model: 'Range Rover Sport', year: 2023,
-      vehicleType: VehicleType.SUV,
+      vehicleType: 'SUV',
       priceUsd: 88000,
       originalPriceUsd: 92000,
       mileage: 9800,
@@ -1574,7 +1573,7 @@ async function seedAdminData() {
       vin: 'FEAT2TESLA2023FV2',
       slug: 'seed-2023-tesla-model-x-fv2',
       make: 'Tesla', model: 'Model X', year: 2023,
-      vehicleType: VehicleType.SUV,
+      vehicleType: 'SUV',
       priceUsd: 96000,
       originalPriceUsd: 100000,
       mileage: 6400,
@@ -1626,8 +1625,8 @@ async function seedSingleAdminFromEnv() {
   const password = process.env.SEED_ADMIN_PASSWORD?.trim() || 'Password123!';
   const roleInput = process.env.SEED_ADMIN_ROLE?.trim().toUpperCase();
   const role =
-    roleInput === UserRole.SUPER_ADMIN || roleInput === UserRole.OPERATIONS_ADMIN
-      ? (roleInput as UserRole.SUPER_ADMIN | UserRole.OPERATIONS_ADMIN)
+    roleInput === 'SUPER_ADMIN' || roleInput === 'OPERATIONS_ADMIN'
+      ? (roleInput as UserRole)
       : UserRole.OPERATIONS_ADMIN;
   const passwordHash = await bcrypt.hash(password, 10);
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -1637,7 +1636,7 @@ async function seedSingleAdminFromEnv() {
         data: {
           fullName,
           passwordHash,
-          role,
+          roles: { set: [role] },
           emailVerified: true,
           isActive: true,
         },
@@ -1647,14 +1646,14 @@ async function seedSingleAdminFromEnv() {
           email,
           fullName,
           passwordHash,
-          role,
+          roles: { set: [role] },
           emailVerified: true,
           isActive: true,
         },
       });
   console.log('Admin-only seed complete.');
   console.log(`  Email: ${user.email}`);
-  console.log(`  Role:  ${user.role}`);
+  console.log(`  Roles: ${user.roles.join(', ')}`);
 }
 async function main() {
   const adminOnly =

@@ -143,20 +143,29 @@ let AuthController = class AuthController {
             return res.json(ApiResponse_1.ApiResponse.success({ user: safeUser }, 'User information updated successfully'));
         }));
         this.login = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
-            const { email, password } = req.body;
+            var _a, _b;
+            const { email, password, loginAs } = req.body;
             if (!email || !password) {
                 return res.status(400).json(ApiError_1.ApiError.badRequest('Email and password are required'));
             }
             const userLogged = yield this.authService.login(email, password);
             const { passwordHash: pass } = userLogged, user = __rest(userLogged, ["passwordHash"]);
+            // Resolve which role the user is logging in as
+            let activeRole = ((_a = user.roles) === null || _a === void 0 ? void 0 : _a[0]) || client_1.UserRole.BUYER; // Default primary role
+            if (loginAs) {
+                if (!((_b = user.roles) === null || _b === void 0 ? void 0 : _b.includes(loginAs))) {
+                    return res.status(403).json(ApiError_1.ApiError.forbidden(`You do not have permission to login as ${loginAs}`));
+                }
+                activeRole = loginAs;
+            }
             const jtoken = inversify_config_1.container.get(types_1.TYPES.Jtoken);
             const { accessToken, refreshToken } = yield jtoken.createToken({
                 email: user.email,
-                role: user.role,
+                role: activeRole,
                 id: user.id.toString()
             });
             return res.json(new ApiResponse_1.ApiResponse(200, {
-                user: Object.assign(Object.assign({}, user), { online: true }),
+                user: Object.assign(Object.assign({}, user), { role: activeRole, online: true }),
                 accessToken,
                 refreshToken
             }, 'Login successful'));
@@ -278,6 +287,7 @@ let AuthController = class AuthController {
          * Google login using ID token
         */
         this.verifyGoogleToken = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            var _a;
             const { code } = req.body;
             if (!code) {
                 return res.status(400).json(ApiError_1.ApiError.badRequest("Missing authorization code"));
@@ -302,7 +312,7 @@ let AuthController = class AuthController {
                     data: {
                         email,
                         googleId,
-                        role: client_1.UserRole.BUYER,
+                        roles: { set: [client_1.UserRole.BUYER] },
                         emailVerified: true,
                         profile: {
                             create: {
@@ -335,7 +345,7 @@ let AuthController = class AuthController {
             const jtoken = inversify_config_1.container.get(types_1.TYPES.Jtoken);
             const { accessToken, refreshToken } = yield jtoken.createToken({
                 email: user.email,
-                role: user.role,
+                role: ((_a = user.roles) === null || _a === void 0 ? void 0 : _a[0]) || client_1.UserRole.BUYER,
                 id: user.id,
             });
             return res.status(200).json({

@@ -337,7 +337,7 @@ let OrderController = class OrderController {
             return res.status(200).json(ApiResponse_1.ApiResponse.success(notes, "Admin notes retrieved successfully"));
         }));
         // ========== STATISTICS ==========
-        // getOrderStats = asyncHandler(async (req: Request, res: Response) => {
+        // getOrderStats = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
         //   // Admin only
         //   if (req.user?.role !== 'SUPER_ADMIN' && req.user?.role !== 'OPERATIONS_ADMIN') {
         //     throw new ApiError(403, "Admin access required");

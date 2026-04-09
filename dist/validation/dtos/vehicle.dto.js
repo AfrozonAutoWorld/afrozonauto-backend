@@ -37,7 +37,7 @@ __decorate([
     __metadata("design:type", Number)
 ], CreateVehicleDto.prototype, "year", void 0);
 __decorate([
-    (0, class_validator_1.IsEnum)(client_1.VehicleType),
+    (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateVehicleDto.prototype, "vehicleType", void 0);
 __decorate([

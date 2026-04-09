@@ -58,7 +58,7 @@ let SellerService = class SellerService {
                     email: data.email,
                     passwordHash,
                     phone: data.phone,
-                    role: client_1.UserRole.SELLER,
+                    roles: { set: [client_1.UserRole.SELLER] },
                     emailVerified: true,
                     googleId: uniqueGoogleId,
                     appleId: uniqueAppleId,
@@ -189,10 +189,15 @@ let SellerService = class SellerService {
                     isSeller: true,
                     sellerVerifiedAt: new Date(),
                     sellerRejectedReason: null,
+                    isVerified: true,
+                    verifiedAt: new Date(),
                 });
-                // 2. Update User Role
-                yield this.userRepo.update(profile.userId, {
-                    role: client_1.UserRole.SELLER
+                // 2. Update User Roles
+                yield db_1.default.user.update({
+                    where: { id: profile.userId },
+                    data: {
+                        roles: { push: client_1.UserRole.SELLER }
+                    }
                 });
                 return updatedProfile;
             }

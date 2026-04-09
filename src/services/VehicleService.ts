@@ -535,6 +535,7 @@ export class VehicleService {
 
     return this.vehicleRepo.create({
       ...dto,
+      vehicleType: dto.vehicleType as any,
       source: dto.source || VehicleSource.MANUAL,
       addedBy,
       isActive: dto.isActive !== false,

@@ -2,6 +2,7 @@ import jwt, { SignOptions, Secret } from "jsonwebtoken";
 import { JWTPayload } from "../types/customRequest";
 import { JWT_SECRET, EXPIRES_IN_SHORT, EXPIRES_IN_LONG } from "../secrets";
 import { UserRepository } from "../repositories/UserRepository";
+import { UserRole } from "../generated/prisma/client";
 import { ApiError } from "../utils/ApiError";
 import { injectable, inject } from "inversify";
 import { TYPES } from "../config/types";
@@ -211,9 +212,20 @@ export default class Jtoken {
 
         try {
             const { passwordHash, ...userData } = user;
+            
+            // 1. Determine the role to include in the new token
+            // We try to preserve the role from the old token if the user still has it
+            let activeRole = decoded.role as UserRole;
+            const hasRole = user.roles?.includes(activeRole);
+            
+            if (!hasRole) {
+                // Fallback to the primary role or BUYER if the previous role is no longer valid
+                activeRole = user.roles?.[0] || UserRole.BUYER;
+            }
+
             const payload: JWTPayload = {
                 id: user.id,
-                role: user.role,
+                role: activeRole,
                 email: user.email
             };
 
@@ -221,7 +233,7 @@ export default class Jtoken {
             return {
                 accessToken,
                 refreshToken: newRefreshToken,
-                user: userData
+                user: {...userData, role: activeRole}
             };
         } catch (error) {
             throw ApiError.unauthorized("Session expired. Please log in again.");

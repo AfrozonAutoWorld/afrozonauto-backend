@@ -5,8 +5,10 @@ import { fileInfoSchema } from './files.validation';
 
 export const loginSchema = Joi.object({
   email: Joi.string().email().required(),
-  password: Joi.string().optional()
-
+  password: Joi.string().optional(),
+  loginAs: Joi.string()
+    .valid(...Object.values(UserRole))
+    .optional(),
 });
 export const TokenValidationSchema = Joi.object({
   email: Joi.string().email().required(),
@@ -47,6 +49,9 @@ export const createUserSchema = Joi.object({
   phone: phoneSchema,
   role: Joi.string()
     .valid(...Object.values(UserRole))
+    .optional(),
+  roles: Joi.array()
+    .items(Joi.string().valid(...Object.values(UserRole)))
     .optional(),
   isActive: Joi.boolean().optional(),
 });

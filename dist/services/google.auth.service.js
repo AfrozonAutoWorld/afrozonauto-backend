@@ -94,7 +94,7 @@ let GoogleAuthService = class GoogleAuthService {
                     user = yield this.userService.createUser({
                         email,
                         googleId,
-                        role: enums_1.UserRole.BUYER,
+                        roles: [enums_1.UserRole.BUYER],
                         emailVerified: true,
                         password: this.generateRandomPassword(),
                         firstName: (_d = (_c = profile.name) === null || _c === void 0 ? void 0 : _c.givenName) !== null && _d !== void 0 ? _d : undefined,
@@ -110,9 +110,10 @@ let GoogleAuthService = class GoogleAuthService {
     }
     generateTokens(user) {
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             const payload = {
                 id: user._id.toString(),
-                role: user.role,
+                role: ((_a = user.roles) === null || _a === void 0 ? void 0 : _a[0]) || enums_1.UserRole.BUYER,
                 email: user.email,
             };
             const jtoken = inversify_config_1.container.get(types_1.TYPES.Jtoken);

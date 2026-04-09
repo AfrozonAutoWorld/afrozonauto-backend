@@ -67,8 +67,18 @@ const asyncHandler = (fn) => {
                     ? ApiError_1.ApiError.gatewayTimeout(message, error)
                     : ApiError_1.ApiError.badGateway(message, error));
             }
+            // Prisma / Database Errors
+            if (error.name === 'PrismaClientUnknownRequestError' ||
+                error.name === 'PrismaClientInitializationError' ||
+                error.name === 'PrismaClientRustPanicError' ||
+                error.name === 'PrismaClientValidationError') {
+                return next(ApiError_1.ApiError.serviceUnavailable('Database connection failed or query invalid. Please try again later.'));
+            }
             // Default to internal server error
-            next(ApiError_1.ApiError.internal((error === null || error === void 0 ? void 0 : error.message) || 'Something went wrong', error));
+            // Don't expose internal/raw application stack traces as the primary message in production
+            const isDev = secrets_1.NODE_ENV === 'development';
+            const msg = isDev ? ((error === null || error === void 0 ? void 0 : error.message) || 'Something went wrong') : 'An unexpected error occurred. Please try again later.';
+            next(ApiError_1.ApiError.internal(msg, isDev ? error : undefined));
         });
     };
 };

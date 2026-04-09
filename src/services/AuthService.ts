@@ -49,7 +49,7 @@ export class AuthService {
         email: data.email,
         passwordHash,
         phone: data.phone,
-        role: data.role ?? UserRole.BUYER,
+        roles: { set: [data.role ?? UserRole.BUYER] },
         emailVerified: true,
         googleId: uniqueGoogleId,
         appleId: uniqueAppleId,

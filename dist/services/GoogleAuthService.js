@@ -133,7 +133,7 @@ let GoogleAuthService = class GoogleAuthService {
                     user = yield this.userRepo.createUser({
                         email,
                         googleId,
-                        role: enums_1.UserRole.BUYER,
+                        roles: [enums_1.UserRole.BUYER],
                         verified: true,
                         password: this.generateRandomPassword(),
                     }, {
@@ -151,9 +151,10 @@ let GoogleAuthService = class GoogleAuthService {
     }
     generateTokens(user) {
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             const payload = {
                 id: user.id.toString(),
-                role: user.role,
+                role: ((_a = user.roles) === null || _a === void 0 ? void 0 : _a[0]) || enums_1.UserRole.BUYER,
                 email: user.email,
             };
             return yield this.tokenService.createShortLivedToken(payload);

@@ -46,7 +46,7 @@ async registerSeller(data: {
             email: data.email,
             passwordHash,
             phone: data.phone,
-            role: UserRole.SELLER,
+            roles: { set: [UserRole.SELLER] },
             emailVerified: true,
             googleId: uniqueGoogleId,
             appleId: uniqueAppleId,
@@ -212,11 +212,16 @@ async registerSeller(data: {
                 isSeller: true,
                 sellerVerifiedAt: new Date(),
                 sellerRejectedReason: null,
+                isVerified: true,
+                verifiedAt: new Date(),
             });
 
-            // 2. Update User Role
-            await this.userRepo.update(profile.userId, {
-                role: UserRole.SELLER
+            // 2. Update User Roles
+            await prisma.user.update({
+                where: { id: profile.userId },
+                data: {
+                    roles: { push: UserRole.SELLER }
+                }
             });
 
             return updatedProfile;

@@ -139,7 +139,23 @@ const swaggerSpec = {
         tags: ["Auth"],
         requestBody: {
           required: true,
-          content: { "application/json": { schema: { type: "object", required: ["email", "password"], properties: { email: { type: "string" }, password: { type: "string" } } } } }
+          content: { 
+            "application/json": { 
+              schema: { 
+                type: "object", 
+                required: ["email", "password"], 
+                properties: { 
+                  email: { type: "string" }, 
+                  password: { type: "string" },
+                  loginAs: { 
+                    type: "string", 
+                    enum: ["BUYER", "SELLER", "OPERATIONS_ADMIN", "SUPER_ADMIN"],
+                    description: "Optional role to active for this session. Must be one of the user's granted roles."
+                  } 
+                } 
+              } 
+            } 
+          }
         },
         responses: { 200: { description: "Login successful" } }
       }
@@ -688,7 +704,28 @@ const swaggerSpec = {
         tags: ["Sellers"],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
         security: [{ bearerAuth: [] }],
-        responses: { 200: { description: "Seller verified" } }
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["approve"],
+                properties: {
+                  approve: { type: "boolean", description: "Set to true to verify, false to reject" },
+                  reason: { type: "string", description: "Reason for rejection (required if approve is false)" }
+                }
+              }
+            }
+          }
+        },
+        responses: { 
+          200: { description: "Seller verified or rejected successfully" },
+          400: { description: "Validation failed (e.g. missing reason when false)" },
+          401: { description: "Unauthorized" },
+          403: { description: "Forbidden - admin only" },
+          404: { description: "Seller application not found" }
+        }
       }
     },
 
@@ -1631,10 +1668,13 @@ const swaggerSpec = {
                   lastName:  { type: "string" },
                   email:     { type: "string", format: "email" },
                   phone:     { type: "string" },
-                  role: {
-                    type: "string",
-                    enum: ["BUYER", "SELLER", "OPERATIONS_ADMIN", "SUPER_ADMIN"],
-                    default: "BUYER"
+                  roles: {
+                    type: "array",
+                    items: {
+                      type: "string",
+                      enum: ["BUYER", "SELLER", "OPERATIONS_ADMIN", "SUPER_ADMIN"]
+                    },
+                    default: ["BUYER"]
                   }
                 }
               }
@@ -1875,7 +1915,13 @@ const swaggerSpec = {
                   lastName:  { type: "string" },
                   email:     { type: "string", format: "email" },
                   phone:     { type: "string" },
-                  role: { type: "string", enum: ["BUYER", "SELLER", "OPERATIONS_ADMIN", "SUPER_ADMIN"] }
+                  roles: { 
+                    type: "array", 
+                    items: { 
+                      type: "string", 
+                      enum: ["BUYER", "SELLER", "OPERATIONS_ADMIN", "SUPER_ADMIN"] 
+                    } 
+                  }
                 }
               }
             }

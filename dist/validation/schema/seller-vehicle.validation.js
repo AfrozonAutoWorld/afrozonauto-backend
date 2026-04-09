@@ -11,11 +11,7 @@ exports.createSellerVehicleSchema = joi_1.default.object({
     year: joi_1.default.number().integer().min(1900).max(new Date().getFullYear() + 1).required(),
     make: joi_1.default.string().required(),
     model: joi_1.default.string().required(),
-    vehicleType: joi_1.default.string()
-        .uppercase()
-        .valid(...Object.values(client_1.VehicleType))
-        .default(client_1.VehicleType.OTHER)
-        .messages({ 'any.only': `vehicleType must be one of: ${Object.values(client_1.VehicleType).join(', ')}` }),
+    vehicleType: joi_1.default.string().trim().default('OTHER'),
     trim: joi_1.default.string().allow('', null).optional(),
     bodyStyle: joi_1.default.string().allow('', null).optional(),
     mileage: joi_1.default.number().integer().min(0).required(),

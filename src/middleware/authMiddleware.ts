@@ -46,7 +46,10 @@ export const authenticate = asyncHandler(
       );
     }
 
-    req.user = user as any;
+    req.user = {
+      ...user,
+      role: payload.role as UserRole
+    } as any;
 
     next();
   }
@@ -66,7 +69,10 @@ export const authenticateOptional = asyncHandler(
       if (!payload?.id) return next();
       const user = await userRepository.findById(payload.id);
       if (user && user.isActive && !user.isSuspended) {
-        req.user = user as any;
+        req.user = {
+          ...user,
+          role: payload.role as UserRole
+        } as any;
       }
     } catch {
       // ignore invalid/expired token
@@ -81,7 +87,29 @@ export const authorize = (requiredRoles: UserRole[]) =>
       throw ApiError.unauthorized('Authentication required');
     }
 
-    if (!requiredRoles.includes(req.user.role)) {
+    const grantedRoles = new Set<UserRole>(req.user.role ? [req.user.role] : []);
+
+    // Role Hierarchy & Implicit Roles
+    if (req.user.role === UserRole.SUPER_ADMIN) {
+      grantedRoles.add(UserRole.OPERATIONS_ADMIN);
+      grantedRoles.add(UserRole.SELLER);
+      grantedRoles.add(UserRole.BUYER);
+    } else if (req.user.role === UserRole.OPERATIONS_ADMIN) {
+      grantedRoles.add(UserRole.BUYER);
+    } else if (req.user.role === UserRole.SELLER) {
+      grantedRoles.add(UserRole.BUYER);
+    }
+
+    // Dynamic SELLER Role: if the user's profile is verified as a seller, 
+    // implicitly grant SELLER access even if their primary DB role is BUYER.
+    const profile = (req.user as any).profile;
+    if (profile?.isSeller && profile?.sellerStatus === 'APPROVED') {
+      grantedRoles.add(UserRole.SELLER);
+    }
+
+    const hasAccess = requiredRoles.some(r => grantedRoles.has(r));
+
+    if (!hasAccess) {
       throw ApiError.forbidden(
         `Access restricted to: ${requiredRoles.join(', ')}`
       );

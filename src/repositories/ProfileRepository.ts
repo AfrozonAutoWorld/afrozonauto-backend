@@ -140,7 +140,7 @@ export class ProfileRepository {
           select: {
             email: true,
             phone: true,
-            role: true,
+            roles: true,
             isActive: true,
           },
         },

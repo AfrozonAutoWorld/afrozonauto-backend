@@ -17,7 +17,7 @@ export class UserService {
   async createUser(data: {
     userID?: string;
     email: string;
-    role?: UserRole;
+    roles?: UserRole[];
     googleId?: string;
     emailVerified?: boolean;
     password: string;
@@ -26,7 +26,7 @@ export class UserService {
   }) {
     const {
       email,
-      role,
+      roles,
       googleId,
       emailVerified,
       password,
@@ -38,7 +38,7 @@ export class UserService {
   
     return this.userRepository.create({
       email,
-      role,
+      roles,
       googleId,
       firstName,
       lastName,
@@ -130,7 +130,7 @@ export class UserService {
         email: data.email,
         passwordHash,
         phone: data.phone,
-        role: data.role ?? UserRole.BUYER,
+        roles: { set: [data.role ?? UserRole.BUYER] },
         emailVerified: true,
         googleId: `local_${randomUUID()}`,
         appleId: `local_${randomUUID()}`,

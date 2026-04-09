@@ -43,7 +43,7 @@ exports.authenticate = (0, asyncHandler_1.asyncHandler)((req, res, next) => __aw
     if (user.isSuspended) {
         throw ApiError_1.ApiError.forbidden(user.suspensionReason || 'Account is suspended');
     }
-    req.user = user;
+    req.user = Object.assign(Object.assign({}, user), { role: payload.role });
     next();
 }));
 /** Optional auth: set req.user if valid token present; do not reject if missing. */
@@ -61,7 +61,7 @@ exports.authenticateOptional = (0, asyncHandler_1.asyncHandler)((req, res, next)
             return next();
         const user = yield userRepository.findById(payload.id);
         if (user && user.isActive && !user.isSuspended) {
-            req.user = user;
+            req.user = Object.assign(Object.assign({}, user), { role: payload.role });
         }
     }
     catch (_a) {
@@ -73,7 +73,27 @@ const authorize = (requiredRoles) => (0, asyncHandler_1.asyncHandler)((req, res,
     if (!req.user) {
         throw ApiError_1.ApiError.unauthorized('Authentication required');
     }
-    if (!requiredRoles.includes(req.user.role)) {
+    const grantedRoles = new Set(req.user.role ? [req.user.role] : []);
+    // Role Hierarchy & Implicit Roles
+    if (req.user.role === client_1.UserRole.SUPER_ADMIN) {
+        grantedRoles.add(client_1.UserRole.OPERATIONS_ADMIN);
+        grantedRoles.add(client_1.UserRole.SELLER);
+        grantedRoles.add(client_1.UserRole.BUYER);
+    }
+    else if (req.user.role === client_1.UserRole.OPERATIONS_ADMIN) {
+        grantedRoles.add(client_1.UserRole.BUYER);
+    }
+    else if (req.user.role === client_1.UserRole.SELLER) {
+        grantedRoles.add(client_1.UserRole.BUYER);
+    }
+    // Dynamic SELLER Role: if the user's profile is verified as a seller, 
+    // implicitly grant SELLER access even if their primary DB role is BUYER.
+    const profile = req.user.profile;
+    if ((profile === null || profile === void 0 ? void 0 : profile.isSeller) && (profile === null || profile === void 0 ? void 0 : profile.sellerStatus) === 'APPROVED') {
+        grantedRoles.add(client_1.UserRole.SELLER);
+    }
+    const hasAccess = requiredRoles.some(r => grantedRoles.has(r));
+    if (!hasAccess) {
         throw ApiError_1.ApiError.forbidden(`Access restricted to: ${requiredRoles.join(', ')}`);
     }
     next();

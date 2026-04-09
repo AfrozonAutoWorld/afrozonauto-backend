@@ -85,7 +85,15 @@ let VehicleRepository = class VehicleRepository {
             if (ids.length === 0)
                 return [];
             const vehicles = yield db_1.default.vehicle.findMany({
-                where: { id: { in: ids }, isActive: true, isHidden: false },
+                where: {
+                    id: { in: ids },
+                    isActive: true,
+                    isHidden: false,
+                    OR: [
+                        { source: { not: client_1.VehicleSource.SELLER } },
+                        { user: { profile: { sellerStatus: 'APPROVED' } } }
+                    ]
+                },
             });
             const byId = new Map(vehicles.map((v) => [v.id, v]));
             return ids.map((id) => byId.get(id)).filter((v) => v != null);
@@ -104,6 +112,14 @@ let VehicleRepository = class VehicleRepository {
                 isActive: filters.isActive !== false,
                 isHidden: filters.isHidden !== true,
                 priceUsd: { gt: 0 },
+                AND: [
+                    {
+                        OR: [
+                            { source: { not: client_1.VehicleSource.SELLER } },
+                            { user: { profile: { sellerStatus: 'APPROVED' } } }
+                        ]
+                    }
+                ]
             };
             if ((_a = filters.luxuryMakes) === null || _a === void 0 ? void 0 : _a.length) {
                 where.make = { in: filters.luxuryMakes };
@@ -142,7 +158,13 @@ let VehicleRepository = class VehicleRepository {
             }
             if (filters.bodyStyle) {
                 const style = filters.bodyStyle.trim().toLowerCase();
-                if (style === 'pickup truck') {
+                if (style === 'sedan') {
+                    where.bodyStyle = {
+                        in: ['Sedan', 'Car'],
+                        mode: 'insensitive',
+                    };
+                }
+                else if (style === 'pickup truck') {
                     where.bodyStyle = {
                         in: ['Pickup Truck', 'Pickup', 'Truck'],
                         mode: 'insensitive',
@@ -184,7 +206,7 @@ let VehicleRepository = class VehicleRepository {
                     searchConditions.push({ vin: { contains: searchTerm, mode: 'insensitive' } });
                 }
                 if (searchConditions.length > 0) {
-                    where.OR = searchConditions;
+                    where.AND.push({ OR: searchConditions });
                 }
             }
             const [vehicles, total] = yield Promise.all([
@@ -225,6 +247,10 @@ let VehicleRepository = class VehicleRepository {
                     isActive: true,
                     isHidden: false,
                     priceUsd: { gt: 0 },
+                    OR: [
+                        { source: { not: client_1.VehicleSource.SELLER } },
+                        { user: { profile: { sellerStatus: 'APPROVED' } } }
+                    ]
                 },
                 orderBy: [{ recommendedSortOrder: 'asc' }, { createdAt: 'desc' }],
                 take: limit,
@@ -242,6 +268,10 @@ let VehicleRepository = class VehicleRepository {
                     isActive: true,
                     isHidden: false,
                     priceUsd: { gt: 0 },
+                    OR: [
+                        { source: { not: client_1.VehicleSource.SELLER } },
+                        { user: { profile: { sellerStatus: 'APPROVED' } } }
+                    ]
                 },
                 orderBy: [{ createdAt: 'desc' }],
                 take: limit,

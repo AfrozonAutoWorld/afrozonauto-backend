@@ -9,7 +9,10 @@ const client_1 = require("../../generated/prisma/client");
 const files_validation_1 = require("./files.validation");
 exports.loginSchema = joi_1.default.object({
     email: joi_1.default.string().email().required(),
-    password: joi_1.default.string().optional()
+    password: joi_1.default.string().optional(),
+    loginAs: joi_1.default.string()
+        .valid(...Object.values(client_1.UserRole))
+        .optional(),
 });
 exports.TokenValidationSchema = joi_1.default.object({
     email: joi_1.default.string().email().required(),
@@ -43,6 +46,9 @@ exports.createUserSchema = joi_1.default.object({
     phone: phoneSchema,
     role: joi_1.default.string()
         .valid(...Object.values(client_1.UserRole))
+        .optional(),
+    roles: joi_1.default.array()
+        .items(joi_1.default.string().valid(...Object.values(client_1.UserRole)))
         .optional(),
     isActive: joi_1.default.boolean().optional(),
 });

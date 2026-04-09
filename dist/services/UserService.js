@@ -73,11 +73,11 @@ let UserService = class UserService {
     }
     createUser(data) {
         return __awaiter(this, void 0, void 0, function* () {
-            const { email, role, googleId, emailVerified, password, firstName, lastName, } = data;
+            const { email, roles, googleId, emailVerified, password, firstName, lastName, } = data;
             const hashedPassword = yield this.hashing(password);
             return this.userRepository.create({
                 email,
-                role,
+                roles,
                 googleId,
                 firstName,
                 lastName,
@@ -163,7 +163,7 @@ let UserService = class UserService {
                     email: data.email,
                     passwordHash,
                     phone: data.phone,
-                    role: (_a = data.role) !== null && _a !== void 0 ? _a : enums_1.UserRole.BUYER,
+                    roles: { set: [(_a = data.role) !== null && _a !== void 0 ? _a : enums_1.UserRole.BUYER] },
                     emailVerified: true,
                     googleId: `local_${randomUUID()}`,
                     appleId: `local_${randomUUID()}`,

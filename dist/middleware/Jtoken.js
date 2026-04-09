@@ -38,6 +38,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const secrets_1 = require("../secrets");
 const UserRepository_1 = require("../repositories/UserRepository");
+const client_1 = require("../generated/prisma/client");
 const ApiError_1 = require("../utils/ApiError");
 const inversify_1 = require("inversify");
 const types_1 = require("../config/types");
@@ -204,6 +205,7 @@ let Jtoken = class Jtoken {
      */
     refreshAccessToken(refreshToken) {
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             const decoded = yield this.verifyToken(refreshToken);
             if (!decoded) {
                 throw ApiError_1.ApiError.unauthorized("Invalid refresh token");
@@ -216,7 +218,7 @@ let Jtoken = class Jtoken {
                 const { passwordHash } = user, userData = __rest(user, ["passwordHash"]);
                 const payload = {
                     id: user.id,
-                    role: user.role,
+                    role: ((_a = user.roles) === null || _a === void 0 ? void 0 : _a[0]) || client_1.UserRole.BUYER,
                     email: user.email
                 };
                 const { accessToken, refreshToken: newRefreshToken } = yield this.createToken(payload);
