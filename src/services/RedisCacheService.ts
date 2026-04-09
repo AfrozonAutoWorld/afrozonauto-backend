@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { injectable } from 'inversify';
 import Redis from 'ioredis';
 import loggers from '../utils/loggers';
@@ -463,5 +464,58 @@ export class RedisCacheService {
       }
       this.client = null;
     }
+  }
+
+  private static readonly TEMP_VEHICLE_PUBLIC_ID_PREFIX = 'afz:tempVid:';
+  private static readonly TEMP_VEHICLE_VIN_TO_UUID_PREFIX = 'afz:tempVinIdx:';
+  private static readonly TEMP_VEHICLE_PUBLIC_ID_TTL_SEC = 7 * 24 * 3600;
+
+  /**
+   * Public id for API-only listings: `temp-<uuid>` maps to VIN server-side (VIN not embedded in id).
+   * Same VIN reuses the same uuid until TTL (stable detail URLs / refetch).
+   * If Redis is unavailable, falls back to legacy `temp-<VIN>` (VIN visible).
+   */
+  async registerTempVehiclePublicId(vin: string): Promise<string> {
+    const normalized = (vin || '').trim().toUpperCase();
+    if (normalized.length !== 17 || !/^[A-HJ-NPR-Z0-9]+$/i.test(normalized)) {
+      loggers.warn('registerTempVehiclePublicId: invalid VIN, using legacy temp id');
+      return `temp-${normalized}`;
+    }
+    const vinIdxKey = `${RedisCacheService.TEMP_VEHICLE_VIN_TO_UUID_PREFIX}${normalized}`;
+    const existingUuid = await this.get<string>(vinIdxKey);
+    if (
+      typeof existingUuid === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(existingUuid)
+    ) {
+      return `temp-${existingUuid}`;
+    }
+    const uuid = randomUUID();
+    const vidKey = `${RedisCacheService.TEMP_VEHICLE_PUBLIC_ID_PREFIX}${uuid}`;
+    const ttl = RedisCacheService.TEMP_VEHICLE_PUBLIC_ID_TTL_SEC;
+    const okVid = await this.set(vidKey, normalized, ttl);
+    const okIdx = await this.set(vinIdxKey, uuid, ttl);
+    if (!okVid || !okIdx) {
+      loggers.warn('Redis unavailable: using legacy temp-VIN id (VIN visible in id)');
+      return `temp-${normalized}`;
+    }
+    return `temp-${uuid}`;
+  }
+
+  /**
+   * Resolve `temp-<uuid>` to VIN. Returns null if unknown or not an opaque temp id.
+   */
+  async resolveTempVehiclePublicId(fullTempId: string): Promise<string | null> {
+    const t = (fullTempId || '').trim();
+    if (!t.startsWith('temp-')) return null;
+    const uuid = t.slice(5);
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid)
+    ) {
+      return null;
+    }
+    const key = `${RedisCacheService.TEMP_VEHICLE_PUBLIC_ID_PREFIX}${uuid}`;
+    const vin = await this.get<string>(key);
+    if (typeof vin === 'string' && vin.length === 17) return vin.toUpperCase();
+    return null;
   }
 }

@@ -14,6 +14,27 @@ import { PricingConfigRepository } from '../repositories/PricingConfigRepository
 import { PricingConfigService } from '../services/PricingConfigService';
 import { NotificationService } from '../services/NotificationService';
 import { allowEnum, allowEnumArray } from '../utils/enumUtils';
+import { maskVehicleForPublic } from '../utils/vinMask';
+
+function maskOrderVin<T extends Record<string, any>>(order: T): T {
+  if (!order || typeof order !== "object") return order;
+
+  const masked = { ...order } as Record<string, unknown>;
+
+  if (masked.vehicleSnapshot && typeof masked.vehicleSnapshot === "object") {
+    masked.vehicleSnapshot = maskVehicleForPublic(masked.vehicleSnapshot);
+  }
+
+  if (masked.vehicle && typeof masked.vehicle === "object") {
+    masked.vehicle = maskVehicleForPublic(masked.vehicle);
+  }
+
+  return masked as T;
+}
+
+function maskOrdersVin<T extends Record<string, any>>(orders: T[]): T[] {
+  return orders.map((order) => maskOrderVin(order));
+}
 
 export class OrderController {
   constructor(
@@ -116,7 +137,7 @@ export class OrderController {
       );
     }
     const typeParam = (Array.isArray(raw) ? raw[0] : raw) || '';
-    let type: 'id' | 'vin' = typeParam?.toString().trim().toLowerCase() === 'vin' ? 'vin' : 'vin';
+    let type: 'id' | 'vin' = typeParam?.toString().trim().toLowerCase() === 'vin' ? 'vin' : 'id';
     if (identifier.startsWith('temp-')) {
       type = 'id';
     }
@@ -154,8 +175,11 @@ export class OrderController {
       }
     }
 
+    const isAdmin = req.user?.role === 'SUPER_ADMIN' || req.user?.role === 'OPERATIONS_ADMIN';
+    const safeOrder = isAdmin ? order : maskOrderVin(order as any);
+
     return res.status(200).json(
-      ApiResponse.success(order, "Order retrieved successfully")
+      ApiResponse.success(safeOrder, "Order retrieved successfully")
     );
   });
 
@@ -170,8 +194,11 @@ export class OrderController {
       }
     }
 
+    const isAdmin = req.user?.role === 'SUPER_ADMIN' || req.user?.role === 'OPERATIONS_ADMIN';
+    const safeOrder = isAdmin ? order : maskOrderVin(order as any);
+
     return res.status(200).json(
-      ApiResponse.success(order, "Order retrieved successfully")
+      ApiResponse.success(safeOrder, "Order retrieved successfully")
     );
   });
 
@@ -187,9 +214,13 @@ export class OrderController {
     const limit = parseInt(req.query.limit as string) || 10;
 
     const result = await this.service.getUserOrders(userId, page, limit);
+    const safeResult = {
+      ...result,
+      orders: maskOrdersVin(result.orders as any[]),
+    };
 
     return res.status(200).json(
-      ApiResponse.success(result, "User orders retrieved successfully")
+      ApiResponse.success(safeResult, "User orders retrieved successfully")
     );
   });
 

@@ -4,6 +4,7 @@ import { OrderRepository } from '../repositories/OrderRepository';
 import { VehicleRepository } from '../repositories/VehicleRepository';
 import { TrendingDefinitionRepository } from '../repositories/TrendingDefinitionRepository';
 import { AutoDevService } from '../services/AutoDevService';
+import { RedisCacheService } from '../services/RedisCacheService';
 import { VehicleTransformer } from '../helpers/vehicle-transformer';
 import { Vehicle } from '../generated/prisma/client';
 import loggers from '../utils/loggers';
@@ -16,7 +17,8 @@ export class TrendingService {
     @inject(TYPES.OrderRepository) private orderRepo: OrderRepository,
     @inject(TYPES.VehicleRepository) private vehicleRepo: VehicleRepository,
     @inject(TYPES.TrendingDefinitionRepository) private trendingRepo: TrendingDefinitionRepository,
-    @inject(TYPES.AutoDevService) private autoDevService: AutoDevService
+    @inject(TYPES.AutoDevService) private autoDevService: AutoDevService,
+    @inject(TYPES.RedisCacheService) private redisCache: RedisCacheService
   ) {}
 
   /**
@@ -60,7 +62,7 @@ export class TrendingService {
             const vehicleData = VehicleTransformer.fromAutoDevListing(listing, []);
             vehicleData.apiData = { listing, raw: listing, isTemporary: true };
             vehicleData.apiSyncStatus = 'PENDING';
-            vehicleData.id = `temp-${vin}`;
+            vehicleData.id = await this.redisCache.registerTempVehiclePublicId(vin);
             result.push(vehicleData as Vehicle);
           }
         }
