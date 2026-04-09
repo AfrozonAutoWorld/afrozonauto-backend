@@ -2,6 +2,7 @@ import { inject, injectable } from 'inversify';
 import { TYPES } from '../config/types';
 import { RecommendedDefinitionRepository } from '../repositories/RecommendedDefinitionRepository';
 import { AutoDevService } from '../services/AutoDevService';
+import { RedisCacheService } from '../services/RedisCacheService';
 import { VehicleTransformer } from '../helpers/vehicle-transformer';
 import { Vehicle } from '../generated/prisma/client';
 import loggers from '../utils/loggers';
@@ -12,7 +13,8 @@ const DEFAULT_REASON = 'Near-new, under 15k miles, exceptional condition at this
 export class RecommendedService {
   constructor(
     @inject(TYPES.RecommendedDefinitionRepository) private recommendedRepo: RecommendedDefinitionRepository,
-    @inject(TYPES.AutoDevService) private autoDevService: AutoDevService
+    @inject(TYPES.AutoDevService) private autoDevService: AutoDevService,
+    @inject(TYPES.RedisCacheService) private redisCache: RedisCacheService
   ) {}
 
   /**
@@ -48,7 +50,7 @@ export class RecommendedService {
             const vehicleData = VehicleTransformer.fromAutoDevListing(listing, []);
             vehicleData.apiData = { listing, raw: listing, isTemporary: true };
             vehicleData.apiSyncStatus = 'PENDING';
-            (vehicleData as any).id = `temp-${vin}`;
+            (vehicleData as any).id = await this.redisCache.registerTempVehiclePublicId(vin);
             result.push({ vehicle: vehicleData as Vehicle, reason });
             if (result.length >= limit) break;
           }

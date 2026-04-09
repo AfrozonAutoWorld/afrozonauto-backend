@@ -15,6 +15,7 @@ import { ApiError } from '../utils/ApiError';
 import loggers from '../utils/loggers';
 import { AutoDevListingsParams } from '../validation/interfaces/IAutoDev';
 import { matchesBodyStyleFilter, matchesVehicleTypeFilter } from '../utils/vehicleFilterMatching';
+import { RedisCacheService } from './RedisCacheService';
 
 @injectable()
 export class VehicleServiceDirect {
@@ -26,7 +27,8 @@ export class VehicleServiceDirect {
     @inject(TYPES.AutoDevService) private autoDevService: AutoDevService,
     @inject(TYPES.TrendingService) private trendingService: TrendingService,
     @inject(TYPES.RecommendedService) private recommendedService: RecommendedService,
-    @inject(TYPES.CategoryService) private categoryService: CategoryService
+    @inject(TYPES.CategoryService) private categoryService: CategoryService,
+    @inject(TYPES.RedisCacheService) private redisCache: RedisCacheService
   ) {
     this.cacheTTLHours = parseInt(process.env.REDIS_CACHE_TTL_HOURS || '12', 10);
   }
@@ -529,7 +531,7 @@ export class VehicleServiceDirect {
             cached: false,
           };
           vehicleData.apiSyncStatus = 'PENDING';
-          vehicleData.id = `temp-${listing.vin}`;
+          vehicleData.id = await this.redisCache.registerTempVehiclePublicId(listing.vin);
           apiVehicles.push(vehicleData as Vehicle);
         }
         fromApiCount = apiVehicles.length;
@@ -570,7 +572,20 @@ export class VehicleServiceDirect {
   async getVehicle(identifier: string, type: 'id' | 'vin' = 'id'): Promise<Vehicle> {
     if (type === 'vin') return this.getVehicleByVIN(identifier);
     const trim = (identifier || '').trim();
-    if (trim.startsWith('temp-')) return this.getVehicleByVIN(trim.replace(/^temp-/, ''));
+    if (trim.startsWith('temp-')) {
+      const suffix = trim.slice(5);
+      const uuidOpaque =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(suffix);
+      if (uuidOpaque) {
+        const vin = await this.redisCache.resolveTempVehiclePublicId(trim);
+        if (!vin) throw ApiError.notFound('Vehicle not found or link expired');
+        return this.getVehicleByVIN(vin);
+      }
+      if (suffix.length === 17 && this.looksLikeVin(suffix)) {
+        return this.getVehicleByVIN(suffix);
+      }
+      throw ApiError.badRequest('Invalid temp vehicle identifier');
+    }
     if (this.looksLikeVin(trim)) return this.getVehicleByVIN(trim);
     if (this.isMongoObjectId(trim)) {
       let vehicle = await this.vehicleRepo.findById(trim);
@@ -626,7 +641,7 @@ export class VehicleServiceDirect {
           isTemporary: true,
         };
         vehicleData.apiSyncStatus = 'PENDING';
-        vehicleData.id = `temp-${normalizedVin}`;
+        vehicleData.id = await this.redisCache.registerTempVehiclePublicId(normalizedVin);
         if (vehicleData.id && !(vehicleData.id as string).startsWith('temp-')) {
           this.vehicleRepo.incrementViewCount(vehicleData.id as string).catch(() => {});
         }
