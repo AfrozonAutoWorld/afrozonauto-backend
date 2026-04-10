@@ -33,6 +33,8 @@ export class SellerService {
         identificationType?: string;
         uploadedFiles?: any[];
         registerAs?: string;
+        /** True when the user just completed the seller email OTP (proves inbox access). Allows aligning password with the form for accounts that already existed but were unverified. */
+        verifiedViaSellerOtp?: boolean;
     }): Promise<{ user: User; profile: Profile }> {
         const existing = await this.userRepo.findByEmail(data.email);
 
@@ -92,6 +94,32 @@ export class SellerService {
                 throw ApiError.badRequest('This account is already a seller or has a pending application.');
             }
 
+            if (!data.password?.trim()) {
+                throw ApiError.badRequest('Password is required to confirm your existing account.');
+            }
+            if (!existing.passwordHash) {
+                throw ApiError.badRequest(
+                    'This email uses Google or Apple sign-in. Please log in that way, or set a password in your account settings before applying as a seller.',
+                );
+            }
+
+            let passwordMatches = await bcrypt.compare(data.password, existing.passwordHash);
+            // Email OTP already proved access; allow the password from this form to become the account password if it differed (e.g. unverified user chose a new strong password here).
+            if (!passwordMatches && data.verifiedViaSellerOtp) {
+                if (data.password.length < 6) {
+                    throw ApiError.badRequest('Password must be at least 6 characters');
+                }
+                const newHash = await bcrypt.hash(data.password, 10);
+                await prisma.user.update({
+                    where: { id: existing.id },
+                    data: { passwordHash: newHash },
+                });
+                passwordMatches = true;
+            }
+            if (!passwordMatches) {
+                throw ApiError.badRequest('Incorrect password. Enter the password you use to sign in with this email.');
+            }
+
             // Append role if registerAs is provided
             if (data.registerAs && !existing.roles?.includes(data.registerAs as UserRole)) {
                 await prisma.user.update({
@@ -127,8 +155,17 @@ export class SellerService {
                 include: { files: true }
             });
 
+            const userAfter = await this.userRepo.findByEmail(data.email);
+            if (!userAfter) {
+                throw ApiError.internal('User not found after seller registration update');
+            }
+
             // We don't update roles here, role is updated upon admin verification
-            return { user: existing, profile };
+            return { user: userAfter, profile };
+        }
+
+        if (!data.password || data.password.length < 6) {
+            throw ApiError.badRequest('Password is required (min 6 characters) for new seller accounts');
         }
 
         const passwordHash = await bcrypt.hash(data.password, 10);

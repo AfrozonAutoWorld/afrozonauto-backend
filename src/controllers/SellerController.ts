@@ -21,15 +21,28 @@ export class SellerController {
     ) { }
 
     /**
-     * Part 1: Check email and send verification token for new seller
+     * Part 1: Check email — send OTP only if the address is not already verified on an account.
+     * Verified users skip OTP but must still submit documents; admin verification applies as usual.
      */
     checkSellerEmail = asyncHandler(async (req: Request, res: Response) => {
         const { email } = req.body;
         if (!email) throw ApiError.badRequest('Email is required');
 
-        // We allow both new and existing users to verify email for seller registration
+        const user = await this.userService.getUserByEmail(email);
+
+        if (user?.emailVerified) {
+            return res.json(
+                ApiResponse.success(
+                    { email, skipOtp: true, emailAlreadyVerified: true },
+                    'This email is already verified. Confirm your account password on the next step, then upload documents for review.',
+                ),
+            );
+        }
+
         await this.tokenService.sendVerificationToken(undefined, email);
-        return res.json(ApiResponse.success({ email }, 'Verification token sent to email'));
+        return res.json(
+            ApiResponse.success({ email, skipOtp: false }, 'Verification token sent to email'),
+        );
     });
 
     /**
@@ -52,18 +65,33 @@ export class SellerController {
     registerSeller = asyncHandler(async (req: Request, res: Response) => {
         const { email, registerAs } = req.body;
 
-        // Validate that email has been verified via token
         const usedToken = await this.tokenService.getUsedTokenForUser({ email });
-        if (!usedToken) {
+        const existingUser = await this.userService.getUserByEmail(email);
+        const emailVerifiedSkipOtp = existingUser?.emailVerified === true;
+
+        // Guest OTP flow OR already-verified account (no new OTP — password checked in service)
+        if (!usedToken && !emailVerifiedSkipOtp) {
             throw ApiError.badRequest('Please verify your email before registering');
         }
 
-        const { user, profile } = await this.service.registerSeller({ ...req.body, registerAs });
+        const { user, profile } = await this.service.registerSeller({
+            ...req.body,
+            registerAs,
+            verifiedViaSellerOtp: Boolean(usedToken),
+        });
 
-        // Clean up the used token record
-        await this.tokenService.deleteToken({ email });
+        const { passwordHash: _ph, ...safeUser } = user as { passwordHash?: string | null } & typeof user;
 
-        return res.status(201).json(ApiResponse.created({ user, profile }, 'Seller registered successfully. Account pending administrative verification.'));
+        if (usedToken) {
+            await this.tokenService.deleteToken({ email });
+        }
+
+        return res.status(201).json(
+            ApiResponse.created(
+                { user: safeUser, profile },
+                'Seller registered successfully. Account pending administrative verification.',
+            ),
+        );
     });
 
     /**
