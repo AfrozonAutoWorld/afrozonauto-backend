@@ -35,6 +35,19 @@ export interface AutoDevVINDecode {
 
 export class VehicleTransformer {
   /**
+   * Auto.dev listing time — used so marketplace sort by createdAt does not treat API rows as epoch (1970).
+   */
+  private static listingCreatedAt(listing: AutoDevListing): Date {
+    const raw =
+      (listing as any).createdAt ??
+      (listing as any).vehicle?.createdAt ??
+      (listing as any).updatedAt;
+    if (!raw) return new Date();
+    const d = new Date(raw as string);
+    return Number.isNaN(d.getTime()) ? new Date() : d;
+  }
+
+  /**
    * Transform Auto.dev listing to our Vehicle model
    */
   static fromAutoDevListing(
@@ -90,6 +103,7 @@ export class VehicleTransformer {
       specifications: specs,
       isActive: true,
       isHidden: false,
+      createdAt: this.listingCreatedAt(listing),
     };
   }
 

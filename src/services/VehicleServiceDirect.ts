@@ -398,14 +398,22 @@ export class VehicleServiceDirect {
         }
       }
 
-      const aVal = key === 'createdAt'
-        ? ((a.createdAt as unknown as Date) ?? new Date(0)).getTime()
-        : ((a as any)[key] ?? 0);
-      const bVal = key === 'createdAt'
-        ? ((b.createdAt as unknown as Date) ?? new Date(0)).getTime()
-        : ((b as any)[key] ?? 0);
+      const createdTs = (v: Vehicle) =>
+        v.createdAt != null
+          ? new Date(v.createdAt as unknown as string | Date).getTime()
+          : Date.now();
+      const aVal = key === 'createdAt' ? createdTs(a) : ((a as any)[key] ?? 0);
+      const bVal = key === 'createdAt' ? createdTs(b) : ((b as any)[key] ?? 0);
 
-      if (aVal === bVal) return 0;
+      if (aVal === bVal) {
+        // Same timestamp: featured first, then DB/platform rows before temporary Auto.dev fills
+        const feat = Number(!!(b as any).featured) - Number(!!(a as any).featured);
+        if (feat !== 0) return feat;
+        const tempA = (a as any).apiData?.isTemporary ? 1 : 0;
+        const tempB = (b as any).apiData?.isTemporary ? 1 : 0;
+        if (tempA !== tempB) return tempA - tempB;
+        return 0;
+      }
       return sortOrder === 'asc' ? (aVal > bVal ? 1 : -1) : (aVal < bVal ? 1 : -1);
     });
   }
@@ -454,12 +462,20 @@ export class VehicleServiceDirect {
       staleVehicles.map((v) => this.refreshVehiclePrice(v).catch(() => null))
     ).catch(() => {});
 
+    /** Auto.dev has no notion of featured / recommended / specialty — mixing it in pollutes curated views. */
+    const isCuratedDbOnlyMode =
+      resolvedFilters.featured === true ||
+      resolvedFilters.recommended === true ||
+      resolvedFilters.specialty === true;
+
+    const mergeAutoDev = includeApiResults && !isCuratedDbOnlyMode;
+
     let apiVehicles: Vehicle[] = [];
     let fromApiCount = 0; // how many API listings made it into the response (after de-dup and price filter)
     let apiRawCount = 0; // how many the API actually returned (before our filtering)
     let apiOnlyCount = 0;
 
-    if (includeApiResults) {
+    if (mergeAutoDev) {
       try {
         // Where to start on Auto.dev: no filters → page 5 (avoid Hummer-heavy 1–4); with filters → page 1.
         const isBrowsingAll =
@@ -550,11 +566,14 @@ export class VehicleServiceDirect {
       this.sortVehiclesInPlace(allVehicles, sortBy, sortOrder, demoteHummers);
     }
 
-    // We don't know total from Auto.dev; only reliable signal is full page. No total/pages when API is used.
-    const usedApi = !!includeApiResults;
-    const total = usedApi ? 0 : dbResult.total + apiOnlyCount;
-    const pages = usedApi ? 0 : Math.ceil((dbResult.total + apiOnlyCount) / limit) || 1;
-    const hasMore = allVehicles.length >= limit;
+    // When Auto.dev is merged we cannot know global total; meta uses hasMore + full-page heuristic.
+    // Curated-only (featured / recommended / specialty): DB total + pagination are exact.
+    const blendedApi = mergeAutoDev;
+    const total = blendedApi ? 0 : dbResult.total + apiOnlyCount;
+    const pages = blendedApi ? 0 : Math.ceil((dbResult.total + apiOnlyCount) / limit) || 1;
+    const hasMore = blendedApi
+      ? allVehicles.length >= limit
+      : page * limit < dbResult.total;
 
     return {
       vehicles: allVehicles,
@@ -564,7 +583,7 @@ export class VehicleServiceDirect {
       pages,
       fromApi: apiRawCount,
       filteredCount: fromApiCount,
-      apiUsed: !!includeApiResults,
+      apiUsed: blendedApi,
       hasMore,
     };
   }
