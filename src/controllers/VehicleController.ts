@@ -116,6 +116,7 @@ export class VehicleController {
     if (Number.isFinite(mileageMax)) filters.mileageMax = mileageMax;
     if (str(q.vehicleType)) filters.vehicleType = str(q.vehicleType) as VehicleFilters['vehicleType'];
     if (str(q.status)) filters.status = str(q.status) as VehicleFilters['status'];
+    if (str(q.source)) filters.source = str(q.source) as VehicleFilters['source'];
     if (str(q.state)) filters.dealerState = str(q.state);
     if (q.featured !== undefined && q.featured !== '') filters.featured = q.featured === 'true';
     if (str(q.search)) filters.search = str(q.search);

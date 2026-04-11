@@ -22,23 +22,35 @@ export class TrendingService {
   ) {}
 
   /**
-   * Get trending vehicles: (1) vehicles people ordered, (2) upto maxFetchCount per trending rule from Auto.dev.
+   * Get trending vehicles for the home "Featured Vehicles" rail:
+   * (0) DB listings with featured=true (admin/seller, within optional featuredUntil),
+   * (1) vehicles people ordered (any marketplace-visible source),
+   * (2) up to maxFetchCount per trending rule from Auto.dev.
    */
   async getTrendingVehicles(): Promise<Vehicle[]> {
     const result: Vehicle[] = [];
     const seenVins = new Set<string>();
 
-    // 1. Vehicles from orders (most ordered first)
+    const pushByVin = (v: Vehicle) => {
+      if (!v.vin || seenVins.has(v.vin)) return;
+      seenVins.add(v.vin);
+      result.push(v);
+    };
+
+    // 0. DB featured first (admin/manual + approved seller listings with featured=true)
+    try {
+      const featured = await this.vehicleRepo.findFeaturedForHomeTrending(24);
+      for (const v of featured) pushByVin(v);
+    } catch (e) {
+      loggers.warn('TrendingService: failed to load featured vehicles', e);
+    }
+
+    // 1. Vehicles from orders (most ordered first) — any marketplace-visible source
     try {
       const orderedVehicleIds = await this.orderRepo.findOrderedVehicleIds(MAX_ORDERED_VEHICLES);
       const orderedVehicles = await this.vehicleRepo.findManyByIds(orderedVehicleIds);
       for (const v of orderedVehicles) {
-        // Skip manually-seeded or seller-submitted vehicles — only real API listings qualify
-        if (v.source !== 'API') continue;
-        if (v.vin && !seenVins.has(v.vin)) {
-          seenVins.add(v.vin);
-          result.push(v);
-        }
+        pushByVin(v);
       }
     } catch (e) {
       loggers.warn('TrendingService: failed to load ordered vehicles', e);

@@ -229,6 +229,33 @@ export class VehicleRepository {
   }
 
   /**
+   * Featured platform listings for the home "Featured Vehicles" rail, shown before
+   * order-popularity and Auto.dev fills. Respects seller visibility (approved sellers only).
+   */
+  async findFeaturedForHomeTrending(limit: number = 24): Promise<Vehicle[]> {
+    const now = new Date();
+    return prisma.vehicle.findMany({
+      where: {
+        featured: true,
+        isActive: true,
+        isHidden: false,
+        priceUsd: { gt: 0 },
+        OR: [{ featuredUntil: null }, { featuredUntil: { gte: now } }],
+        AND: [
+          {
+            OR: [
+              { source: { not: VehicleSource.SELLER } },
+              { user: { profile: { sellerStatus: 'APPROVED' } } },
+            ],
+          },
+        ],
+      },
+      orderBy: [{ createdAt: 'desc' }],
+      take: limit,
+    });
+  }
+
+  /**
    * Find admin-curated recommended vehicles (for "Recommended for you" section).
    * Ordered by recommendedSortOrder asc, then createdAt desc.
    */
