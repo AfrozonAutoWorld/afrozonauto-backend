@@ -179,20 +179,13 @@ let PaymentController = class PaymentController {
             return res.status(200).json(ApiResponse_1.ApiResponse.success(payment, 'Payment evidence uploaded. Awaiting admin confirmation.'));
         }));
         // ─── Admin Confirm / Reject ─────────────────────────────────────────────
-        this.confirmPayment = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+        this.confirmOrderPayments = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             if (!req.user)
                 return res.status(401).json(ApiError_1.ApiError.unauthorized('Not authenticated'));
             const { id } = req.params;
-            const { note, status } = req.body;
-            if (!status) {
-                return res.status(400).json(ApiError_1.ApiError.badRequest('Payment status is required'));
-            }
-            const validStatuses = Object.values(enums_1.PaymentStatus);
-            if (!validStatuses.includes(status)) {
-                return res.status(400).json(ApiError_1.ApiError.badRequest(`Invalid payment status. Must be one of: ${validStatuses.join(', ')}`));
-            }
-            const payment = yield this.paymentService.adminConfirmPayment(id, req.user.id, status, note);
-            return res.status(200).json(ApiResponse_1.ApiResponse.success(payment, 'Payment status updated'));
+            const { note } = req.body;
+            const result = yield this.paymentService.adminConfirmAllOrderPayments(id, req.user.id, note);
+            return res.status(200).json(ApiResponse_1.ApiResponse.success(result, 'Order payments confirmed'));
         }));
         this.rejectPayment = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             if (!req.user)

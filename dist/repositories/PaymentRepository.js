@@ -182,6 +182,19 @@ let PaymentRepository = class PaymentRepository {
             include: { order: true, user: { select: { id: true, email: true, fullName: true } } },
         });
     }
+    batchConfirmPayments(ids, adminId, note) {
+        return db_1.default.payment.updateMany({
+            where: { id: { in: ids } },
+            data: {
+                status: enums_1.PaymentStatus.COMPLETED,
+                escrowStatus: 'HELD',
+                completedAt: new Date(),
+                adminConfirmedBy: adminId,
+                adminConfirmedAt: new Date(),
+                adminNote: note,
+            },
+        });
+    }
     adminUpdatePaymentStatus(id, adminId, status, note) {
         const isCompleted = status === enums_1.PaymentStatus.COMPLETED;
         return db_1.default.payment.update({

@@ -182,6 +182,20 @@ export class PaymentRepository {
     });
   }
 
+  batchConfirmPayments(ids: string[], adminId: string, note?: string) {
+    return prisma.payment.updateMany({
+      where: { id: { in: ids } },
+      data: {
+        status: PaymentStatus.COMPLETED,
+        escrowStatus: 'HELD',
+        completedAt: new Date(),
+        adminConfirmedBy: adminId,
+        adminConfirmedAt: new Date(),
+        adminNote: note,
+      },
+    });
+  }
+
   adminUpdatePaymentStatus(id: string, adminId: string, status: PaymentStatus, note?: string) {
     const isCompleted = status === PaymentStatus.COMPLETED;
     return prisma.payment.update({

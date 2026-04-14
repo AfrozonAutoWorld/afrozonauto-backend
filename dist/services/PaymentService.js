@@ -235,57 +235,51 @@ let PaymentService = class PaymentService {
         });
     }
     // ─── Admin Confirm / Reject ───────────────────────────────────────────────
-    adminConfirmPayment(paymentId, adminId, status, note) {
+    adminConfirmAllOrderPayments(orderId, adminId, note) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a, _b, _c, _d, _e, _f;
-            const payment = yield this.paymentRepo.findPaymentWithOrder(paymentId);
-            if (!payment)
-                throw Object.assign(new Error('Payment not found'), { statusCode: 404 });
-            if (payment.status === status)
-                throw Object.assign(new Error(`Payment is already ${status}`), { statusCode: 400 });
-            let newOrderStatus = payment.paymentType === enums_1.PaymentType.DEPOSIT
-                ? enums_1.OrderStatus.DEPOSIT_PAID
-                : enums_1.OrderStatus.BALANCE_PAID;
-            if (payment.paymentType === enums_1.PaymentType.DEPOSIT) {
-                const breakdown = payment.order.paymentBreakdown;
-                const totalUsd = breakdown === null || breakdown === void 0 ? void 0 : breakdown.totalUsd;
-                const expectedDepositUsd = (_a = breakdown === null || breakdown === void 0 ? void 0 : breakdown.totalUsedDeposit) !== null && _a !== void 0 ? _a : (totalUsd ? totalUsd * Number(secrets_1.DEPOSIT_PERCENTAGE) : 0);
-                if (expectedDepositUsd > 0) {
-                    const completedDepositUsd = yield this.paymentRepo.getCompletedDepositTotalUsdForOrder(payment.orderId);
-                    const totalConfirmedDepositUsd = completedDepositUsd + (payment.amountUsd || 0);
-                    newOrderStatus =
-                        totalConfirmedDepositUsd >= expectedDepositUsd
-                            ? enums_1.OrderStatus.DEPOSIT_PAID
-                            : enums_1.OrderStatus.HALF_DEPOSIT_PAID;
+            var _a;
+            const order = yield this.orderRepo.findById(orderId);
+            if (!order)
+                throw Object.assign(new Error('Order not found'), { statusCode: 404 });
+            // Find all manual payments for this order that need confirmation
+            const allPayments = yield db_1.default.payment.findMany({
+                where: { orderId, paymentMethod: 'BANK_TRANSFER', status: { in: [enums_1.PaymentStatus.PENDING, enums_1.PaymentStatus.PROCESSING] } }
+            });
+            if (allPayments.length === 0) {
+                // If no pending manual payments, maybe check if we just want to re-evaluate the order status
+                // but usually this is called when there ARE payments to confirm.
+            }
+            const paymentIds = allPayments.map(p => p.id);
+            const totalBeingConfirmed = allPayments.reduce((sum, p) => sum + (p.amountUsd || 0), 0);
+            // Perform batch confirmation
+            if (paymentIds.length > 0) {
+                yield this.paymentRepo.batchConfirmPayments(paymentIds, adminId, note);
+            }
+            // Now re-calculate order status based on ALL completed payments
+            const totalCompleted = yield this.paymentRepo.getCompletedTotalUsdForOrder(orderId);
+            const breakdown = order.paymentBreakdown;
+            const totalUsd = breakdown === null || breakdown === void 0 ? void 0 : breakdown.totalUsd;
+            let newStatus = order.status;
+            if (totalUsd) {
+                const expectedDeposit = (_a = breakdown === null || breakdown === void 0 ? void 0 : breakdown.totalUsedDeposit) !== null && _a !== void 0 ? _a : (totalUsd * Number(secrets_1.DEPOSIT_PERCENTAGE));
+                if (totalCompleted >= totalUsd) {
+                    newStatus = enums_1.OrderStatus.BALANCE_PAID;
+                }
+                else if (totalCompleted >= expectedDeposit) {
+                    newStatus = enums_1.OrderStatus.DEPOSIT_PAID;
+                }
+                else if (totalCompleted > 0) {
+                    newStatus = enums_1.OrderStatus.HALF_DEPOSIT_PAID;
                 }
             }
-            else if (payment.paymentType === enums_1.PaymentType.BALANCE || payment.paymentType === enums_1.PaymentType.FULL_PAYMENT) {
-                const breakdown = payment.order.paymentBreakdown;
-                const totalUsd = breakdown === null || breakdown === void 0 ? void 0 : breakdown.totalUsd;
-                if (totalUsd) {
-                    const completedTotalUsd = yield this.paymentRepo.getCompletedTotalUsdForOrder(payment.orderId);
-                    const totalConfirmed = completedTotalUsd + (payment.amountUsd || 0);
-                    newOrderStatus = totalConfirmed >= totalUsd
-                        ? enums_1.OrderStatus.BALANCE_PAID
-                        : enums_1.OrderStatus.AWAITING_BALANCE;
-                }
+            if (newStatus !== order.status) {
+                yield this.orderRepo.updateOrderStatus(orderId, newStatus);
             }
-            const transactions = [];
-            transactions.push(this.paymentRepo.adminUpdatePaymentStatus(paymentId, adminId, status, note));
-            if (status === enums_1.PaymentStatus.COMPLETED) {
-                transactions.push(this.orderRepo.updateOrderStatus(payment.orderId, newOrderStatus));
-            }
-            yield db_1.default.$transaction(transactions);
-            // Notify admins (fails silently)
-            if (status === enums_1.PaymentStatus.COMPLETED) {
-                this.notificationService.notifyAdminsPaymentReceived({
-                    orderId: payment.orderId,
-                    orderRef: ((_b = payment.order) === null || _b === void 0 ? void 0 : _b.requestNumber) || 'UNKNOWN',
-                    customerName: (_f = (_d = (_c = payment.user) === null || _c === void 0 ? void 0 : _c.fullName) !== null && _d !== void 0 ? _d : (_e = payment.user) === null || _e === void 0 ? void 0 : _e.email) !== null && _f !== void 0 ? _f : 'Unknown Customer',
-                    amountUsd: payment.amountUsd,
-                }).catch(() => { });
-            }
-            return this.paymentRepo.findPaymentWithOrder(paymentId);
+            return {
+                message: `Confirmed ${allPayments.length} payments. New order status: ${newStatus}`,
+                totalConfirmed: totalCompleted,
+                orderStatus: newStatus
+            };
         });
     }
     adminRejectPayment(paymentId, adminId, note) {

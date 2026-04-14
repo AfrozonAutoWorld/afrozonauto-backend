@@ -272,68 +272,56 @@ export class PaymentService {
 
   // ─── Admin Confirm / Reject ───────────────────────────────────────────────
 
-  async adminConfirmPayment(paymentId: string, adminId: string, status: PaymentStatus, note?: string) {
-    const payment = await this.paymentRepo.findPaymentWithOrder(paymentId);
-    if (!payment) throw Object.assign(new Error('Payment not found'), { statusCode: 404 });
-    if (payment.status === status) throw Object.assign(new Error(`Payment is already ${status}`), { statusCode: 400 });
+  async adminConfirmAllOrderPayments(orderId: string, adminId: string, note?: string) {
+    const order = await this.orderRepo.findById(orderId);
+    if (!order) throw Object.assign(new Error('Order not found'), { statusCode: 404 });
 
-    let newOrderStatus: OrderStatus =
-      payment.paymentType === PaymentType.DEPOSIT
-        ? OrderStatus.DEPOSIT_PAID
-        : OrderStatus.BALANCE_PAID;
+    // Find all manual payments for this order that need confirmation
+    const allPayments = await prisma.payment.findMany({
+      where: { orderId, paymentMethod: 'BANK_TRANSFER', status: { in: [PaymentStatus.PENDING, PaymentStatus.PROCESSING] } }
+    });
 
-    if (payment.paymentType === PaymentType.DEPOSIT) {
-      const breakdown = payment.order.paymentBreakdown as Record<string, any> | null;
-      const totalUsd = breakdown?.totalUsd as number | undefined;
-      const expectedDepositUsd =
-        (breakdown?.totalUsedDeposit as number) ??
-        (totalUsd ? totalUsd * Number(DEPOSIT_PERCENTAGE) : 0);
+    if (allPayments.length === 0) {
+       // If no pending manual payments, maybe check if we just want to re-evaluate the order status
+       // but usually this is called when there ARE payments to confirm.
+    }
 
-      if (expectedDepositUsd > 0) {
-        const completedDepositUsd =
-          await this.paymentRepo.getCompletedDepositTotalUsdForOrder(payment.orderId);
-        const totalConfirmedDepositUsd = completedDepositUsd + (payment.amountUsd || 0);
+    const paymentIds = allPayments.map(p => p.id);
+    const totalBeingConfirmed = allPayments.reduce((sum, p) => sum + (p.amountUsd || 0), 0);
 
-        newOrderStatus =
-          totalConfirmedDepositUsd >= expectedDepositUsd
-            ? OrderStatus.DEPOSIT_PAID
-            : OrderStatus.HALF_DEPOSIT_PAID;
-      }
-    } else if (payment.paymentType === PaymentType.BALANCE || payment.paymentType === PaymentType.FULL_PAYMENT) {
-      const breakdown = payment.order.paymentBreakdown as Record<string, any> | null;
-      const totalUsd = breakdown?.totalUsd as number | undefined;
+    // Perform batch confirmation
+    if (paymentIds.length > 0) {
+      await this.paymentRepo.batchConfirmPayments(paymentIds, adminId, note);
+    }
+
+    // Now re-calculate order status based on ALL completed payments
+    const totalCompleted = await this.paymentRepo.getCompletedTotalUsdForOrder(orderId);
+    const breakdown = order.paymentBreakdown as Record<string, any> | null;
+    const totalUsd = breakdown?.totalUsd as number | undefined;
+
+    let newStatus: OrderStatus = order.status;
+
+    if (totalUsd) {
+      const expectedDeposit = (breakdown?.totalUsedDeposit as number) ?? (totalUsd * Number(DEPOSIT_PERCENTAGE));
       
-      if (totalUsd) {
-        const completedTotalUsd = await this.paymentRepo.getCompletedTotalUsdForOrder(payment.orderId);
-        const totalConfirmed = completedTotalUsd + (payment.amountUsd || 0);
-
-        newOrderStatus = totalConfirmed >= totalUsd 
-          ? OrderStatus.BALANCE_PAID 
-          : OrderStatus.AWAITING_BALANCE;
+      if (totalCompleted >= totalUsd) {
+        newStatus = OrderStatus.BALANCE_PAID;
+      } else if (totalCompleted >= expectedDeposit) {
+        newStatus = OrderStatus.DEPOSIT_PAID;
+      } else if (totalCompleted > 0) {
+        newStatus = OrderStatus.HALF_DEPOSIT_PAID;
       }
     }
 
-    const transactions: any[] = [];
-
-    transactions.push(this.paymentRepo.adminUpdatePaymentStatus(paymentId, adminId, status, note) as any);
-
-    if (status === PaymentStatus.COMPLETED) {
-      transactions.push(this.orderRepo.updateOrderStatus(payment.orderId, newOrderStatus) as any);
+    if (newStatus !== order.status) {
+      await this.orderRepo.updateOrderStatus(orderId, newStatus);
     }
 
-    await prisma.$transaction(transactions);
-
-    // Notify admins (fails silently)
-    if (status === PaymentStatus.COMPLETED) {
-      this.notificationService.notifyAdminsPaymentReceived({
-        orderId: payment.orderId,
-        orderRef: payment.order?.requestNumber || 'UNKNOWN',
-        customerName: payment.user?.fullName ?? payment.user?.email ?? 'Unknown Customer',
-        amountUsd: payment.amountUsd,
-      }).catch(() => { });
-    }
-
-    return this.paymentRepo.findPaymentWithOrder(paymentId);
+    return { 
+      message: `Confirmed ${allPayments.length} payments. New order status: ${newStatus}`,
+      totalConfirmed: totalCompleted,
+      orderStatus: newStatus
+    };
   }
 
   async adminRejectPayment(paymentId: string, adminId: string, note: string) {

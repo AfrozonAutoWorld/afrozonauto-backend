@@ -253,22 +253,13 @@ export class PaymentController {
 
     // ─── Admin Confirm / Reject ─────────────────────────────────────────────
 
-    confirmPayment = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    confirmOrderPayments = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
         if (!req.user) return res.status(401).json(ApiError.unauthorized('Not authenticated'));
         const { id } = req.params;
-        const { note, status } = req.body;
+        const { note } = req.body;
 
-        if (!status) {
-             return res.status(400).json(ApiError.badRequest('Payment status is required'));
-        }
-
-        const validStatuses = Object.values(PaymentStatus);
-        if (!validStatuses.includes(status)) {
-             return res.status(400).json(ApiError.badRequest(`Invalid payment status. Must be one of: ${validStatuses.join(', ')}`));
-        }
-
-        const payment = await this.paymentService.adminConfirmPayment(id, req.user.id, status as PaymentStatus, note);
-        return res.status(200).json(ApiResponse.success(payment, 'Payment status updated'));
+        const result = await this.paymentService.adminConfirmAllOrderPayments(id, req.user.id, note);
+        return res.status(200).json(ApiResponse.success(result, 'Order payments confirmed'));
     });
 
     rejectPayment = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
