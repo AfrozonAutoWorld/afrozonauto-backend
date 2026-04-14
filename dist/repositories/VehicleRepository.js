@@ -236,6 +236,34 @@ let VehicleRepository = class VehicleRepository {
         });
     }
     /**
+     * Featured platform listings for the home "Featured Vehicles" rail, shown before
+     * order-popularity and Auto.dev fills. Respects seller visibility (approved sellers only).
+     */
+    findFeaturedForHomeTrending() {
+        return __awaiter(this, arguments, void 0, function* (limit = 24) {
+            const now = new Date();
+            return db_1.default.vehicle.findMany({
+                where: {
+                    featured: true,
+                    isActive: true,
+                    isHidden: false,
+                    priceUsd: { gt: 0 },
+                    OR: [{ featuredUntil: null }, { featuredUntil: { gte: now } }],
+                    AND: [
+                        {
+                            OR: [
+                                { source: { not: client_1.VehicleSource.SELLER } },
+                                { user: { profile: { sellerStatus: 'APPROVED' } } },
+                            ],
+                        },
+                    ],
+                },
+                orderBy: [{ createdAt: 'desc' }],
+                take: limit,
+            });
+        });
+    }
+    /**
      * Find admin-curated recommended vehicles (for "Recommended for you" section).
      * Ordered by recommendedSortOrder asc, then createdAt desc.
      */

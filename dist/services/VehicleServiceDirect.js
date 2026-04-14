@@ -40,14 +40,16 @@ const client_1 = require("../generated/prisma/client");
 const ApiError_1 = require("../utils/ApiError");
 const loggers_1 = __importDefault(require("../utils/loggers"));
 const vehicleFilterMatching_1 = require("../utils/vehicleFilterMatching");
+const RedisCacheService_1 = require("./RedisCacheService");
 let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
-    constructor(vehicleRepo, savedVehicleRepo, autoDevService, trendingService, recommendedService, categoryService) {
+    constructor(vehicleRepo, savedVehicleRepo, autoDevService, trendingService, recommendedService, categoryService, redisCache) {
         this.vehicleRepo = vehicleRepo;
         this.savedVehicleRepo = savedVehicleRepo;
         this.autoDevService = autoDevService;
         this.trendingService = trendingService;
         this.recommendedService = recommendedService;
         this.categoryService = categoryService;
+        this.redisCache = redisCache;
         this.cacheTTLHours = parseInt(process.env.REDIS_CACHE_TTL_HOURS || '12', 10);
     }
     getTrendingVehicles() {
@@ -402,14 +404,22 @@ let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
                     return aH ? 1 : -1;
                 }
             }
-            const aVal = key === 'createdAt'
-                ? ((_a = a.createdAt) !== null && _a !== void 0 ? _a : new Date(0)).getTime()
-                : ((_b = a[key]) !== null && _b !== void 0 ? _b : 0);
-            const bVal = key === 'createdAt'
-                ? ((_c = b.createdAt) !== null && _c !== void 0 ? _c : new Date(0)).getTime()
-                : ((_d = b[key]) !== null && _d !== void 0 ? _d : 0);
-            if (aVal === bVal)
+            const createdTs = (v) => v.createdAt != null
+                ? new Date(v.createdAt).getTime()
+                : Date.now();
+            const aVal = key === 'createdAt' ? createdTs(a) : ((_a = a[key]) !== null && _a !== void 0 ? _a : 0);
+            const bVal = key === 'createdAt' ? createdTs(b) : ((_b = b[key]) !== null && _b !== void 0 ? _b : 0);
+            if (aVal === bVal) {
+                // Same timestamp: featured first, then DB/platform rows before temporary Auto.dev fills
+                const feat = Number(!!b.featured) - Number(!!a.featured);
+                if (feat !== 0)
+                    return feat;
+                const tempA = ((_c = a.apiData) === null || _c === void 0 ? void 0 : _c.isTemporary) ? 1 : 0;
+                const tempB = ((_d = b.apiData) === null || _d === void 0 ? void 0 : _d.isTemporary) ? 1 : 0;
+                if (tempA !== tempB)
+                    return tempA - tempB;
                 return 0;
+            }
             return sortOrder === 'asc' ? (aVal > bVal ? 1 : -1) : (aVal < bVal ? 1 : -1);
         });
     }
@@ -438,11 +448,16 @@ let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
             const dbResult = yield this.vehicleRepo.findMany(resolvedFilters, pagination);
             const staleVehicles = dbResult.vehicles.filter((v) => this.isPriceStale(v));
             Promise.all(staleVehicles.map((v) => this.refreshVehiclePrice(v).catch(() => null))).catch(() => { });
+            /** Auto.dev has no notion of featured / recommended / specialty — mixing it in pollutes curated views. */
+            const isCuratedDbOnlyMode = resolvedFilters.featured === true ||
+                resolvedFilters.recommended === true ||
+                resolvedFilters.specialty === true;
+            const mergeAutoDev = includeApiResults && !isCuratedDbOnlyMode;
             let apiVehicles = [];
             let fromApiCount = 0; // how many API listings made it into the response (after de-dup and price filter)
             let apiRawCount = 0; // how many the API actually returned (before our filtering)
             let apiOnlyCount = 0;
-            if (includeApiResults) {
+            if (mergeAutoDev) {
                 try {
                     // Where to start on Auto.dev: no filters → page 5 (avoid Hummer-heavy 1–4); with filters → page 1.
                     const isBrowsingAll = !resolvedFilters.make &&
@@ -506,7 +521,7 @@ let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
                             cached: false,
                         };
                         vehicleData.apiSyncStatus = 'PENDING';
-                        vehicleData.id = `temp-${listing.vin}`;
+                        vehicleData.id = yield this.redisCache.registerTempVehiclePublicId(listing.vin);
                         apiVehicles.push(vehicleData);
                     }
                     fromApiCount = apiVehicles.length;
@@ -520,11 +535,14 @@ let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
                 const demoteHummers = !resolvedFilters.make && !resolvedFilters.vehicleType;
                 this.sortVehiclesInPlace(allVehicles, sortBy, sortOrder, demoteHummers);
             }
-            // We don't know total from Auto.dev; only reliable signal is full page. No total/pages when API is used.
-            const usedApi = !!includeApiResults;
-            const total = usedApi ? 0 : dbResult.total + apiOnlyCount;
-            const pages = usedApi ? 0 : Math.ceil((dbResult.total + apiOnlyCount) / limit) || 1;
-            const hasMore = allVehicles.length >= limit;
+            // When Auto.dev is merged we cannot know global total; meta uses hasMore + full-page heuristic.
+            // Curated-only (featured / recommended / specialty): DB total + pagination are exact.
+            const blendedApi = mergeAutoDev;
+            const total = blendedApi ? 0 : dbResult.total + apiOnlyCount;
+            const pages = blendedApi ? 0 : Math.ceil((dbResult.total + apiOnlyCount) / limit) || 1;
+            const hasMore = blendedApi
+                ? allVehicles.length >= limit
+                : page * limit < dbResult.total;
             return {
                 vehicles: allVehicles,
                 total,
@@ -533,7 +551,7 @@ let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
                 pages,
                 fromApi: apiRawCount,
                 filteredCount: fromApiCount,
-                apiUsed: !!includeApiResults,
+                apiUsed: blendedApi,
                 hasMore,
             };
         });
@@ -543,8 +561,20 @@ let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
             if (type === 'vin')
                 return this.getVehicleByVIN(identifier);
             const trim = (identifier || '').trim();
-            if (trim.startsWith('temp-'))
-                return this.getVehicleByVIN(trim.replace(/^temp-/, ''));
+            if (trim.startsWith('temp-')) {
+                const suffix = trim.slice(5);
+                const uuidOpaque = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(suffix);
+                if (uuidOpaque) {
+                    const vin = yield this.redisCache.resolveTempVehiclePublicId(trim);
+                    if (!vin)
+                        throw ApiError_1.ApiError.notFound('Vehicle not found or link expired');
+                    return this.getVehicleByVIN(vin);
+                }
+                if (suffix.length === 17 && this.looksLikeVin(suffix)) {
+                    return this.getVehicleByVIN(suffix);
+                }
+                throw ApiError_1.ApiError.badRequest('Invalid temp vehicle identifier');
+            }
             if (this.looksLikeVin(trim))
                 return this.getVehicleByVIN(trim);
             if (this.isMongoObjectId(trim)) {
@@ -596,7 +626,7 @@ let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
                         isTemporary: true,
                     };
                     vehicleData.apiSyncStatus = 'PENDING';
-                    vehicleData.id = `temp-${normalizedVin}`;
+                    vehicleData.id = yield this.redisCache.registerTempVehiclePublicId(normalizedVin);
                     if (vehicleData.id && !vehicleData.id.startsWith('temp-')) {
                         this.vehicleRepo.incrementViewCount(vehicleData.id).catch(() => { });
                     }
@@ -781,10 +811,12 @@ exports.VehicleServiceDirect = VehicleServiceDirect = VehicleServiceDirect_1 = _
     __param(3, (0, inversify_1.inject)(types_1.TYPES.TrendingService)),
     __param(4, (0, inversify_1.inject)(types_1.TYPES.RecommendedService)),
     __param(5, (0, inversify_1.inject)(types_1.TYPES.CategoryService)),
+    __param(6, (0, inversify_1.inject)(types_1.TYPES.RedisCacheService)),
     __metadata("design:paramtypes", [VehicleRepository_1.VehicleRepository,
         SavedVehicleRepository_1.SavedVehicleRepository,
         AutoDevService_1.AutoDevService,
         TrendingService_1.TrendingService,
         RecommendedService_1.RecommendedService,
-        CategoryService_1.CategoryService])
+        CategoryService_1.CategoryService,
+        RedisCacheService_1.RedisCacheService])
 ], VehicleServiceDirect);

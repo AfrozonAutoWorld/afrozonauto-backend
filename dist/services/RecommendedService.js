@@ -29,13 +29,15 @@ const inversify_1 = require("inversify");
 const types_1 = require("../config/types");
 const RecommendedDefinitionRepository_1 = require("../repositories/RecommendedDefinitionRepository");
 const AutoDevService_1 = require("../services/AutoDevService");
+const RedisCacheService_1 = require("../services/RedisCacheService");
 const vehicle_transformer_1 = require("../helpers/vehicle-transformer");
 const loggers_1 = __importDefault(require("../utils/loggers"));
 const DEFAULT_REASON = 'Near-new, under 15k miles, exceptional condition at this price';
 let RecommendedService = class RecommendedService {
-    constructor(recommendedRepo, autoDevService) {
+    constructor(recommendedRepo, autoDevService, redisCache) {
         this.recommendedRepo = recommendedRepo;
         this.autoDevService = autoDevService;
+        this.redisCache = redisCache;
     }
     /**
      * Fetch vehicles from Auto.dev per RecommendedDefinition (like Trending).
@@ -70,7 +72,7 @@ let RecommendedService = class RecommendedService {
                             const vehicleData = vehicle_transformer_1.VehicleTransformer.fromAutoDevListing(listing, []);
                             vehicleData.apiData = { listing, raw: listing, isTemporary: true };
                             vehicleData.apiSyncStatus = 'PENDING';
-                            vehicleData.id = `temp-${vin}`;
+                            vehicleData.id = yield this.redisCache.registerTempVehiclePublicId(vin);
                             result.push({ vehicle: vehicleData, reason });
                             if (result.length >= limit)
                                 break;
@@ -90,6 +92,8 @@ exports.RecommendedService = RecommendedService = __decorate([
     (0, inversify_1.injectable)(),
     __param(0, (0, inversify_1.inject)(types_1.TYPES.RecommendedDefinitionRepository)),
     __param(1, (0, inversify_1.inject)(types_1.TYPES.AutoDevService)),
+    __param(2, (0, inversify_1.inject)(types_1.TYPES.RedisCacheService)),
     __metadata("design:paramtypes", [RecommendedDefinitionRepository_1.RecommendedDefinitionRepository,
-        AutoDevService_1.AutoDevService])
+        AutoDevService_1.AutoDevService,
+        RedisCacheService_1.RedisCacheService])
 ], RecommendedService);

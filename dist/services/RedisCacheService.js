@@ -20,13 +20,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
+var RedisCacheService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RedisCacheService = void 0;
+const crypto_1 = require("crypto");
 const inversify_1 = require("inversify");
 const ioredis_1 = __importDefault(require("ioredis"));
 const loggers_1 = __importDefault(require("../utils/loggers"));
 const secrets_1 = require("../secrets");
-let RedisCacheService = class RedisCacheService {
+let RedisCacheService = RedisCacheService_1 = class RedisCacheService {
     constructor() {
         this.client = null;
         this.isDisabled = false;
@@ -494,9 +496,61 @@ let RedisCacheService = class RedisCacheService {
             }
         });
     }
+    /**
+     * Public id for API-only listings: `temp-<uuid>` maps to VIN server-side (VIN not embedded in id).
+     * Same VIN reuses the same uuid until TTL (stable detail URLs / refetch).
+     * If Redis is unavailable, falls back to legacy `temp-<VIN>` (VIN visible).
+     */
+    registerTempVehiclePublicId(vin) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const normalized = (vin || '').trim().toUpperCase();
+            if (normalized.length !== 17 || !/^[A-HJ-NPR-Z0-9]+$/i.test(normalized)) {
+                loggers_1.default.warn('registerTempVehiclePublicId: invalid VIN, using legacy temp id');
+                return `temp-${normalized}`;
+            }
+            const vinIdxKey = `${RedisCacheService_1.TEMP_VEHICLE_VIN_TO_UUID_PREFIX}${normalized}`;
+            const existingUuid = yield this.get(vinIdxKey);
+            if (typeof existingUuid === 'string' &&
+                /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(existingUuid)) {
+                return `temp-${existingUuid}`;
+            }
+            const uuid = (0, crypto_1.randomUUID)();
+            const vidKey = `${RedisCacheService_1.TEMP_VEHICLE_PUBLIC_ID_PREFIX}${uuid}`;
+            const ttl = RedisCacheService_1.TEMP_VEHICLE_PUBLIC_ID_TTL_SEC;
+            const okVid = yield this.set(vidKey, normalized, ttl);
+            const okIdx = yield this.set(vinIdxKey, uuid, ttl);
+            if (!okVid || !okIdx) {
+                loggers_1.default.warn('Redis unavailable: using legacy temp-VIN id (VIN visible in id)');
+                return `temp-${normalized}`;
+            }
+            return `temp-${uuid}`;
+        });
+    }
+    /**
+     * Resolve `temp-<uuid>` to VIN. Returns null if unknown or not an opaque temp id.
+     */
+    resolveTempVehiclePublicId(fullTempId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const t = (fullTempId || '').trim();
+            if (!t.startsWith('temp-'))
+                return null;
+            const uuid = t.slice(5);
+            if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid)) {
+                return null;
+            }
+            const key = `${RedisCacheService_1.TEMP_VEHICLE_PUBLIC_ID_PREFIX}${uuid}`;
+            const vin = yield this.get(key);
+            if (typeof vin === 'string' && vin.length === 17)
+                return vin.toUpperCase();
+            return null;
+        });
+    }
 };
 exports.RedisCacheService = RedisCacheService;
-exports.RedisCacheService = RedisCacheService = __decorate([
+RedisCacheService.TEMP_VEHICLE_PUBLIC_ID_PREFIX = 'afz:tempVid:';
+RedisCacheService.TEMP_VEHICLE_VIN_TO_UUID_PREFIX = 'afz:tempVinIdx:';
+RedisCacheService.TEMP_VEHICLE_PUBLIC_ID_TTL_SEC = 7 * 24 * 3600;
+exports.RedisCacheService = RedisCacheService = RedisCacheService_1 = __decorate([
     (0, inversify_1.injectable)(),
     __metadata("design:paramtypes", [])
 ], RedisCacheService);

@@ -15,7 +15,7 @@ exports.verifyTokenSchema = joi_1.default.object({
 });
 exports.registerSellerSchema = joi_1.default.object({
     email: joi_1.default.string().email().required(),
-    password: joi_1.default.string().min(6).required(),
+    password: joi_1.default.string().allow('').optional(),
     phone: joi_1.default.string().optional(),
     firstName: joi_1.default.string().required(),
     lastName: joi_1.default.string().required(),

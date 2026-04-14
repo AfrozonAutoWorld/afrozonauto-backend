@@ -4,6 +4,17 @@ exports.VehicleTransformer = void 0;
 const client_1 = require("../generated/prisma/client");
 class VehicleTransformer {
     /**
+     * Auto.dev listing time — used so marketplace sort by createdAt does not treat API rows as epoch (1970).
+     */
+    static listingCreatedAt(listing) {
+        var _a, _b, _c;
+        const raw = (_c = (_a = listing.createdAt) !== null && _a !== void 0 ? _a : (_b = listing.vehicle) === null || _b === void 0 ? void 0 : _b.createdAt) !== null && _c !== void 0 ? _c : listing.updatedAt;
+        if (!raw)
+            return new Date();
+        const d = new Date(raw);
+        return Number.isNaN(d.getTime()) ? new Date() : d;
+    }
+    /**
      * Transform Auto.dev listing to our Vehicle model
      */
     static fromAutoDevListing(listing, photos = [], specs) {
@@ -51,6 +62,7 @@ class VehicleTransformer {
             specifications: specs,
             isActive: true,
             isHidden: false,
+            createdAt: this.listingCreatedAt(listing),
         };
     }
     /**

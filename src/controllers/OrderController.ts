@@ -231,7 +231,7 @@ export class OrderController {
       )
     }
 
-    const { status, userId, destinationCountry, shippingMethod, priority, startDate, endDate, search } = req.query;
+    const { status, userId, sellerId, destinationCountry, shippingMethod, priority, startDate, endDate, search } = req.query;
 
     const page  = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(100, parseInt(req.query.limit as string) || 20);
@@ -242,6 +242,7 @@ export class OrderController {
     const filters = {
       status: validatedStatuses.length ? validatedStatuses : undefined,
       userId: userId as string | undefined,
+      sellerId: sellerId as string | undefined,
       destinationCountry: destinationCountry as string | undefined,
       shippingMethod: allowEnum(shippingMethod as string | undefined, ShippingMethod, 'shippingMethod'),
       priority: allowEnum(priority as string | undefined, OrderPriority, 'priority'),

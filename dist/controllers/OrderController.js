@@ -36,6 +36,22 @@ const PricingConfigRepository_1 = require("../repositories/PricingConfigReposito
 const PricingConfigService_1 = require("../services/PricingConfigService");
 const NotificationService_1 = require("../services/NotificationService");
 const enumUtils_1 = require("../utils/enumUtils");
+const vinMask_1 = require("../utils/vinMask");
+function maskOrderVin(order) {
+    if (!order || typeof order !== "object")
+        return order;
+    const masked = Object.assign({}, order);
+    if (masked.vehicleSnapshot && typeof masked.vehicleSnapshot === "object") {
+        masked.vehicleSnapshot = (0, vinMask_1.maskVehicleForPublic)(masked.vehicleSnapshot);
+    }
+    if (masked.vehicle && typeof masked.vehicle === "object") {
+        masked.vehicle = (0, vinMask_1.maskVehicleForPublic)(masked.vehicle);
+    }
+    return masked;
+}
+function maskOrdersVin(orders) {
+    return orders.map((order) => maskOrderVin(order));
+}
 let OrderController = class OrderController {
     constructor(service, vehicleService, pricingRepo, pricingService, profileService, addressService, notificationService) {
         this.service = service;
@@ -113,7 +129,7 @@ let OrderController = class OrderController {
                 return res.status(400).json(ApiError_1.ApiError.badRequest(`shippingMethod is required. Allowed values: ${Object.values(client_1.ShippingMethod).join(', ')}`));
             }
             const typeParam = (Array.isArray(raw) ? raw[0] : raw) || '';
-            let type = (typeParam === null || typeParam === void 0 ? void 0 : typeParam.toString().trim().toLowerCase()) === 'vin' ? 'vin' : 'vin';
+            let type = (typeParam === null || typeParam === void 0 ? void 0 : typeParam.toString().trim().toLowerCase()) === 'vin' ? 'vin' : 'id';
             if (identifier.startsWith('temp-')) {
                 type = 'id';
             }
@@ -134,7 +150,7 @@ let OrderController = class OrderController {
         }));
         // ========== READ ==========
         this.getOrderById = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
-            var _a, _b, _c;
+            var _a, _b, _c, _d, _e;
             const { id } = req.params;
             const order = yield this.service.getOrderById(id);
             // Check permissions
@@ -143,10 +159,12 @@ let OrderController = class OrderController {
                     throw new ApiError_1.ApiError(403, "Access denied");
                 }
             }
-            return res.status(200).json(ApiResponse_1.ApiResponse.success(order, "Order retrieved successfully"));
+            const isAdmin = ((_d = req.user) === null || _d === void 0 ? void 0 : _d.role) === 'SUPER_ADMIN' || ((_e = req.user) === null || _e === void 0 ? void 0 : _e.role) === 'OPERATIONS_ADMIN';
+            const safeOrder = isAdmin ? order : maskOrderVin(order);
+            return res.status(200).json(ApiResponse_1.ApiResponse.success(safeOrder, "Order retrieved successfully"));
         }));
         this.getOrderByRequestNumber = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
-            var _a, _b, _c;
+            var _a, _b, _c, _d, _e;
             const { requestNumber } = req.params;
             const order = yield this.service.getOrderByRequestNumber(requestNumber);
             // Check permissions
@@ -155,7 +173,9 @@ let OrderController = class OrderController {
                     throw new ApiError_1.ApiError(403, "Access denied");
                 }
             }
-            return res.status(200).json(ApiResponse_1.ApiResponse.success(order, "Order retrieved successfully"));
+            const isAdmin = ((_d = req.user) === null || _d === void 0 ? void 0 : _d.role) === 'SUPER_ADMIN' || ((_e = req.user) === null || _e === void 0 ? void 0 : _e.role) === 'OPERATIONS_ADMIN';
+            const safeOrder = isAdmin ? order : maskOrderVin(order);
+            return res.status(200).json(ApiResponse_1.ApiResponse.success(safeOrder, "Order retrieved successfully"));
         }));
         this.getUserOrders = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             var _a;
@@ -166,14 +186,15 @@ let OrderController = class OrderController {
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
             const result = yield this.service.getUserOrders(userId, page, limit);
-            return res.status(200).json(ApiResponse_1.ApiResponse.success(result, "User orders retrieved successfully"));
+            const safeResult = Object.assign(Object.assign({}, result), { orders: maskOrdersVin(result.orders) });
+            return res.status(200).json(ApiResponse_1.ApiResponse.success(safeResult, "User orders retrieved successfully"));
         }));
         this.getAllOrders = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             var _a, _b;
             if (!req.user || ((_a = req.user) === null || _a === void 0 ? void 0 : _a.role) !== 'SUPER_ADMIN' && ((_b = req.user) === null || _b === void 0 ? void 0 : _b.role) !== 'OPERATIONS_ADMIN') {
                 return res.status(403).json(ApiError_1.ApiError.unauthorized("Admin access required"));
             }
-            const { status, userId, destinationCountry, shippingMethod, priority, startDate, endDate, search } = req.query;
+            const { status, userId, sellerId, destinationCountry, shippingMethod, priority, startDate, endDate, search } = req.query;
             const page = Math.max(1, parseInt(req.query.page) || 1);
             const limit = Math.min(100, parseInt(req.query.limit) || 20);
             const rawStatuses = status ? (Array.isArray(status) ? status : [status]) : [];
@@ -181,6 +202,7 @@ let OrderController = class OrderController {
             const filters = {
                 status: validatedStatuses.length ? validatedStatuses : undefined,
                 userId: userId,
+                sellerId: sellerId,
                 destinationCountry: destinationCountry,
                 shippingMethod: (0, enumUtils_1.allowEnum)(shippingMethod, client_1.ShippingMethod, 'shippingMethod'),
                 priority: (0, enumUtils_1.allowEnum)(priority, client_1.OrderPriority, 'priority'),

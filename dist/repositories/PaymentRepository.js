@@ -33,9 +33,17 @@ let PaymentRepository = class PaymentRepository {
                 where.status = filters.status;
             }
             if (filters.search) {
+                const search = filters.search.trim();
+                const isObjectId = /^[0-9a-fA-F]{24}$/.test(search);
                 where.OR = [
-                    { transactionRef: { contains: filters.search, mode: 'insensitive' } },
-                    { orderId: { contains: filters.search, mode: 'insensitive' } },
+                    { transactionRef: { contains: search, mode: 'insensitive' } },
+                    { user: { fullName: { contains: search, mode: 'insensitive' } } },
+                    { user: { email: { contains: search, mode: 'insensitive' } } },
+                    ...(isObjectId ? [
+                        { id: search },
+                        { orderId: search },
+                        { order: { vehicle: { userId: search } } }
+                    ] : []),
                 ];
             }
             const [payments, total] = yield Promise.all([

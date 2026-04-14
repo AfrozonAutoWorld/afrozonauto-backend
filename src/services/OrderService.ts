@@ -101,6 +101,7 @@ export class OrderService {
       destinationCountry?: string;
       startDate?: Date;
       endDate?: Date;
+      sellerId?: string;
     },
     page = 1,
     limit = 20,

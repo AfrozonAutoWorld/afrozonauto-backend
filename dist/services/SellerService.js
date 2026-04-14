@@ -46,7 +46,7 @@ let SellerService = class SellerService {
      */
     registerSeller(data) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a;
+            var _a, _b;
             const existing = yield this.userRepo.findByEmail(data.email);
             // Helper function to map document names
             const mapDocumentName = (name) => {
@@ -93,8 +93,30 @@ let SellerService = class SellerService {
                 if ((existingProfile === null || existingProfile === void 0 ? void 0 : existingProfile.sellerStatus) === client_1.SellerVerificationStatus.PENDING || (existingProfile === null || existingProfile === void 0 ? void 0 : existingProfile.sellerStatus) === client_1.SellerVerificationStatus.APPROVED) {
                     throw ApiError_1.ApiError.badRequest('This account is already a seller or has a pending application.');
                 }
+                if (!((_a = data.password) === null || _a === void 0 ? void 0 : _a.trim())) {
+                    throw ApiError_1.ApiError.badRequest('Password is required to confirm your existing account.');
+                }
+                if (!existing.passwordHash) {
+                    throw ApiError_1.ApiError.badRequest('This email uses Google or Apple sign-in. Please log in that way, or set a password in your account settings before applying as a seller.');
+                }
+                let passwordMatches = yield bcrypt_1.default.compare(data.password, existing.passwordHash);
+                // Email OTP already proved access; allow the password from this form to become the account password if it differed (e.g. unverified user chose a new strong password here).
+                if (!passwordMatches && data.verifiedViaSellerOtp) {
+                    if (data.password.length < 6) {
+                        throw ApiError_1.ApiError.badRequest('Password must be at least 6 characters');
+                    }
+                    const newHash = yield bcrypt_1.default.hash(data.password, 10);
+                    yield db_1.default.user.update({
+                        where: { id: existing.id },
+                        data: { passwordHash: newHash },
+                    });
+                    passwordMatches = true;
+                }
+                if (!passwordMatches) {
+                    throw ApiError_1.ApiError.badRequest('Incorrect password. Enter the password you use to sign in with this email.');
+                }
                 // Append role if registerAs is provided
-                if (data.registerAs && !((_a = existing.roles) === null || _a === void 0 ? void 0 : _a.includes(data.registerAs))) {
+                if (data.registerAs && !((_b = existing.roles) === null || _b === void 0 ? void 0 : _b.includes(data.registerAs))) {
                     yield db_1.default.user.update({
                         where: { id: existing.id },
                         data: {
@@ -116,8 +138,15 @@ let SellerService = class SellerService {
                     })),
                     include: { files: true }
                 });
+                const userAfter = yield this.userRepo.findByEmail(data.email);
+                if (!userAfter) {
+                    throw ApiError_1.ApiError.internal('User not found after seller registration update');
+                }
                 // We don't update roles here, role is updated upon admin verification
-                return { user: existing, profile };
+                return { user: userAfter, profile };
+            }
+            if (!data.password || data.password.length < 6) {
+                throw ApiError_1.ApiError.badRequest('Password is required (min 6 characters) for new seller accounts');
             }
             const passwordHash = yield bcrypt_1.default.hash(data.password, 10);
             const uniqueGoogleId = `local_${(0, node_crypto_1.randomUUID)()}`;

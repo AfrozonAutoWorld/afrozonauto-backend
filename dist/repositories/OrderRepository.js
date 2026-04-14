@@ -280,13 +280,18 @@ let OrderRepository = class OrderRepository {
         return __awaiter(this, arguments, void 0, function* (filters, page = 1, limit = 20) {
             const skip = (page - 1) * limit;
             const where = {};
+            const isObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
             if (filters.status) {
                 where.status = Array.isArray(filters.status)
                     ? { in: filters.status }
                     : filters.status;
             }
-            if (filters.userId)
+            if (filters.userId && isObjectId(filters.userId)) {
                 where.userId = filters.userId;
+            }
+            if (filters.sellerId && isObjectId(filters.sellerId)) {
+                where.vehicle = { userId: filters.sellerId };
+            }
             if (filters.priority)
                 where.priority = filters.priority;
             if (filters.shippingMethod)
@@ -295,16 +300,22 @@ let OrderRepository = class OrderRepository {
                 where.destinationCountry = filters.destinationCountry;
             if (filters.startDate || filters.endDate) {
                 where.createdAt = {};
-                if (filters.startDate)
+                if (filters.startDate && !isNaN(filters.startDate.getTime()))
                     where.createdAt.gte = filters.startDate;
-                if (filters.endDate)
+                if (filters.endDate && !isNaN(filters.endDate.getTime()))
                     where.createdAt.lte = filters.endDate;
             }
             if (filters.search) {
+                const search = filters.search.trim();
                 where.OR = [
-                    { requestNumber: { contains: filters.search, mode: 'insensitive' } },
-                    { user: { fullName: { contains: filters.search, mode: 'insensitive' } } },
-                    { user: { email: { contains: filters.search, mode: 'insensitive' } } },
+                    { requestNumber: { contains: search, mode: 'insensitive' } },
+                    { user: { fullName: { contains: search, mode: 'insensitive' } } },
+                    { user: { email: { contains: search, mode: 'insensitive' } } },
+                    ...(isObjectId(search) ? [
+                        { id: search },
+                        { userId: search },
+                        { vehicle: { userId: search } }
+                    ] : []),
                 ];
             }
             const [orders, total] = yield Promise.all([

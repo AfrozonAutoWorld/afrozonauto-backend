@@ -30,6 +30,12 @@ const asyncHandler_1 = require("../utils/asyncHandler");
 const ApiResponse_1 = require("../utils/ApiResponse");
 const ApiError_1 = require("../utils/ApiError");
 const client_1 = require("../generated/prisma/client");
+const vinMask_1 = require("../utils/vinMask");
+function isVehicleVinAdmin(req) {
+    var _a;
+    const role = (_a = req.user) === null || _a === void 0 ? void 0 : _a.role;
+    return role === client_1.UserRole.SUPER_ADMIN || role === client_1.UserRole.OPERATIONS_ADMIN;
+}
 let VehicleController = class VehicleController {
     constructor(vehicleService, categoryService) {
         this.vehicleService = vehicleService;
@@ -38,9 +44,10 @@ let VehicleController = class VehicleController {
          * GET /api/vehicles/trending
          * Trending vehicles: ordered first, then 5 per trending rule from Auto.dev
          */
-        this.getTrending = (0, asyncHandler_1.asyncHandler)((_req, res) => __awaiter(this, void 0, void 0, function* () {
+        this.getTrending = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             const vehicles = yield this.vehicleService.getTrendingVehicles();
-            return res.json(ApiResponse_1.ApiResponse.success(vehicles, 'Trending vehicles retrieved successfully'));
+            const payload = isVehicleVinAdmin(req) ? vehicles : (0, vinMask_1.maskVehiclesForPublic)(vehicles);
+            return res.json(ApiResponse_1.ApiResponse.success(payload, 'Trending vehicles retrieved successfully'));
         }));
         /**
          * GET /api/vehicles/recommended
@@ -52,7 +59,8 @@ let VehicleController = class VehicleController {
             const limit = Math.min(24, Math.max(1, parseInt(String(req.query.limit || 12), 10) || 12));
             const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
             const list = yield this.vehicleService.getRecommendedVehicles(limit, userId);
-            return res.json(ApiResponse_1.ApiResponse.success(list, 'Recommended vehicles retrieved successfully'));
+            const payload = isVehicleVinAdmin(req) ? list : (0, vinMask_1.maskRecommendedOrSpecialtyItems)(list);
+            return res.json(ApiResponse_1.ApiResponse.success(payload, 'Recommended vehicles retrieved successfully'));
         }));
         /**
          * GET /api/vehicles/specialty
@@ -61,7 +69,8 @@ let VehicleController = class VehicleController {
         this.getSpecialty = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             const limit = Math.min(24, Math.max(1, parseInt(String(req.query.limit || 12), 10) || 12));
             const list = yield this.vehicleService.getSpecialtyVehicles(limit);
-            return res.json(ApiResponse_1.ApiResponse.success(list, 'Specialty vehicles retrieved successfully'));
+            const payload = isVehicleVinAdmin(req) ? list : (0, vinMask_1.maskRecommendedOrSpecialtyItems)(list);
+            return res.json(ApiResponse_1.ApiResponse.success(payload, 'Specialty vehicles retrieved successfully'));
         }));
         /**
          * GET /api/vehicles/categories
@@ -125,6 +134,8 @@ let VehicleController = class VehicleController {
                 filters.vehicleType = str(q.vehicleType);
             if (str(q.status))
                 filters.status = str(q.status);
+            if (str(q.source))
+                filters.source = str(q.source);
             if (str(q.state))
                 filters.dealerState = str(q.state);
             if (q.featured !== undefined && q.featured !== '')
@@ -175,7 +186,10 @@ let VehicleController = class VehicleController {
                 : result.pages != null && result.pages > 0
                     ? result.page < result.pages
                     : result.vehicles.length >= result.limit;
-            return res.json(ApiResponse_1.ApiResponse.paginated(result.vehicles, {
+            const vehiclesOut = isVehicleVinAdmin(req)
+                ? result.vehicles
+                : (0, vinMask_1.maskVehiclesForPublic)(result.vehicles);
+            return res.json(ApiResponse_1.ApiResponse.paginated(vehiclesOut, {
                 page: result.page,
                 limit: result.limit,
                 total: result.total,
@@ -200,7 +214,7 @@ let VehicleController = class VehicleController {
             const { identifier } = req.params;
             let raw = (_a = req.query) === null || _a === void 0 ? void 0 : _a.type;
             const typeParam = (Array.isArray(raw) ? raw[0] : raw) || '';
-            let type = (typeParam === null || typeParam === void 0 ? void 0 : typeParam.toString().trim().toLowerCase()) === 'vin' ? 'vin' : 'vin';
+            let type = (typeParam === null || typeParam === void 0 ? void 0 : typeParam.toString().trim().toLowerCase()) === 'vin' ? 'vin' : 'id';
             if (identifier.startsWith('temp-')) {
                 type = 'id';
             }
@@ -208,7 +222,8 @@ let VehicleController = class VehicleController {
                 return res.json(ApiError_1.ApiError.badRequest('Vehicle identifier is required'));
             }
             const vehicle = yield this.vehicleService.getVehicle(identifier, type);
-            return res.json(ApiResponse_1.ApiResponse.success(vehicle, 'Vehicle retrieved successfully'));
+            const payload = isVehicleVinAdmin(req) ? vehicle : (0, vinMask_1.maskVehicleForPublic)(vehicle);
+            return res.json(ApiResponse_1.ApiResponse.success(payload, 'Vehicle retrieved successfully'));
         }));
         /**
          * POST /api/vehicles

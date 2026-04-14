@@ -31,36 +31,50 @@ const OrderRepository_1 = require("../repositories/OrderRepository");
 const VehicleRepository_1 = require("../repositories/VehicleRepository");
 const TrendingDefinitionRepository_1 = require("../repositories/TrendingDefinitionRepository");
 const AutoDevService_1 = require("../services/AutoDevService");
+const RedisCacheService_1 = require("../services/RedisCacheService");
 const vehicle_transformer_1 = require("../helpers/vehicle-transformer");
 const loggers_1 = __importDefault(require("../utils/loggers"));
 const MAX_ORDERED_VEHICLES = 15;
 let TrendingService = class TrendingService {
-    constructor(orderRepo, vehicleRepo, trendingRepo, autoDevService) {
+    constructor(orderRepo, vehicleRepo, trendingRepo, autoDevService, redisCache) {
         this.orderRepo = orderRepo;
         this.vehicleRepo = vehicleRepo;
         this.trendingRepo = trendingRepo;
         this.autoDevService = autoDevService;
+        this.redisCache = redisCache;
     }
     /**
-     * Get trending vehicles: (1) vehicles people ordered, (2) upto maxFetchCount per trending rule from Auto.dev.
+     * Get trending vehicles for the home "Featured Vehicles" rail:
+     * (0) DB listings with featured=true (admin/seller, within optional featuredUntil),
+     * (1) vehicles people ordered (any marketplace-visible source),
+     * (2) up to maxFetchCount per trending rule from Auto.dev.
      */
     getTrendingVehicles() {
         return __awaiter(this, void 0, void 0, function* () {
             var _a, _b;
             const result = [];
             const seenVins = new Set();
-            // 1. Vehicles from orders (most ordered first)
+            const pushByVin = (v) => {
+                if (!v.vin || seenVins.has(v.vin))
+                    return;
+                seenVins.add(v.vin);
+                result.push(v);
+            };
+            // 0. DB featured first (admin/manual + approved seller listings with featured=true)
+            try {
+                const featured = yield this.vehicleRepo.findFeaturedForHomeTrending(24);
+                for (const v of featured)
+                    pushByVin(v);
+            }
+            catch (e) {
+                loggers_1.default.warn('TrendingService: failed to load featured vehicles', e);
+            }
+            // 1. Vehicles from orders (most ordered first) — any marketplace-visible source
             try {
                 const orderedVehicleIds = yield this.orderRepo.findOrderedVehicleIds(MAX_ORDERED_VEHICLES);
                 const orderedVehicles = yield this.vehicleRepo.findManyByIds(orderedVehicleIds);
                 for (const v of orderedVehicles) {
-                    // Skip manually-seeded or seller-submitted vehicles — only real API listings qualify
-                    if (v.source !== 'API')
-                        continue;
-                    if (v.vin && !seenVins.has(v.vin)) {
-                        seenVins.add(v.vin);
-                        result.push(v);
-                    }
+                    pushByVin(v);
                 }
             }
             catch (e) {
@@ -85,7 +99,7 @@ let TrendingService = class TrendingService {
                             const vehicleData = vehicle_transformer_1.VehicleTransformer.fromAutoDevListing(listing, []);
                             vehicleData.apiData = { listing, raw: listing, isTemporary: true };
                             vehicleData.apiSyncStatus = 'PENDING';
-                            vehicleData.id = `temp-${vin}`;
+                            vehicleData.id = yield this.redisCache.registerTempVehiclePublicId(vin);
                             result.push(vehicleData);
                         }
                     }
@@ -115,8 +129,10 @@ exports.TrendingService = TrendingService = __decorate([
     __param(1, (0, inversify_1.inject)(types_1.TYPES.VehicleRepository)),
     __param(2, (0, inversify_1.inject)(types_1.TYPES.TrendingDefinitionRepository)),
     __param(3, (0, inversify_1.inject)(types_1.TYPES.AutoDevService)),
+    __param(4, (0, inversify_1.inject)(types_1.TYPES.RedisCacheService)),
     __metadata("design:paramtypes", [OrderRepository_1.OrderRepository,
         VehicleRepository_1.VehicleRepository,
         TrendingDefinitionRepository_1.TrendingDefinitionRepository,
-        AutoDevService_1.AutoDevService])
+        AutoDevService_1.AutoDevService,
+        RedisCacheService_1.RedisCacheService])
 ], TrendingService);
