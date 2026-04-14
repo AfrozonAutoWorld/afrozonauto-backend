@@ -469,6 +469,10 @@ model Order {
   vehicleSnapshot  Json
   paymentBreakdown Json?
 
+  // Amount tracking
+  amountPaidUsd      Float @default(0)
+  amountRemainingUsd Float?
+
   // Status (flexible workflow)
   status          OrderStatus @default(PENDING_QUOTE)
   previousStatus  String[]    @default([]) // Status history

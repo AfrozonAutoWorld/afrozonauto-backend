@@ -106,22 +106,49 @@ export class PaymentService {
 
 
 
-    await prisma.$transaction([
-      this.paymentRepo.updatePaymentByRef(reference, {
-        status: PaymentStatus.COMPLETED,
-        providerTransactionId: String(verification.providerTransactionId),
-        receiptUrl: verification.receiptUrl ?? null,
-        completedAt: new Date(),
-        escrowStatus: 'HELD'
-      }),
+    await prisma.$transaction(async (tx) => {
+      await tx.payment.update({
+        where: { transactionRef: reference },
+        data: {
+          status: PaymentStatus.COMPLETED,
+          providerTransactionId: String(verification.providerTransactionId),
+          receiptUrl: verification.receiptUrl ?? null,
+          completedAt: new Date(),
+          escrowStatus: 'HELD'
+        }
+      });
 
-      this.orderRepo.updateOrderStatus(
-        payment.orderId,
-        payment.paymentType === PaymentType.DEPOSIT
-          ? OrderStatus.DEPOSIT_PAID
-          : OrderStatus.BALANCE_PAID
-      )
-    ]);
+      const order = await tx.order.findUnique({ where: { id: payment.orderId } });
+      const payments = await tx.payment.findMany({ where: { orderId: payment.orderId, status: PaymentStatus.COMPLETED } });
+      const totalCompleted = payments.reduce((sum, p) => sum + (p.amountUsd || 0), 0);
+      
+      const breakdown = order?.paymentBreakdown as Record<string, any> | null;
+      const totalUsd = breakdown?.totalUsd as number | undefined;
+      
+      let newStatus: OrderStatus = order?.status || OrderStatus.PENDING_QUOTE;
+      if (totalUsd) {
+        const expectedDeposit = (breakdown?.totalUsedDeposit as number) ?? (totalUsd * Number(DEPOSIT_PERCENTAGE));
+        if (totalCompleted >= totalUsd) {
+           newStatus = OrderStatus.BALANCE_PAID;
+        } else if (totalCompleted >= expectedDeposit) {
+           newStatus = OrderStatus.DEPOSIT_PAID;
+        } else if (totalCompleted > 0) {
+           newStatus = OrderStatus.HALF_DEPOSIT_PAID;
+        }
+      }
+
+      const remainingUsd = totalUsd ? Math.max(0, totalUsd - totalCompleted) : undefined;
+
+      await tx.order.update({
+        where: { id: payment.orderId },
+        data: {
+          status: newStatus,
+          amountPaidUsd: totalCompleted,
+          amountRemainingUsd: remainingUsd,
+          statusChangedAt: new Date()
+        }
+      });
+    });
 
     // Fire-and-forget admin notification
     this.notificationService.notifyAdminsPaymentReceived({
@@ -313,9 +340,13 @@ export class PaymentService {
       }
     }
 
-    if (newStatus !== order.status) {
-      await this.orderRepo.updateOrderStatus(orderId, newStatus);
-    }
+    const remainingUsd = totalUsd ? Math.max(0, totalUsd - totalCompleted) : undefined;
+    await this.orderRepo.updateOrderStatusAndAmounts(
+      orderId, 
+      newStatus, 
+      totalCompleted, 
+      remainingUsd
+    );
 
     return { 
       message: `Confirmed ${allPayments.length} payments. New order status: ${newStatus}`,
@@ -353,9 +384,13 @@ export class PaymentService {
       }
     }
 
-    if (newStatus !== order.status) {
-      await this.orderRepo.updateOrderStatus(payment.orderId, newStatus);
-    }
+    const remainingUsd = totalUsd ? Math.max(0, totalUsd - totalCompleted) : undefined;
+    await this.orderRepo.updateOrderStatusAndAmounts(
+      payment.orderId, 
+      newStatus, 
+      totalCompleted, 
+      remainingUsd
+    );
 
     await this.notificationService.notifyBuyerPaymentConfirmed({
       userId: payment.user.id,

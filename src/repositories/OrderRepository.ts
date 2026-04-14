@@ -107,6 +107,18 @@ export class OrderRepository {
       }
     });
   }
+
+  updateOrderStatusAndAmounts(orderId: string, status: any, amountPaidUsd: number, amountRemainingUsd?: number) {
+    return prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status,
+        amountPaidUsd,
+        amountRemainingUsd,
+        statusChangedAt: new Date()
+      }
+    });
+  }
   
 
   // ========== CREATE & UPDATE ==========

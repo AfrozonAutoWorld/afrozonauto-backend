@@ -32,6 +32,17 @@ let OrderRepository = class OrderRepository {
             }
         });
     }
+    updateOrderStatusAndAmounts(orderId, status, amountPaidUsd, amountRemainingUsd) {
+        return db_1.default.order.update({
+            where: { id: orderId },
+            data: {
+                status,
+                amountPaidUsd,
+                amountRemainingUsd,
+                statusChangedAt: new Date()
+            }
+        });
+    }
     // ========== CREATE & UPDATE ==========
     create(data) {
         return __awaiter(this, void 0, void 0, function* () {

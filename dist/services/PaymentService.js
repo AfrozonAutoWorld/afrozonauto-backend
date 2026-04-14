@@ -96,7 +96,6 @@ let PaymentService = class PaymentService {
      */
     handlePaymentSuccess(reference, provider) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a;
             const payment = yield this.paymentRepo.findByReference(reference);
             if (!payment || payment.status === enums_1.PaymentStatus.COMPLETED)
                 return;
@@ -104,18 +103,47 @@ let PaymentService = class PaymentService {
             const verification = yield providerClient.verifyPayment(reference);
             if (!verification.success)
                 return;
-            yield db_1.default.$transaction([
-                this.paymentRepo.updatePaymentByRef(reference, {
-                    status: enums_1.PaymentStatus.COMPLETED,
-                    providerTransactionId: String(verification.providerTransactionId),
-                    receiptUrl: (_a = verification.receiptUrl) !== null && _a !== void 0 ? _a : null,
-                    completedAt: new Date(),
-                    escrowStatus: 'HELD'
-                }),
-                this.orderRepo.updateOrderStatus(payment.orderId, payment.paymentType === enums_1.PaymentType.DEPOSIT
-                    ? enums_1.OrderStatus.DEPOSIT_PAID
-                    : enums_1.OrderStatus.BALANCE_PAID)
-            ]);
+            yield db_1.default.$transaction((tx) => __awaiter(this, void 0, void 0, function* () {
+                var _a, _b;
+                yield tx.payment.update({
+                    where: { transactionRef: reference },
+                    data: {
+                        status: enums_1.PaymentStatus.COMPLETED,
+                        providerTransactionId: String(verification.providerTransactionId),
+                        receiptUrl: (_a = verification.receiptUrl) !== null && _a !== void 0 ? _a : null,
+                        completedAt: new Date(),
+                        escrowStatus: 'HELD'
+                    }
+                });
+                const order = yield tx.order.findUnique({ where: { id: payment.orderId } });
+                const payments = yield tx.payment.findMany({ where: { orderId: payment.orderId, status: enums_1.PaymentStatus.COMPLETED } });
+                const totalCompleted = payments.reduce((sum, p) => sum + (p.amountUsd || 0), 0);
+                const breakdown = order === null || order === void 0 ? void 0 : order.paymentBreakdown;
+                const totalUsd = breakdown === null || breakdown === void 0 ? void 0 : breakdown.totalUsd;
+                let newStatus = (order === null || order === void 0 ? void 0 : order.status) || enums_1.OrderStatus.PENDING_QUOTE;
+                if (totalUsd) {
+                    const expectedDeposit = (_b = breakdown === null || breakdown === void 0 ? void 0 : breakdown.totalUsedDeposit) !== null && _b !== void 0 ? _b : (totalUsd * Number(secrets_1.DEPOSIT_PERCENTAGE));
+                    if (totalCompleted >= totalUsd) {
+                        newStatus = enums_1.OrderStatus.BALANCE_PAID;
+                    }
+                    else if (totalCompleted >= expectedDeposit) {
+                        newStatus = enums_1.OrderStatus.DEPOSIT_PAID;
+                    }
+                    else if (totalCompleted > 0) {
+                        newStatus = enums_1.OrderStatus.HALF_DEPOSIT_PAID;
+                    }
+                }
+                const remainingUsd = totalUsd ? Math.max(0, totalUsd - totalCompleted) : undefined;
+                yield tx.order.update({
+                    where: { id: payment.orderId },
+                    data: {
+                        status: newStatus,
+                        amountPaidUsd: totalCompleted,
+                        amountRemainingUsd: remainingUsd,
+                        statusChangedAt: new Date()
+                    }
+                });
+            }));
             // Fire-and-forget admin notification
             this.notificationService.notifyAdminsPaymentReceived({
                 orderId: payment.orderId,
@@ -272,9 +300,8 @@ let PaymentService = class PaymentService {
                     newStatus = enums_1.OrderStatus.HALF_DEPOSIT_PAID;
                 }
             }
-            if (newStatus !== order.status) {
-                yield this.orderRepo.updateOrderStatus(orderId, newStatus);
-            }
+            const remainingUsd = totalUsd ? Math.max(0, totalUsd - totalCompleted) : undefined;
+            yield this.orderRepo.updateOrderStatusAndAmounts(orderId, newStatus, totalCompleted, remainingUsd);
             return {
                 message: `Confirmed ${allPayments.length} payments. New order status: ${newStatus}`,
                 totalConfirmed: totalCompleted,
@@ -310,9 +337,8 @@ let PaymentService = class PaymentService {
                     newStatus = enums_1.OrderStatus.HALF_DEPOSIT_PAID;
                 }
             }
-            if (newStatus !== order.status) {
-                yield this.orderRepo.updateOrderStatus(payment.orderId, newStatus);
-            }
+            const remainingUsd = totalUsd ? Math.max(0, totalUsd - totalCompleted) : undefined;
+            yield this.orderRepo.updateOrderStatusAndAmounts(payment.orderId, newStatus, totalCompleted, remainingUsd);
             yield this.notificationService.notifyBuyerPaymentConfirmed({
                 userId: payment.user.id,
                 userEmail: payment.user.email,
