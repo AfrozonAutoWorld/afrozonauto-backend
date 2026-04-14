@@ -25,9 +25,9 @@ class PaymentRoutes {
         this.router.get('/user-mine', authMiddleware_1.authenticate, this.controller.getAllUserPayments);
         this.router.get('/payment-id/:id', authMiddleware_1.authenticate, this.controller.getPaymentById);
         // Buyer: one-shot bank transfer — creates order + payment + attaches evidence simultaneously
-        this.router.post('/bank-transfer/initiate', authMiddleware_1.authenticate, multer_config_1.upload.array('evidence', 1), (0, bodyValidate_1.validateBody)(payment_validation_1.bankTransferInitiateSchema), cloudinaryUploads_1.uploadToCloudinary, this.controller.initiateBankTransfer);
+        this.router.post('/bank-transfer/initiate', authMiddleware_1.authenticate, multer_config_1.upload.array('evidence', 10), (0, bodyValidate_1.validateBody)(payment_validation_1.bankTransferInitiateSchema), cloudinaryUploads_1.uploadToCloudinary, this.controller.initiateBankTransfer);
         // Buyer: attach evidence to an existing order's payment record
-        this.router.post('/orders/:orderId/evidence', authMiddleware_1.authenticate, multer_config_1.upload.array('evidence', 1), cloudinaryUploads_1.uploadToCloudinary, this.controller.uploadEvidence);
+        this.router.post('/orders/:orderId/evidence', authMiddleware_1.authenticate, multer_config_1.upload.array('evidence', 10), cloudinaryUploads_1.uploadToCloudinary, this.controller.uploadEvidence);
     }
     getRouter() {
         return this.router;

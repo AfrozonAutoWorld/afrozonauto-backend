@@ -118,60 +118,46 @@ export class PaymentRepository {
 
   // ─── Bank Transfer Evidence ───────────────────────────────────────────────
 
-  async findOrCreateBankTransferPayment(orderId: string, userId: string, paymentType: string, amountUsd: number) {
-    // Return existing open bank-transfer payment for this order/type if one exists
-    const existing = await prisma.payment.findFirst({
-      where: { orderId, userId, paymentType: paymentType as any, status: { in: ['PENDING', 'PROCESSING'] } },
-      include: { order: { select: { id: true, requestNumber: true, status: true, userId: true } } },
-    });
-    if (existing) return existing;
-
-    // Otherwise create a new one
+  async createBankTransferWithEvidence(data: {
+    orderId: string,
+    userId: string,
+    paymentType: string,
+    amountUsd: number,
+    evidenceUrls: string[],
+    evidencePublicIds: string[],
+  }) {
     const ref = `AFZ-BT-${Date.now()}`;
     return prisma.payment.create({
       data: {
-        orderId, userId,
-        amountUsd,
-        paymentType: paymentType as any,
+        orderId: data.orderId,
+        userId: data.userId,
+        amountUsd: data.amountUsd,
+        paymentType: data.paymentType as any,
         paymentMethod: 'BANK_TRANSFER',
         paymentProvider: 'bank_transfer',
-        status: 'PENDING',
+        status: 'PROCESSING',
         transactionRef: ref,
-      },
-      include: { order: { select: { id: true, requestNumber: true, status: true, userId: true } } },
-    });
-  }
-
-  saveEvidence(id: string, evidenceUrls: string[], evidencePublicIds: string[]) {
-    return prisma.payment.update({
-      where: { id },
-      data: {
-        evidenceUrls: { push: evidenceUrls },
-        evidencePublicIds: { push: evidencePublicIds },
+        evidenceUrls: data.evidenceUrls,
+        evidencePublicIds: data.evidencePublicIds,
         evidenceUploadedAt: new Date(),
-        status: 'PROCESSING',
-        paymentMethod: 'BANK_TRANSFER',
+      },
+      include: { 
+        order: { select: { id: true, requestNumber: true, status: true, userId: true } },
+        user: { select: { id: true, email: true, fullName: true } }
       },
     });
   }
 
-  saveEvidenceWithAmount(
-    id: string,
-    evidenceUrls: string[],
-    evidencePublicIds: string[],
-    amountUsd?: number,
-  ) {
-    return prisma.payment.update({
-      where: { id },
-      data: {
-        evidenceUrls: { push: evidenceUrls },
-        evidencePublicIds: { push: evidencePublicIds },
-        evidenceUploadedAt: new Date(),
-        status: 'PROCESSING',
-        paymentMethod: 'BANK_TRANSFER',
-        ...(typeof amountUsd === 'number' && amountUsd > 0 ? { amountUsd } : {}),
+  async getCompletedTotalUsdForOrder(orderId: string) {
+    const result = await prisma.payment.aggregate({
+      _sum: { amountUsd: true },
+      where: {
+        orderId,
+        status: 'COMPLETED',
       },
     });
+
+    return result._sum.amountUsd ?? 0;
   }
 
   async getCompletedDepositTotalUsdForOrder(orderId: string) {

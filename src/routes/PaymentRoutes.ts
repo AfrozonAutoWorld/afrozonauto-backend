@@ -33,10 +33,10 @@ class PaymentRoutes {
     this.router.get('/payment-id/:id', authenticate, this.controller.getPaymentById);
 
     // Buyer: one-shot bank transfer — creates order + payment + attaches evidence simultaneously
-    this.router.post('/bank-transfer/initiate', authenticate, upload.array('evidence', 1), validateBody(bankTransferInitiateSchema), uploadToCloudinary, this.controller.initiateBankTransfer);
+    this.router.post('/bank-transfer/initiate', authenticate, upload.array('evidence', 10), validateBody(bankTransferInitiateSchema), uploadToCloudinary, this.controller.initiateBankTransfer);
 
     // Buyer: attach evidence to an existing order's payment record
-    this.router.post('/orders/:orderId/evidence', authenticate, upload.array('evidence', 1), uploadToCloudinary, this.controller.uploadEvidence);
+    this.router.post('/orders/:orderId/evidence', authenticate, upload.array('evidence', 10), uploadToCloudinary, this.controller.uploadEvidence);
 
   }
 

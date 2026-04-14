@@ -124,47 +124,41 @@ let PaymentRepository = class PaymentRepository {
         });
     }
     // ─── Bank Transfer Evidence ───────────────────────────────────────────────
-    findOrCreateBankTransferPayment(orderId, userId, paymentType, amountUsd) {
+    createBankTransferWithEvidence(data) {
         return __awaiter(this, void 0, void 0, function* () {
-            // Return existing open bank-transfer payment for this order/type if one exists
-            const existing = yield db_1.default.payment.findFirst({
-                where: { orderId, userId, paymentType: paymentType, status: { in: ['PENDING', 'PROCESSING'] } },
-                include: { order: { select: { id: true, requestNumber: true, status: true, userId: true } } },
-            });
-            if (existing)
-                return existing;
-            // Otherwise create a new one
             const ref = `AFZ-BT-${Date.now()}`;
             return db_1.default.payment.create({
                 data: {
-                    orderId, userId,
-                    amountUsd,
-                    paymentType: paymentType,
+                    orderId: data.orderId,
+                    userId: data.userId,
+                    amountUsd: data.amountUsd,
+                    paymentType: data.paymentType,
                     paymentMethod: 'BANK_TRANSFER',
                     paymentProvider: 'bank_transfer',
-                    status: 'PENDING',
+                    status: 'PROCESSING',
                     transactionRef: ref,
+                    evidenceUrls: data.evidenceUrls,
+                    evidencePublicIds: data.evidencePublicIds,
+                    evidenceUploadedAt: new Date(),
                 },
-                include: { order: { select: { id: true, requestNumber: true, status: true, userId: true } } },
+                include: {
+                    order: { select: { id: true, requestNumber: true, status: true, userId: true } },
+                    user: { select: { id: true, email: true, fullName: true } }
+                },
             });
         });
     }
-    saveEvidence(id, evidenceUrls, evidencePublicIds) {
-        return db_1.default.payment.update({
-            where: { id },
-            data: {
-                evidenceUrls: { push: evidenceUrls },
-                evidencePublicIds: { push: evidencePublicIds },
-                evidenceUploadedAt: new Date(),
-                status: 'PROCESSING',
-                paymentMethod: 'BANK_TRANSFER',
-            },
-        });
-    }
-    saveEvidenceWithAmount(id, evidenceUrls, evidencePublicIds, amountUsd) {
-        return db_1.default.payment.update({
-            where: { id },
-            data: Object.assign({ evidenceUrls: { push: evidenceUrls }, evidencePublicIds: { push: evidencePublicIds }, evidenceUploadedAt: new Date(), status: 'PROCESSING', paymentMethod: 'BANK_TRANSFER' }, (typeof amountUsd === 'number' && amountUsd > 0 ? { amountUsd } : {})),
+    getCompletedTotalUsdForOrder(orderId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            const result = yield db_1.default.payment.aggregate({
+                _sum: { amountUsd: true },
+                where: {
+                    orderId,
+                    status: 'COMPLETED',
+                },
+            });
+            return (_a = result._sum.amountUsd) !== null && _a !== void 0 ? _a : 0;
         });
     }
     getCompletedDepositTotalUsdForOrder(orderId) {

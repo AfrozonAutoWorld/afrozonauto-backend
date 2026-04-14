@@ -247,23 +247,27 @@ export class PaymentService {
 
     let amountUsd: number;
     if (breakdown?.totalUsd) {
-      amountUsd = paymentType === 'FULL_PAYMENT'
-        ? (breakdown.totalUsd as number)
-        : (breakdown.totalUsedDeposit as number ?? breakdown.totalUsd * 0.25);
+      if (paymentType === 'FULL_PAYMENT') {
+        amountUsd = breakdown.totalUsd as number;
+      } else if (paymentType === 'BALANCE') {
+        const deposit = (breakdown.totalUsedDeposit as number) ?? (Number(breakdown.totalUsd) * Number(DEPOSIT_PERCENTAGE));
+        amountUsd = Number(breakdown.totalUsd) - deposit;
+      } else {
+        // Assume DEPOSIT
+        amountUsd = (breakdown.totalUsedDeposit as number) ?? (Number(breakdown.totalUsd) * Number(DEPOSIT_PERCENTAGE));
+      }
     } else {
-      // paymentBreakdown not yet set — use raw vehicle price as best estimate
       amountUsd = vehiclePriceUsd;
     }
 
-    // Find existing open payment or create one now
-    const payment = await this.paymentRepo.findOrCreateBankTransferPayment(orderId, userId, paymentType, amountUsd);
-
-    return this.paymentRepo.saveEvidenceWithAmount(
-      payment.id,
+    return this.paymentRepo.createBankTransferWithEvidence({
+      orderId,
+      userId,
+      paymentType,
+      amountUsd: transferredAmountUsd || amountUsd,
       evidenceUrls,
       evidencePublicIds,
-      transferredAmountUsd,
-    );
+    });
   }
 
   // ─── Admin Confirm / Reject ───────────────────────────────────────────────
@@ -294,6 +298,18 @@ export class PaymentService {
           totalConfirmedDepositUsd >= expectedDepositUsd
             ? OrderStatus.DEPOSIT_PAID
             : OrderStatus.HALF_DEPOSIT_PAID;
+      }
+    } else if (payment.paymentType === PaymentType.BALANCE || payment.paymentType === PaymentType.FULL_PAYMENT) {
+      const breakdown = payment.order.paymentBreakdown as Record<string, any> | null;
+      const totalUsd = breakdown?.totalUsd as number | undefined;
+      
+      if (totalUsd) {
+        const completedTotalUsd = await this.paymentRepo.getCompletedTotalUsdForOrder(payment.orderId);
+        const totalConfirmed = completedTotalUsd + (payment.amountUsd || 0);
+
+        newOrderStatus = totalConfirmed >= totalUsd 
+          ? OrderStatus.BALANCE_PAID 
+          : OrderStatus.AWAITING_BALANCE;
       }
     }
 

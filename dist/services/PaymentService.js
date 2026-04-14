@@ -195,7 +195,7 @@ let PaymentService = class PaymentService {
     // ─── Bank Transfer Evidence ───────────────────────────────────────────────
     uploadPaymentEvidence(orderId_1, userId_1, evidenceUrls_1, evidencePublicIds_1) {
         return __awaiter(this, arguments, void 0, function* (orderId, userId, evidenceUrls, evidencePublicIds, paymentType = 'DEPOSIT', transferredAmountUsd) {
-            var _a, _b, _c;
+            var _a, _b, _c, _d;
             // Verify order belongs to user
             const order = yield this.orderRepo.findById(orderId);
             if (!order)
@@ -209,17 +209,29 @@ let PaymentService = class PaymentService {
             const vehiclePriceUsd = ((_b = (_a = snapshot === null || snapshot === void 0 ? void 0 : snapshot.originalPriceUsd) !== null && _a !== void 0 ? _a : snapshot === null || snapshot === void 0 ? void 0 : snapshot.priceUsd) !== null && _b !== void 0 ? _b : 0);
             let amountUsd;
             if (breakdown === null || breakdown === void 0 ? void 0 : breakdown.totalUsd) {
-                amountUsd = paymentType === 'FULL_PAYMENT'
-                    ? breakdown.totalUsd
-                    : ((_c = breakdown.totalUsedDeposit) !== null && _c !== void 0 ? _c : breakdown.totalUsd * 0.25);
+                if (paymentType === 'FULL_PAYMENT') {
+                    amountUsd = breakdown.totalUsd;
+                }
+                else if (paymentType === 'BALANCE') {
+                    const deposit = (_c = breakdown.totalUsedDeposit) !== null && _c !== void 0 ? _c : (Number(breakdown.totalUsd) * Number(secrets_1.DEPOSIT_PERCENTAGE));
+                    amountUsd = Number(breakdown.totalUsd) - deposit;
+                }
+                else {
+                    // Assume DEPOSIT
+                    amountUsd = (_d = breakdown.totalUsedDeposit) !== null && _d !== void 0 ? _d : (Number(breakdown.totalUsd) * Number(secrets_1.DEPOSIT_PERCENTAGE));
+                }
             }
             else {
-                // paymentBreakdown not yet set — use raw vehicle price as best estimate
                 amountUsd = vehiclePriceUsd;
             }
-            // Find existing open payment or create one now
-            const payment = yield this.paymentRepo.findOrCreateBankTransferPayment(orderId, userId, paymentType, amountUsd);
-            return this.paymentRepo.saveEvidenceWithAmount(payment.id, evidenceUrls, evidencePublicIds, transferredAmountUsd);
+            return this.paymentRepo.createBankTransferWithEvidence({
+                orderId,
+                userId,
+                paymentType,
+                amountUsd: transferredAmountUsd || amountUsd,
+                evidenceUrls,
+                evidencePublicIds,
+            });
         });
     }
     // ─── Admin Confirm / Reject ───────────────────────────────────────────────
@@ -245,6 +257,17 @@ let PaymentService = class PaymentService {
                         totalConfirmedDepositUsd >= expectedDepositUsd
                             ? enums_1.OrderStatus.DEPOSIT_PAID
                             : enums_1.OrderStatus.HALF_DEPOSIT_PAID;
+                }
+            }
+            else if (payment.paymentType === enums_1.PaymentType.BALANCE || payment.paymentType === enums_1.PaymentType.FULL_PAYMENT) {
+                const breakdown = payment.order.paymentBreakdown;
+                const totalUsd = breakdown === null || breakdown === void 0 ? void 0 : breakdown.totalUsd;
+                if (totalUsd) {
+                    const completedTotalUsd = yield this.paymentRepo.getCompletedTotalUsdForOrder(payment.orderId);
+                    const totalConfirmed = completedTotalUsd + (payment.amountUsd || 0);
+                    newOrderStatus = totalConfirmed >= totalUsd
+                        ? enums_1.OrderStatus.BALANCE_PAID
+                        : enums_1.OrderStatus.AWAITING_BALANCE;
                 }
             }
             const transactions = [];
