@@ -1438,6 +1438,35 @@ const swaggerSpec = {
         }
       }
     },
+    "/api/admin/payments/{id}/confirm": {
+      patch: {
+        summary: "Confirm a single bank transfer payment (Admin)",
+        description: "Confirms isolated bank transfer evidence and recalculates the respective order payment tracking properties such as remaining amount to be paid.",
+        tags: ["Admin – Payments"],
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" }, description: "Payment ID" }],
+        requestBody: {
+          required: false,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  note: { type: "string", description: "Optional confirmation note" }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: "Payment confirmed successfully" },
+          400: { description: "Invalid state" },
+          401: { description: "Unauthorized" },
+          403: { description: "Forbidden – admin only" },
+          404: { description: "Payment not found" }
+        }
+      }
+    },
     "/api/admin/payments/{id}/reject": {
       patch: {
         summary: "Reject bank transfer payment evidence (Admin)",
