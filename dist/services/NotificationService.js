@@ -113,6 +113,40 @@ let NotificationService = class NotificationService {
             }
         });
     }
+    notifyBuyerPaymentConfirmed(payload) {
+        return __awaiter(this, void 0, void 0, function* () {
+            // 1. Create In-App Notification
+            yield this.repo.createForUser(payload.userId, {
+                orderId: payload.orderId,
+                type: enums_1.NotificationType.PAYMENT_RECEIVED,
+                title: 'Payment Evidence Confirmed',
+                message: `Your payment of $${payload.amountUsd.toLocaleString()} for Order #${payload.orderRef} has been confirmed.`,
+                actionUrl: `/buyer/orders/${payload.orderId}`,
+            });
+            // 2. Send email
+            const emailHtml = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+        <h2 style="color: #2c3e50;">Payment Confirmed!</h2>
+        <p>Hello,</p>
+        <p>We have successfully reviewed and confirmed your payment of <strong>$${payload.amountUsd.toLocaleString()}</strong>.</p>
+        <p><strong>Order Reference:</strong> ${payload.orderRef}</p>
+        <p><strong>Payment Reference:</strong> ${payload.paymentRef}</p>
+        <br/>
+        <p>You can check your order status in your dashboard.</p>
+        <a href="https://afrozonauto.com/dashboard/orders/${payload.orderId}" style="display: inline-block; padding: 10px 20px; font-weight: bold; color: #fff; background-color: #27ae60; text-decoration: none; border-radius: 5px;">View Order</a>
+        <br/><br/>
+        <p>Best regards,</p>
+        <p>Afrozon AutoGlobal Team</p>
+      </div>
+    `;
+            try {
+                yield (0, mailer_1.sendMail)(payload.userEmail, 'Payment Confirmed', emailHtml);
+            }
+            catch (e) {
+                console.error("Failed to send payment confirmation email", e);
+            }
+        });
+    }
 };
 exports.NotificationService = NotificationService;
 exports.NotificationService = NotificationService = __decorate([

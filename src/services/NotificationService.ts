@@ -121,4 +121,46 @@ export class NotificationService {
         // safe ignore wrapper to ensure in-app notification completes
     }
   }
+
+  async notifyBuyerPaymentConfirmed(payload: {
+    userId: string;
+    userEmail: string;
+    orderId: string;
+    orderRef: string;
+    amountUsd: number;
+    paymentRef: string;
+  }) {
+    // 1. Create In-App Notification
+    await this.repo.createForUser(payload.userId, {
+      orderId: payload.orderId,
+      type: NotificationType.PAYMENT_RECEIVED,
+      title: 'Payment Evidence Confirmed',
+      message: `Your payment of $${payload.amountUsd.toLocaleString()} for Order #${payload.orderRef} has been confirmed.`,
+      actionUrl: `/buyer/orders/${payload.orderId}`,
+    });
+
+    // 2. Send email
+    const emailHtml = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+        <h2 style="color: #2c3e50;">Payment Confirmed!</h2>
+        <p>Hello,</p>
+        <p>We have successfully reviewed and confirmed your payment of <strong>$${payload.amountUsd.toLocaleString()}</strong>.</p>
+        <p><strong>Order Reference:</strong> ${payload.orderRef}</p>
+        <p><strong>Payment Reference:</strong> ${payload.paymentRef}</p>
+        <br/>
+        <p>You can check your order status in your dashboard.</p>
+        <a href="https://afrozonauto.com/dashboard/orders/${payload.orderId}" style="display: inline-block; padding: 10px 20px; font-weight: bold; color: #fff; background-color: #27ae60; text-decoration: none; border-radius: 5px;">View Order</a>
+        <br/><br/>
+        <p>Best regards,</p>
+        <p>Afrozon AutoGlobal Team</p>
+      </div>
+    `;
+
+    try {
+        await sendMail(payload.userEmail, 'Payment Confirmed', emailHtml);
+    } catch (e) {
+        console.error("Failed to send payment confirmation email", e);
+    }
+  }
+
 }

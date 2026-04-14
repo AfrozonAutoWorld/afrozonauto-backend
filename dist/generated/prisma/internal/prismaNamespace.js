@@ -402,6 +402,7 @@ exports.PaymentScalarFieldEnum = {
     adminConfirmedBy: 'adminConfirmedBy',
     adminConfirmedAt: 'adminConfirmedAt',
     adminNote: 'adminNote',
+    approvalStatus: 'approvalStatus',
     refundAmount: 'refundAmount',
     refundReason: 'refundReason',
     refundedAt: 'refundedAt',

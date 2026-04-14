@@ -187,6 +187,14 @@ let PaymentController = class PaymentController {
             const result = yield this.paymentService.adminConfirmAllOrderPayments(id, req.user.id, note);
             return res.status(200).json(ApiResponse_1.ApiResponse.success(result, 'Order payments confirmed'));
         }));
+        this.confirmPayment = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            if (!req.user)
+                return res.status(401).json(ApiError_1.ApiError.unauthorized('Not authenticated'));
+            const { id } = req.params;
+            const { note } = req.body;
+            const result = yield this.paymentService.adminConfirmPayment(id, req.user.id, note);
+            return res.status(200).json(ApiResponse_1.ApiResponse.success(result, 'Payment confirmed successfully'));
+        }));
         this.rejectPayment = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             if (!req.user)
                 return res.status(401).json(ApiError_1.ApiError.unauthorized('Not authenticated'));

@@ -187,6 +187,21 @@ let PaymentRepository = class PaymentRepository {
             where: { id: { in: ids } },
             data: {
                 status: enums_1.PaymentStatus.COMPLETED,
+                approvalStatus: enums_1.PaymentApprovalStatus.APPROVED,
+                escrowStatus: 'HELD',
+                completedAt: new Date(),
+                adminConfirmedBy: adminId,
+                adminConfirmedAt: new Date(),
+                adminNote: note,
+            },
+        });
+    }
+    adminConfirmSinglePayment(id, adminId, note) {
+        return db_1.default.payment.update({
+            where: { id },
+            data: {
+                status: enums_1.PaymentStatus.COMPLETED,
+                approvalStatus: enums_1.PaymentApprovalStatus.APPROVED,
                 escrowStatus: 'HELD',
                 completedAt: new Date(),
                 adminConfirmedBy: adminId,
@@ -214,6 +229,7 @@ let PaymentRepository = class PaymentRepository {
             where: { id },
             data: {
                 status: 'PENDING',
+                approvalStatus: enums_1.PaymentApprovalStatus.REJECTED,
                 adminConfirmedBy: adminId,
                 adminConfirmedAt: new Date(),
                 adminNote: note,

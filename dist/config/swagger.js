@@ -1398,22 +1398,20 @@ const swaggerSpec = {
                 }
             }
         },
-        "/api/admin/payments/{id}/confirm": {
+        "/api/admin/orders/{id}/confirm-payment": {
             patch: {
-                summary: "Confirm bank transfer payment (Admin)",
-                description: "Confirms the buyer's bank transfer evidence. Sets payment to the specified status (e.g. COMPLETED) and conditionally updates the order status if status is COMPLETED.",
+                summary: "Confirm all pending manual payments for an order (Admin)",
+                description: "Confirms all pending or processing bank transfer evidence for the specified order and updates the order status based on the total confirmed amount (Deposit Paid, Balance Paid, etc.).",
                 tags: ["Admin – Payments"],
                 security: [{ bearerAuth: [] }],
-                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" }, description: "Payment ID" }],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" }, description: "Order ID" }],
                 requestBody: {
-                    required: true,
+                    required: false,
                     content: {
                         "application/json": {
                             schema: {
                                 type: "object",
-                                required: ["status"],
                                 properties: {
-                                    status: { type: "string", enum: ["PENDING", "PROCESSING", "COMPLETED", "FAILED", "CANCELLED", "REFUNDED", "PARTIALLY_REFUNDED"], description: "The payment status to set" },
                                     note: { type: "string", description: "Optional confirmation or admin note" }
                                 }
                             }
@@ -1421,11 +1419,10 @@ const swaggerSpec = {
                     }
                 },
                 responses: {
-                    200: { description: "Payment status updated" },
-                    400: { description: "Payment already this status or invalid status" },
+                    200: { description: "Order payments confirmed and status updated" },
                     401: { description: "Unauthorized" },
                     403: { description: "Forbidden – admin only" },
-                    404: { description: "Payment not found" }
+                    404: { description: "Order not found" }
                 }
             }
         },

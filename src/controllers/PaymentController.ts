@@ -262,6 +262,15 @@ export class PaymentController {
         return res.status(200).json(ApiResponse.success(result, 'Order payments confirmed'));
     });
 
+    confirmPayment = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+        if (!req.user) return res.status(401).json(ApiError.unauthorized('Not authenticated'));
+        const { id } = req.params;
+        const { note } = req.body;
+
+        const result = await this.paymentService.adminConfirmPayment(id, req.user.id, note);
+        return res.status(200).json(ApiResponse.success(result, 'Payment confirmed successfully'));
+    });
+
     rejectPayment = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
         if (!req.user) return res.status(401).json(ApiError.unauthorized('Not authenticated'));
         const { id } = req.params;

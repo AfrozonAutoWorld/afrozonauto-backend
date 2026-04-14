@@ -323,6 +323,56 @@ export class PaymentService {
       orderStatus: newStatus
     };
   }
+  
+  async adminConfirmPayment(paymentId: string, adminId: string, note?: string) {
+    const payment = await this.paymentRepo.findPaymentWithOrder(paymentId);
+    if (!payment) throw Object.assign(new Error('Payment not found'), { statusCode: 404 });
+    if (!['PROCESSING', 'PENDING'].includes(payment.status)) {
+      throw Object.assign(new Error('Only pending/processing payments can be confirmed'), { statusCode: 400 });
+    }
+
+    const confirmedPayment = await this.paymentRepo.adminConfirmSinglePayment(paymentId, adminId, note);
+
+    // Now re-calculate order status based on ALL completed payments
+    const order = payment.order as any;
+    const totalCompleted = await this.paymentRepo.getCompletedTotalUsdForOrder(payment.orderId);
+    const breakdown = order.paymentBreakdown;
+    const totalUsd = breakdown?.totalUsd;
+
+    let newStatus: OrderStatus = order.status;
+
+    if (totalUsd) {
+      const expectedDeposit = (breakdown?.totalUsedDeposit as number) ?? (totalUsd * Number(DEPOSIT_PERCENTAGE));
+      
+      if (totalCompleted >= totalUsd) {
+        newStatus = OrderStatus.BALANCE_PAID;
+      } else if (totalCompleted >= expectedDeposit) {
+        newStatus = OrderStatus.DEPOSIT_PAID;
+      } else if (totalCompleted > 0) {
+        newStatus = OrderStatus.HALF_DEPOSIT_PAID;
+      }
+    }
+
+    if (newStatus !== order.status) {
+      await this.orderRepo.updateOrderStatus(payment.orderId, newStatus);
+    }
+
+    await this.notificationService.notifyBuyerPaymentConfirmed({
+      userId: payment.user.id,
+      userEmail: payment.user.email,
+      orderId: payment.orderId,
+      orderRef: order.requestNumber,
+      amountUsd: payment.amountUsd,
+      paymentRef: payment.transactionRef
+    });
+
+    return {
+      message: `Confirmed payment. New order status: ${newStatus}`,
+      payment: confirmedPayment,
+      totalConfirmed: totalCompleted,
+      orderStatus: newStatus
+    };
+  }
 
   async adminRejectPayment(paymentId: string, adminId: string, note: string) {
     const payment = await this.paymentRepo.findPaymentWithOrder(paymentId);

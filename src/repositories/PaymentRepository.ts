@@ -1,6 +1,6 @@
 import { injectable } from 'inversify';
 import prisma from '../db';
-import { PaymentStatus } from '../generated/prisma/enums';
+import { PaymentStatus, PaymentApprovalStatus } from '../generated/prisma/enums';
 
 @injectable()
 export class PaymentRepository {
@@ -187,6 +187,22 @@ export class PaymentRepository {
       where: { id: { in: ids } },
       data: {
         status: PaymentStatus.COMPLETED,
+        approvalStatus: PaymentApprovalStatus.APPROVED,
+        escrowStatus: 'HELD',
+        completedAt: new Date(),
+        adminConfirmedBy: adminId,
+        adminConfirmedAt: new Date(),
+        adminNote: note,
+      },
+    });
+  }
+
+  adminConfirmSinglePayment(id: string, adminId: string, note?: string) {
+    return prisma.payment.update({
+      where: { id },
+      data: {
+        status: PaymentStatus.COMPLETED,
+        approvalStatus: PaymentApprovalStatus.APPROVED,
         escrowStatus: 'HELD',
         completedAt: new Date(),
         adminConfirmedBy: adminId,
@@ -216,6 +232,7 @@ export class PaymentRepository {
       where: { id },
       data: {
         status: 'PENDING',
+        approvalStatus: PaymentApprovalStatus.REJECTED,
         adminConfirmedBy: adminId,
         adminConfirmedAt: new Date(),
         adminNote: note,

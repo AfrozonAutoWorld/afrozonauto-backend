@@ -599,6 +599,12 @@ enum OrderPriority {
 // PAYMENTS
 // ============================================
 
+enum PaymentApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model Payment {
   id      String @id @default(auto()) @map("_id") @db.ObjectId
   orderId String @db.ObjectId
@@ -635,6 +641,7 @@ model Payment {
   adminConfirmedBy String?   @db.ObjectId // Admin who confirmed/rejected
   adminConfirmedAt DateTime?
   adminNote        String?   // Reason for rejection or confirmation note
+  approvalStatus   PaymentApprovalStatus @default(PENDING)
 
   // Refund Info
   refundAmount Float?

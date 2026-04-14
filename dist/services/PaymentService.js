@@ -282,6 +282,53 @@ let PaymentService = class PaymentService {
             };
         });
     }
+    adminConfirmPayment(paymentId, adminId, note) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            const payment = yield this.paymentRepo.findPaymentWithOrder(paymentId);
+            if (!payment)
+                throw Object.assign(new Error('Payment not found'), { statusCode: 404 });
+            if (!['PROCESSING', 'PENDING'].includes(payment.status)) {
+                throw Object.assign(new Error('Only pending/processing payments can be confirmed'), { statusCode: 400 });
+            }
+            const confirmedPayment = yield this.paymentRepo.adminConfirmSinglePayment(paymentId, adminId, note);
+            // Now re-calculate order status based on ALL completed payments
+            const order = payment.order;
+            const totalCompleted = yield this.paymentRepo.getCompletedTotalUsdForOrder(payment.orderId);
+            const breakdown = order.paymentBreakdown;
+            const totalUsd = breakdown === null || breakdown === void 0 ? void 0 : breakdown.totalUsd;
+            let newStatus = order.status;
+            if (totalUsd) {
+                const expectedDeposit = (_a = breakdown === null || breakdown === void 0 ? void 0 : breakdown.totalUsedDeposit) !== null && _a !== void 0 ? _a : (totalUsd * Number(secrets_1.DEPOSIT_PERCENTAGE));
+                if (totalCompleted >= totalUsd) {
+                    newStatus = enums_1.OrderStatus.BALANCE_PAID;
+                }
+                else if (totalCompleted >= expectedDeposit) {
+                    newStatus = enums_1.OrderStatus.DEPOSIT_PAID;
+                }
+                else if (totalCompleted > 0) {
+                    newStatus = enums_1.OrderStatus.HALF_DEPOSIT_PAID;
+                }
+            }
+            if (newStatus !== order.status) {
+                yield this.orderRepo.updateOrderStatus(payment.orderId, newStatus);
+            }
+            yield this.notificationService.notifyBuyerPaymentConfirmed({
+                userId: payment.user.id,
+                userEmail: payment.user.email,
+                orderId: payment.orderId,
+                orderRef: order.requestNumber,
+                amountUsd: payment.amountUsd,
+                paymentRef: payment.transactionRef
+            });
+            return {
+                message: `Confirmed payment. New order status: ${newStatus}`,
+                payment: confirmedPayment,
+                totalConfirmed: totalCompleted,
+                orderStatus: newStatus
+            };
+        });
+    }
     adminRejectPayment(paymentId, adminId, note) {
         return __awaiter(this, void 0, void 0, function* () {
             const payment = yield this.paymentRepo.findPaymentWithOrder(paymentId);
