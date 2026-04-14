@@ -26,6 +26,7 @@ export interface IOrderRepository {
     totalPages: number;
   }>;
   findByVehicleId(vehicleId: string): Promise<Order[]>;
+  findActiveOrder(userId: string, vehicleId?: string, vin?: string): Promise<Order | null>;
   
   // Advanced Queries
   // findAllWithFilters(filters: OrderFilters, page?: number, limit?: number): Promise<{
@@ -333,6 +334,79 @@ export class OrderRepository {
             fullName: true
           }
         }
+      }
+    });
+  }
+
+  async findActiveOrder(userId: string, vehicleId?: string, vin?: string): Promise<Order | null> {
+    const activeStatuses: OrderStatus[] = [
+      OrderStatus.PENDING_QUOTE,
+      OrderStatus.QUOTE_SENT,
+      OrderStatus.QUOTE_ACCEPTED,
+      OrderStatus.DEPOSIT_PENDING,
+      OrderStatus.DEPOSIT_PAID,
+      OrderStatus.HALF_DEPOSIT_PAID,
+      OrderStatus.BALANCE_PAID,
+      OrderStatus.AWAITING_BALANCE,
+      OrderStatus.INSPECTION_PENDING,
+      OrderStatus.INSPECTION_COMPLETE,
+      OrderStatus.AWAITING_APPROVAL,
+      OrderStatus.APPROVED,
+      OrderStatus.PURCHASE_IN_PROGRESS,
+      OrderStatus.PURCHASED,
+      OrderStatus.EXPORT_PENDING,
+      OrderStatus.SHIPPED,
+      OrderStatus.IN_TRANSIT,
+      OrderStatus.ARRIVED_PORT,
+      OrderStatus.CUSTOMS_CLEARANCE,
+      OrderStatus.CUSTOMS_HOLD,
+      OrderStatus.CLEARED,
+      OrderStatus.DELIVERY_SCHEDULED,
+      OrderStatus.OUT_FOR_DELIVERY,
+    ];
+
+    const where: any = {
+      userId,
+      status: { in: activeStatuses }
+    };
+
+    if (vehicleId) {
+      where.vehicleId = vehicleId;
+    } else if (vin) {
+      // For MongoDB JSON filtering in Prisma
+      where.vehicleSnapshot = {
+        path: 'vin',
+        equals: vin
+      };
+    }
+
+    return prisma.order.findFirst({
+      where,
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+            phone: true
+          }
+        },
+        vehicle: {
+          select: {
+            id: true,
+            make: true,
+            model: true,
+            year: true,
+            priceUsd: true,
+            thumbnail: true,
+            vin: true
+          }
+        },
+        payments: {
+          orderBy: { createdAt: 'desc' }
+        },
+        inspection: true,
+        shipment: true
       }
     });
   }

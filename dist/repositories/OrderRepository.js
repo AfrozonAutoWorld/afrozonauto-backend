@@ -256,6 +256,78 @@ let OrderRepository = class OrderRepository {
             });
         });
     }
+    findActiveOrder(userId, vehicleId, vin) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const activeStatuses = [
+                client_1.OrderStatus.PENDING_QUOTE,
+                client_1.OrderStatus.QUOTE_SENT,
+                client_1.OrderStatus.QUOTE_ACCEPTED,
+                client_1.OrderStatus.DEPOSIT_PENDING,
+                client_1.OrderStatus.DEPOSIT_PAID,
+                client_1.OrderStatus.HALF_DEPOSIT_PAID,
+                client_1.OrderStatus.BALANCE_PAID,
+                client_1.OrderStatus.AWAITING_BALANCE,
+                client_1.OrderStatus.INSPECTION_PENDING,
+                client_1.OrderStatus.INSPECTION_COMPLETE,
+                client_1.OrderStatus.AWAITING_APPROVAL,
+                client_1.OrderStatus.APPROVED,
+                client_1.OrderStatus.PURCHASE_IN_PROGRESS,
+                client_1.OrderStatus.PURCHASED,
+                client_1.OrderStatus.EXPORT_PENDING,
+                client_1.OrderStatus.SHIPPED,
+                client_1.OrderStatus.IN_TRANSIT,
+                client_1.OrderStatus.ARRIVED_PORT,
+                client_1.OrderStatus.CUSTOMS_CLEARANCE,
+                client_1.OrderStatus.CUSTOMS_HOLD,
+                client_1.OrderStatus.CLEARED,
+                client_1.OrderStatus.DELIVERY_SCHEDULED,
+                client_1.OrderStatus.OUT_FOR_DELIVERY,
+            ];
+            const where = {
+                userId,
+                status: { in: activeStatuses }
+            };
+            if (vehicleId) {
+                where.vehicleId = vehicleId;
+            }
+            else if (vin) {
+                // For MongoDB JSON filtering in Prisma
+                where.vehicleSnapshot = {
+                    path: 'vin',
+                    equals: vin
+                };
+            }
+            return db_1.default.order.findFirst({
+                where,
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            email: true,
+                            fullName: true,
+                            phone: true
+                        }
+                    },
+                    vehicle: {
+                        select: {
+                            id: true,
+                            make: true,
+                            model: true,
+                            year: true,
+                            priceUsd: true,
+                            thumbnail: true,
+                            vin: true
+                        }
+                    },
+                    payments: {
+                        orderBy: { createdAt: 'desc' }
+                    },
+                    inspection: true,
+                    shipment: true
+                }
+            });
+        });
+    }
     findOrderedVehicleIds() {
         return __awaiter(this, arguments, void 0, function* (limit = 20) {
             var _a;

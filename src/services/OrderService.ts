@@ -24,6 +24,19 @@ export class OrderService {
   // ========== CREATE ==========
   
   async createOrder(data: CreateOrderData): Promise<OrderWithDetails> {
+    // Check if an active order already exists for this user and vehicle
+    const activeOrder = await this.orderRepository.findActiveOrder(
+      data.userId,
+      data.vehicleId,
+      data.vehicleSnapshot?.vin
+    );
+
+    if (activeOrder) {
+      // If order exists, we return it. We could optionally update it with new data,
+      // but typically we want to maintain the existing order flow.
+      return activeOrder as OrderWithDetails;
+    }
+
     // Generate request number
     const requestNumber = this.generateRequestNumber();
     

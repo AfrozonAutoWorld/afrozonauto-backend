@@ -34,6 +34,14 @@ let OrderService = class OrderService {
     // ========== CREATE ==========
     createOrder(data) {
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            // Check if an active order already exists for this user and vehicle
+            const activeOrder = yield this.orderRepository.findActiveOrder(data.userId, data.vehicleId, (_a = data.vehicleSnapshot) === null || _a === void 0 ? void 0 : _a.vin);
+            if (activeOrder) {
+                // If order exists, we return it. We could optionally update it with new data,
+                // but typically we want to maintain the existing order flow.
+                return activeOrder;
+            }
             // Generate request number
             const requestNumber = this.generateRequestNumber();
             const orderData = Object.assign(Object.assign({ requestNumber, user: { connect: { id: data.userId } } }, (data.vehicleId && {
