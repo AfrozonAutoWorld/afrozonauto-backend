@@ -57,19 +57,25 @@ let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
             return this.trendingService.getTrendingVehicles();
         });
     }
+    /** Same ordering as the home rail; slice for marketplace browse pagination. */
+    getTrendingVehiclesPaginated(page, limit) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const all = yield this.trendingService.getTrendingVehicles();
+            const total = all.length;
+            const start = (page - 1) * limit;
+            const vehicles = all.slice(start, start + limit);
+            const hasMore = start + vehicles.length < total;
+            return { vehicles, total, page, limit, hasMore };
+        });
+    }
     /**
-     * Get vehicles for "Recommended for you":
-     * (1) If userId: prepend vehicles the user saved ("You saved this").
-     * (2) Primary: fetch from Auto.dev per RecommendedDefinition (like Trending), with reason per definition.
-     * (3) Secondary: DB vehicles with recommended=true (recommendationReason or default).
-     * Dedupe by id/VIN, slice to limit.
+     * Full merged list (saved + definitions + DB) up to {@link MAX_RECOMMENDED_SPECIALTY_POOL} items.
      */
-    getRecommendedVehicles() {
-        return __awaiter(this, arguments, void 0, function* (limit = 12, userId) {
+    buildRecommendedList(maxItems, userId) {
+        return __awaiter(this, void 0, void 0, function* () {
             const seen = new Set();
             const result = [];
             const keyOf = (v) => v.id || (v.vin ? `vin-${v.vin}` : '');
-            // (1) Logged-in: prepend saved vehicles
             if (userId) {
                 const savedIds = yield this.savedVehicleRepo.findVehicleIdsByUserId(userId, 6);
                 if (savedIds.length > 0) {
@@ -83,30 +89,101 @@ let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
                     }
                 }
             }
-            // (2) Primary: from Auto.dev per RecommendedDefinition (recommended rail)
-            const fromDefinitions = yield this.recommendedService.getFromDefinitions(limit, 'recommended');
-            for (const { vehicle, reason } of fromDefinitions) {
-                const k = keyOf(vehicle);
-                if (k && !seen.has(k)) {
-                    seen.add(k);
-                    result.push({ vehicle, reason });
+            const defCap = Math.min(200, Math.max(0, maxItems - result.length));
+            if (defCap > 0) {
+                const fromDefinitions = yield this.recommendedService.getFromDefinitions(defCap, 'recommended');
+                for (const { vehicle, reason } of fromDefinitions) {
+                    const k = keyOf(vehicle);
+                    if (k && !seen.has(k)) {
+                        seen.add(k);
+                        result.push({ vehicle, reason });
+                    }
+                    if (result.length >= maxItems)
+                        return result.slice(0, maxItems);
                 }
-                if (result.length >= limit)
-                    return result.slice(0, limit);
             }
-            // (3) Secondary: DB-flagged recommended
-            const dbRecommended = yield this.vehicleRepo.findRecommended(limit);
-            const getDbReason = (v) => { var _a; return ((_a = v.recommendationReason) === null || _a === void 0 ? void 0 : _a.trim()) || VehicleServiceDirect_1.DEFAULT_RECOMMENDATION_REASON; };
-            for (const v of dbRecommended) {
-                const k = keyOf(v);
-                if (k && !seen.has(k)) {
-                    seen.add(k);
-                    result.push({ vehicle: v, reason: getDbReason(v) });
+            const dbCap = Math.max(0, maxItems - result.length);
+            if (dbCap > 0) {
+                const dbRecommended = yield this.vehicleRepo.findRecommended(dbCap);
+                const getDbReason = (v) => { var _a; return ((_a = v.recommendationReason) === null || _a === void 0 ? void 0 : _a.trim()) || VehicleServiceDirect_1.DEFAULT_RECOMMENDATION_REASON; };
+                for (const v of dbRecommended) {
+                    const k = keyOf(v);
+                    if (k && !seen.has(k)) {
+                        seen.add(k);
+                        result.push({ vehicle: v, reason: getDbReason(v) });
+                    }
+                    if (result.length >= maxItems)
+                        return result.slice(0, maxItems);
                 }
-                if (result.length >= limit)
-                    return result.slice(0, limit);
             }
-            return result.slice(0, limit);
+            return result.slice(0, maxItems);
+        });
+    }
+    buildSpecialtyList(maxItems) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const seen = new Set();
+            const result = [];
+            const keyOf = (v) => v.id || (v.vin ? `vin-${v.vin}` : '');
+            const defCap = Math.min(200, Math.max(0, maxItems - result.length));
+            if (defCap > 0) {
+                const fromDefinitions = yield this.recommendedService.getFromDefinitions(defCap, 'specialty');
+                for (const { vehicle, reason } of fromDefinitions) {
+                    const k = keyOf(vehicle);
+                    if (k && !seen.has(k)) {
+                        seen.add(k);
+                        result.push({ vehicle, reason });
+                    }
+                    if (result.length >= maxItems)
+                        return result.slice(0, maxItems);
+                }
+            }
+            const dbCap = Math.max(0, maxItems - result.length);
+            if (dbCap > 0) {
+                const dbSpecialty = yield this.vehicleRepo.findSpecialty(dbCap);
+                for (const v of dbSpecialty) {
+                    const k = keyOf(v);
+                    if (k && !seen.has(k)) {
+                        seen.add(k);
+                        result.push({ vehicle: v, reason: 'Specialty vehicle' });
+                    }
+                    if (result.length >= maxItems)
+                        return result.slice(0, maxItems);
+                }
+            }
+            return result.slice(0, maxItems);
+        });
+    }
+    getRecommendedVehiclesPage(page, limit, userId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const pool = yield this.buildRecommendedList(VehicleServiceDirect_1.MAX_RECOMMENDED_SPECIALTY_POOL, userId);
+            const total = pool.length;
+            const start = (page - 1) * limit;
+            const items = pool.slice(start, start + limit);
+            const hasMore = start + items.length < total;
+            return { items, total, page, limit, hasMore };
+        });
+    }
+    getSpecialtyVehiclesPage(page, limit) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const pool = yield this.buildSpecialtyList(VehicleServiceDirect_1.MAX_RECOMMENDED_SPECIALTY_POOL);
+            const total = pool.length;
+            const start = (page - 1) * limit;
+            const items = pool.slice(start, start + limit);
+            const hasMore = start + items.length < total;
+            return { items, total, page, limit, hasMore };
+        });
+    }
+    /**
+     * Get vehicles for "Recommended for you":
+     * (1) If userId: prepend vehicles the user saved ("You saved this").
+     * (2) Primary: fetch from Auto.dev per RecommendedDefinition (like Trending), with reason per definition.
+     * (3) Secondary: DB vehicles with recommended=true (recommendationReason or default).
+     * Dedupe by id/VIN, slice to limit.
+     */
+    getRecommendedVehicles() {
+        return __awaiter(this, arguments, void 0, function* (limit = 12, userId) {
+            const full = yield this.buildRecommendedList(limit, userId);
+            return full.slice(0, limit);
         });
     }
     /**
@@ -117,32 +194,8 @@ let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
      */
     getSpecialtyVehicles() {
         return __awaiter(this, arguments, void 0, function* (limit = 12) {
-            const seen = new Set();
-            const result = [];
-            const keyOf = (v) => v.id || (v.vin ? `vin-${v.vin}` : '');
-            // (1) From Auto.dev definitions tagged for specialty
-            const fromDefinitions = yield this.recommendedService.getFromDefinitions(limit, 'specialty');
-            for (const { vehicle, reason } of fromDefinitions) {
-                const k = keyOf(vehicle);
-                if (k && !seen.has(k)) {
-                    seen.add(k);
-                    result.push({ vehicle, reason });
-                }
-                if (result.length >= limit)
-                    return result.slice(0, limit);
-            }
-            // (2) DB-flagged specialty
-            const dbSpecialty = yield this.vehicleRepo.findSpecialty(limit);
-            for (const v of dbSpecialty) {
-                const k = keyOf(v);
-                if (k && !seen.has(k)) {
-                    seen.add(k);
-                    result.push({ vehicle: v, reason: 'Specialty vehicle' });
-                }
-                if (result.length >= limit)
-                    return result.slice(0, limit);
-            }
-            return result.slice(0, limit);
+            const full = yield this.buildSpecialtyList(limit);
+            return full.slice(0, limit);
         });
     }
     getMakeModelsReference() {
@@ -445,14 +498,25 @@ let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
                         resolvedFilters.priceMin = category.priceMin;
                 }
             }
+            /**
+             * Afrozon sellers / DB-only: no `Vehicle.source` filter. `status: AVAILABLE` is enforced in
+             * {@link VehicleRepository.findMany} for all public listings.
+             */
+            if (!includeApiResults) {
+                resolvedFilters = Object.assign({}, resolvedFilters);
+                delete resolvedFilters.source;
+            }
             const dbResult = yield this.vehicleRepo.findMany(resolvedFilters, pagination);
             const staleVehicles = dbResult.vehicles.filter((v) => this.isPriceStale(v));
             Promise.all(staleVehicles.map((v) => this.refreshVehiclePrice(v).catch(() => null))).catch(() => { });
-            /** Auto.dev has no notion of featured / recommended / specialty — mixing it in pollutes curated views. */
-            const isCuratedDbOnlyMode = resolvedFilters.featured === true ||
-                resolvedFilters.recommended === true ||
-                resolvedFilters.specialty === true;
-            const mergeAutoDev = includeApiResults && !isCuratedDbOnlyMode;
+            /** Auto.dev has no notion of recommended / specialty — keep those DB-only. Featured browse uses DB + API fill like before. */
+            const isCuratedDbOnlyMode = resolvedFilters.recommended === true || resolvedFilters.specialty === true;
+            /**
+             * Auto.dev listings are always transformed as AVAILABLE. If the client filters by any other
+             * status (SOLD, PENDING, etc.), merging would pollute results — DB-only for that request.
+             */
+            const mergeApiAllowedByStatus = !resolvedFilters.status || resolvedFilters.status === client_1.VehicleStatus.AVAILABLE;
+            const mergeAutoDev = includeApiResults && !isCuratedDbOnlyMode && mergeApiAllowedByStatus;
             let apiVehicles = [];
             let fromApiCount = 0; // how many API listings made it into the response (after de-dup and price filter)
             let apiRawCount = 0; // how many the API actually returned (before our filtering)
@@ -536,7 +600,7 @@ let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
                 this.sortVehiclesInPlace(allVehicles, sortBy, sortOrder, demoteHummers);
             }
             // When Auto.dev is merged we cannot know global total; meta uses hasMore + full-page heuristic.
-            // Curated-only (featured / recommended / specialty): DB total + pagination are exact.
+            // Curated-only (recommended / specialty): DB total + pagination are exact.
             const blendedApi = mergeAutoDev;
             const total = blendedApi ? 0 : dbResult.total + apiOnlyCount;
             const pages = blendedApi ? 0 : Math.ceil((dbResult.total + apiOnlyCount) / limit) || 1;
@@ -557,9 +621,9 @@ let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
         });
     }
     getVehicle(identifier_1) {
-        return __awaiter(this, arguments, void 0, function* (identifier, type = 'id') {
+        return __awaiter(this, arguments, void 0, function* (identifier, type = 'id', options) {
             if (type === 'vin')
-                return this.getVehicleByVIN(identifier);
+                return this.getVehicleByVIN(identifier, options);
             const trim = (identifier || '').trim();
             if (trim.startsWith('temp-')) {
                 const suffix = trim.slice(5);
@@ -568,15 +632,15 @@ let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
                     const vin = yield this.redisCache.resolveTempVehiclePublicId(trim);
                     if (!vin)
                         throw ApiError_1.ApiError.notFound('Vehicle not found or link expired');
-                    return this.getVehicleByVIN(vin);
+                    return this.getVehicleByVIN(vin, options);
                 }
                 if (suffix.length === 17 && this.looksLikeVin(suffix)) {
-                    return this.getVehicleByVIN(suffix);
+                    return this.getVehicleByVIN(suffix, options);
                 }
                 throw ApiError_1.ApiError.badRequest('Invalid temp vehicle identifier');
             }
             if (this.looksLikeVin(trim))
-                return this.getVehicleByVIN(trim);
+                return this.getVehicleByVIN(trim, options);
             if (this.isMongoObjectId(trim)) {
                 let vehicle = yield this.vehicleRepo.findById(trim);
                 if (vehicle && this.isPriceStale(vehicle)) {
@@ -585,6 +649,9 @@ let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
                         vehicle = refreshed;
                 }
                 if (vehicle) {
+                    if (!(options === null || options === void 0 ? void 0 : options.allowNonAvailable) && vehicle.status !== client_1.VehicleStatus.AVAILABLE) {
+                        throw ApiError_1.ApiError.notFound('Vehicle not found');
+                    }
                     this.vehicleRepo.incrementViewCount(vehicle.id).catch((err) => loggers_1.default.error('Failed to increment view count:', err));
                     return vehicle;
                 }
@@ -593,7 +660,7 @@ let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
             throw ApiError_1.ApiError.badRequest('Invalid identifier. Use a 24-character vehicle id or a 17-character VIN. For VIN use ?type=vin');
         });
     }
-    getVehicleByVIN(vin) {
+    getVehicleByVIN(vin, options) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!vin || vin.trim().length !== 17) {
                 throw ApiError_1.ApiError.badRequest('Invalid VIN. Must be 17 characters');
@@ -601,6 +668,9 @@ let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
             const normalizedVin = vin.trim().toUpperCase();
             const fromDb = yield this.vehicleRepo.findByVIN(normalizedVin);
             if (fromDb) {
+                if (!(options === null || options === void 0 ? void 0 : options.allowNonAvailable) && fromDb.status !== client_1.VehicleStatus.AVAILABLE) {
+                    throw ApiError_1.ApiError.notFound('Vehicle not found');
+                }
                 let vehicle = fromDb;
                 if (this.isPriceStale(vehicle)) {
                     const refreshed = yield this.refreshVehiclePrice(vehicle);
@@ -802,6 +872,7 @@ let VehicleServiceDirect = VehicleServiceDirect_1 = class VehicleServiceDirect {
     }
 };
 exports.VehicleServiceDirect = VehicleServiceDirect;
+VehicleServiceDirect.MAX_RECOMMENDED_SPECIALTY_POOL = 400;
 VehicleServiceDirect.DEFAULT_RECOMMENDATION_REASON = 'Near-new, under 15k miles, exceptional condition at this price';
 exports.VehicleServiceDirect = VehicleServiceDirect = VehicleServiceDirect_1 = __decorate([
     (0, inversify_1.injectable)(),

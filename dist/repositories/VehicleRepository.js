@@ -89,10 +89,7 @@ let VehicleRepository = class VehicleRepository {
                     id: { in: ids },
                     isActive: true,
                     isHidden: false,
-                    OR: [
-                        { source: { not: client_1.VehicleSource.SELLER } },
-                        { user: { profile: { sellerStatus: 'APPROVED' } } }
-                    ]
+                    status: client_1.VehicleStatus.AVAILABLE,
                 },
             });
             const byId = new Map(vehicles.map((v) => [v.id, v]));
@@ -108,18 +105,13 @@ let VehicleRepository = class VehicleRepository {
             const page = pagination.page || 1;
             const limit = Math.min(pagination.limit || 50, 100); // Max 100 per page
             const skip = (page - 1) * limit;
+            /** Marketplace list: return DB rows matching filters only (no seller-profile gating). */
             const where = {
                 isActive: filters.isActive !== false,
-                isHidden: filters.isHidden !== true,
+                /** Must be explicit booleans; `undefined !== true` is `true` and wrongly queried `isHidden: true`. */
+                isHidden: filters.isHidden === true,
                 priceUsd: { gt: 0 },
-                AND: [
-                    {
-                        OR: [
-                            { source: { not: client_1.VehicleSource.SELLER } },
-                            { user: { profile: { sellerStatus: 'APPROVED' } } }
-                        ]
-                    }
-                ]
+                AND: [],
             };
             if ((_a = filters.luxuryMakes) === null || _a === void 0 ? void 0 : _a.length) {
                 where.make = { in: filters.luxuryMakes };
@@ -131,14 +123,27 @@ let VehicleRepository = class VehicleRepository {
                 where.model = { equals: filters.model, mode: 'insensitive' };
             if (filters.vehicleType)
                 where.vehicleType = filters.vehicleType;
-            if (filters.status)
-                where.status = filters.status;
-            if (filters.source)
+            if (filters.allowAnyVehicleStatus) {
+                if (filters.status)
+                    where.status = filters.status;
+            }
+            else {
+                where.status = client_1.VehicleStatus.AVAILABLE;
+            }
+            if (filters.source) {
                 where.source = filters.source;
+            }
             if (filters.dealerState)
                 where.dealerState = filters.dealerState;
             if (filters.featured !== undefined)
                 where.featured = filters.featured;
+            /** Match home rail `findFeaturedForHomeTrending`: only non-expired promotions when filtering featured. */
+            if (filters.featured === true) {
+                const now = new Date();
+                where.AND.push({
+                    OR: [{ featuredUntil: null }, { featuredUntil: { gte: now } }],
+                });
+            }
             if (filters.recommended !== undefined)
                 where.recommended = filters.recommended;
             if (filters.specialty !== undefined)
@@ -209,6 +214,9 @@ let VehicleRepository = class VehicleRepository {
                     where.AND.push({ OR: searchConditions });
                 }
             }
+            if (Array.isArray(where.AND) && where.AND.length === 0) {
+                delete where.AND;
+            }
             const [vehicles, total] = yield Promise.all([
                 db_1.default.vehicle.findMany({
                     where,
@@ -247,6 +255,7 @@ let VehicleRepository = class VehicleRepository {
                     featured: true,
                     isActive: true,
                     isHidden: false,
+                    status: client_1.VehicleStatus.AVAILABLE,
                     priceUsd: { gt: 0 },
                     OR: [{ featuredUntil: null }, { featuredUntil: { gte: now } }],
                     AND: [
@@ -274,6 +283,7 @@ let VehicleRepository = class VehicleRepository {
                     recommended: true,
                     isActive: true,
                     isHidden: false,
+                    status: client_1.VehicleStatus.AVAILABLE,
                     priceUsd: { gt: 0 },
                     OR: [
                         { source: { not: client_1.VehicleSource.SELLER } },
@@ -295,6 +305,7 @@ let VehicleRepository = class VehicleRepository {
                     specialty: true,
                     isActive: true,
                     isHidden: false,
+                    status: client_1.VehicleStatus.AVAILABLE,
                     priceUsd: { gt: 0 },
                     OR: [
                         { source: { not: client_1.VehicleSource.SELLER } },
