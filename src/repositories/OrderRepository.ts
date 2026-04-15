@@ -469,10 +469,11 @@ export class OrderRepository {
     limit = 20,
   ) {
     const skip = (page - 1) * limit;
-    const where: any = {};
+    const where: Prisma.OrderWhereInput = {};
 
     const isObjectId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
 
+    // 1. Basic Filters
     if (filters.status) {
       where.status = Array.isArray(filters.status)
         ? { in: filters.status }
@@ -482,59 +483,128 @@ export class OrderRepository {
     if (filters.userId && isObjectId(filters.userId)) {
       where.userId = filters.userId;
     }
-    if (filters.sellerId && isObjectId(filters.sellerId)) {
-      where.vehicle = { userId: filters.sellerId };
+
+    if (filters.priority) {
+      where.priority = filters.priority as OrderPriority;
     }
 
-    if (filters.priority) where.priority = filters.priority;
-    if (filters.shippingMethod) where.shippingMethod = filters.shippingMethod;
-    if (filters.destinationCountry) where.destinationCountry = filters.destinationCountry;
+    if (filters.shippingMethod) {
+      where.shippingMethod = filters.shippingMethod as ShippingMethod;
+    }
 
+    if (filters.destinationCountry) {
+      where.destinationCountry = filters.destinationCountry;
+    }
+
+    // 2. Date Range Filter
     if (filters.startDate || filters.endDate) {
-      where.createdAt = {};
-      if (filters.startDate && !isNaN(filters.startDate.getTime())) where.createdAt.gte = filters.startDate;
-      if (filters.endDate && !isNaN(filters.endDate.getTime())) where.createdAt.lte = filters.endDate;
+      const gte = filters.startDate && !isNaN(filters.startDate.getTime()) ? filters.startDate : undefined;
+      const lte = filters.endDate && !isNaN(filters.endDate.getTime()) ? filters.endDate : undefined;
+      
+      if (gte || lte) {
+        where.createdAt = {
+          ...(gte && { gte }),
+          ...(lte && { lte }),
+        };
+      }
     }
 
+    // 3. Seller Filter (Join through Vehicle)
+    if (filters.sellerId && isObjectId(filters.sellerId)) {
+      where.vehicle = {
+        userId: filters.sellerId
+      };
+    }
+
+    // 4. Search Filter
     if (filters.search) {
       const search = filters.search.trim();
-      where.OR = [
+      const orConditions: Prisma.OrderWhereInput[] = [
         { requestNumber: { contains: search, mode: 'insensitive' } },
         { user: { fullName: { contains: search, mode: 'insensitive' } } },
         { user: { email: { contains: search, mode: 'insensitive' } } },
-        ...(isObjectId(search) ? [
-          { id: search }, 
-          { userId: search },
-          { vehicle: { userId: search } }
-        ] : []),
       ];
+
+      if (isObjectId(search)) {
+        orConditions.push({ id: search });
+        orConditions.push({ userId: search });
+        // Only add if not already filtering by seller, to avoid deep nested OR issues
+        if (!filters.sellerId) {
+          orConditions.push({ vehicle: { userId: search } });
+        }
+      }
+
+      // If we already have filters, combine them with OR
+      if (Object.keys(where).length > 0) {
+        where.AND = [
+          { ...where },
+          { OR: orConditions }
+        ];
+        // Clean up top-level filters that are now in AND
+        delete where.status;
+        delete where.userId;
+        delete where.priority;
+        delete where.shippingMethod;
+        delete where.destinationCountry;
+        delete where.createdAt;
+        delete where.vehicle;
+      } else {
+        where.OR = orConditions;
+      }
     }
 
-    const [orders, total] = await Promise.all([
-      prisma.order.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              fullName: true,
-              profile: { select: { firstName: true, lastName: true } },
+    try {
+      const [orders, total] = await Promise.all([
+        prisma.order.findMany({
+          where,
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit,
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                fullName: true,
+                profile: { 
+                  select: { 
+                    firstName: true, 
+                    lastName: true 
+                  } 
+                },
+              },
+            },
+            vehicle: {
+              select: { 
+                id: true, 
+                make: true, 
+                model: true, 
+                year: true, 
+                thumbnail: true, 
+                priceUsd: true 
+              },
+            },
+            payments: { 
+              take: 1, 
+              orderBy: { createdAt: 'desc' } 
             },
           },
-          vehicle: {
-            select: { id: true, make: true, model: true, year: true, thumbnail: true, priceUsd: true },
-          },
-          payments: { take: 1, orderBy: { createdAt: 'desc' } },
-        },
-      }),
-      prisma.order.count({ where }),
-    ]);
+        }),
+        prisma.order.count({ where }),
+      ]);
 
-    return { orders, total, page, limit, totalPages: Math.ceil(total / limit) };
+      return { 
+        orders, 
+        total, 
+        page, 
+        limit, 
+        totalPages: Math.ceil(total / limit) 
+      };
+    } catch (error: any) {
+      // Re-throw with more context if possible, asyncHandler will catch and return 503 if Prisma error
+      console.error('Error in findAllAdmin:', error);
+      throw error;
+    }
   }
 
   // ========== ADVANCED QUERIES ==========
