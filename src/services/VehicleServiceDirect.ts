@@ -9,7 +9,7 @@ import { RecommendedService } from './RecommendedService';
 import { CategoryService } from './CategoryService';
 import { VehicleTransformer } from '../helpers/vehicle-transformer';
 import { VehicleLogs } from '../helpers/vehicleLogs';
-import { Vehicle, VehicleSource, Prisma } from '../generated/prisma/client';
+import { Vehicle, VehicleSource, VehicleStatus, Prisma } from '../generated/prisma/client';
 import { CreateVehicleDto } from '../validation/dtos/vehicle.dto';
 import { ApiError } from '../utils/ApiError';
 import loggers from '../utils/loggers';
@@ -37,18 +37,32 @@ export class VehicleServiceDirect {
     return this.trendingService.getTrendingVehicles();
   }
 
-  private static readonly DEFAULT_RECOMMENDATION_REASON =
-    'Near-new, under 15k miles, exceptional condition at this price';
+  /** Same ordering as the home rail; slice for marketplace browse pagination. */
+  async getTrendingVehiclesPaginated(
+    page: number,
+    limit: number
+  ): Promise<{
+    vehicles: Vehicle[];
+    total: number;
+    page: number;
+    limit: number;
+    hasMore: boolean;
+  }> {
+    const all = await this.trendingService.getTrendingVehicles();
+    const total = all.length;
+    const start = (page - 1) * limit;
+    const vehicles = all.slice(start, start + limit);
+    const hasMore = start + vehicles.length < total;
+    return { vehicles, total, page, limit, hasMore };
+  }
+
+  private static readonly MAX_RECOMMENDED_SPECIALTY_POOL = 400;
 
   /**
-   * Get vehicles for "Recommended for you":
-   * (1) If userId: prepend vehicles the user saved ("You saved this").
-   * (2) Primary: fetch from Auto.dev per RecommendedDefinition (like Trending), with reason per definition.
-   * (3) Secondary: DB vehicles with recommended=true (recommendationReason or default).
-   * Dedupe by id/VIN, slice to limit.
+   * Full merged list (saved + definitions + DB) up to {@link MAX_RECOMMENDED_SPECIALTY_POOL} items.
    */
-  async getRecommendedVehicles(
-    limit: number = 12,
+  private async buildRecommendedList(
+    maxItems: number,
     userId?: string
   ): Promise<Array<{ vehicle: Vehicle; reason: string }>> {
     const seen = new Set<string>();
@@ -56,7 +70,6 @@ export class VehicleServiceDirect {
 
     const keyOf = (v: Vehicle): string => v.id || (v.vin ? `vin-${v.vin}` : '');
 
-    // (1) Logged-in: prepend saved vehicles
     if (userId) {
       const savedIds = await this.savedVehicleRepo.findVehicleIdsByUserId(userId, 6);
       if (savedIds.length > 0) {
@@ -71,31 +84,125 @@ export class VehicleServiceDirect {
       }
     }
 
-    // (2) Primary: from Auto.dev per RecommendedDefinition (recommended rail)
-    const fromDefinitions = await this.recommendedService.getFromDefinitions(limit, 'recommended');
-    for (const { vehicle, reason } of fromDefinitions) {
-      const k = keyOf(vehicle);
-      if (k && !seen.has(k)) {
-        seen.add(k);
-        result.push({ vehicle, reason });
+    const defCap = Math.min(200, Math.max(0, maxItems - result.length));
+    if (defCap > 0) {
+      const fromDefinitions = await this.recommendedService.getFromDefinitions(defCap, 'recommended');
+      for (const { vehicle, reason } of fromDefinitions) {
+        const k = keyOf(vehicle);
+        if (k && !seen.has(k)) {
+          seen.add(k);
+          result.push({ vehicle, reason });
+        }
+        if (result.length >= maxItems) return result.slice(0, maxItems);
       }
-      if (result.length >= limit) return result.slice(0, limit);
     }
 
-    // (3) Secondary: DB-flagged recommended
-    const dbRecommended = await this.vehicleRepo.findRecommended(limit);
-    const getDbReason = (v: Vehicle): string =>
-      ((v as any).recommendationReason?.trim()) || VehicleServiceDirect.DEFAULT_RECOMMENDATION_REASON;
-    for (const v of dbRecommended) {
-      const k = keyOf(v);
-      if (k && !seen.has(k)) {
-        seen.add(k);
-        result.push({ vehicle: v, reason: getDbReason(v) });
+    const dbCap = Math.max(0, maxItems - result.length);
+    if (dbCap > 0) {
+      const dbRecommended = await this.vehicleRepo.findRecommended(dbCap);
+      const getDbReason = (v: Vehicle): string =>
+        ((v as any).recommendationReason?.trim()) || VehicleServiceDirect.DEFAULT_RECOMMENDATION_REASON;
+      for (const v of dbRecommended) {
+        const k = keyOf(v);
+        if (k && !seen.has(k)) {
+          seen.add(k);
+          result.push({ vehicle: v, reason: getDbReason(v) });
+        }
+        if (result.length >= maxItems) return result.slice(0, maxItems);
       }
-      if (result.length >= limit) return result.slice(0, limit);
     }
 
-    return result.slice(0, limit);
+    return result.slice(0, maxItems);
+  }
+
+  private async buildSpecialtyList(maxItems: number): Promise<Array<{ vehicle: Vehicle; reason: string }>> {
+    const seen = new Set<string>();
+    const result: Array<{ vehicle: Vehicle; reason: string }> = [];
+
+    const keyOf = (v: Vehicle): string => v.id || (v.vin ? `vin-${v.vin}` : '');
+
+    const defCap = Math.min(200, Math.max(0, maxItems - result.length));
+    if (defCap > 0) {
+      const fromDefinitions = await this.recommendedService.getFromDefinitions(defCap, 'specialty');
+      for (const { vehicle, reason } of fromDefinitions) {
+        const k = keyOf(vehicle);
+        if (k && !seen.has(k)) {
+          seen.add(k);
+          result.push({ vehicle, reason });
+        }
+        if (result.length >= maxItems) return result.slice(0, maxItems);
+      }
+    }
+
+    const dbCap = Math.max(0, maxItems - result.length);
+    if (dbCap > 0) {
+      const dbSpecialty = await this.vehicleRepo.findSpecialty(dbCap);
+      for (const v of dbSpecialty) {
+        const k = keyOf(v);
+        if (k && !seen.has(k)) {
+          seen.add(k);
+          result.push({ vehicle: v, reason: 'Specialty vehicle' });
+        }
+        if (result.length >= maxItems) return result.slice(0, maxItems);
+      }
+    }
+
+    return result.slice(0, maxItems);
+  }
+
+  async getRecommendedVehiclesPage(
+    page: number,
+    limit: number,
+    userId?: string
+  ): Promise<{
+    items: Array<{ vehicle: Vehicle; reason: string }>;
+    total: number;
+    page: number;
+    limit: number;
+    hasMore: boolean;
+  }> {
+    const pool = await this.buildRecommendedList(VehicleServiceDirect.MAX_RECOMMENDED_SPECIALTY_POOL, userId);
+    const total = pool.length;
+    const start = (page - 1) * limit;
+    const items = pool.slice(start, start + limit);
+    const hasMore = start + items.length < total;
+    return { items, total, page, limit, hasMore };
+  }
+
+  async getSpecialtyVehiclesPage(
+    page: number,
+    limit: number
+  ): Promise<{
+    items: Array<{ vehicle: Vehicle; reason: string }>;
+    total: number;
+    page: number;
+    limit: number;
+    hasMore: boolean;
+  }> {
+    const pool = await this.buildSpecialtyList(VehicleServiceDirect.MAX_RECOMMENDED_SPECIALTY_POOL);
+    const total = pool.length;
+    const start = (page - 1) * limit;
+    const items = pool.slice(start, start + limit);
+    const hasMore = start + items.length < total;
+    return { items, total, page, limit, hasMore };
+  }
+
+  private static readonly DEFAULT_RECOMMENDATION_REASON =
+    'Near-new, under 15k miles, exceptional condition at this price';
+
+  /**
+   * Get vehicles for "Recommended for you":
+   * (1) If userId: prepend vehicles the user saved ("You saved this").
+   * (2) Primary: fetch from Auto.dev per RecommendedDefinition (like Trending), with reason per definition.
+   * (3) Secondary: DB vehicles with recommended=true (recommendationReason or default).
+   * Dedupe by id/VIN, slice to limit.
+   */
+  async getRecommendedVehicles(
+    limit: number = 12,
+    userId?: string
+  ): Promise<Array<{ vehicle: Vehicle; reason: string }>> {
+    const full = await this.buildRecommendedList(limit, userId);
+    return full.slice(0, limit);
   }
 
   /**
@@ -107,34 +214,8 @@ export class VehicleServiceDirect {
   async getSpecialtyVehicles(
     limit: number = 12
   ): Promise<Array<{ vehicle: Vehicle; reason: string }>> {
-    const seen = new Set<string>();
-    const result: Array<{ vehicle: Vehicle; reason: string }> = [];
-
-    const keyOf = (v: Vehicle): string => v.id || (v.vin ? `vin-${v.vin}` : '');
-
-    // (1) From Auto.dev definitions tagged for specialty
-    const fromDefinitions = await this.recommendedService.getFromDefinitions(limit, 'specialty');
-    for (const { vehicle, reason } of fromDefinitions) {
-      const k = keyOf(vehicle);
-      if (k && !seen.has(k)) {
-        seen.add(k);
-        result.push({ vehicle, reason });
-      }
-      if (result.length >= limit) return result.slice(0, limit);
-    }
-
-    // (2) DB-flagged specialty
-    const dbSpecialty = await this.vehicleRepo.findSpecialty(limit);
-    for (const v of dbSpecialty) {
-      const k = keyOf(v);
-      if (k && !seen.has(k)) {
-        seen.add(k);
-        result.push({ vehicle: v, reason: 'Specialty vehicle' });
-      }
-      if (result.length >= limit) return result.slice(0, limit);
-    }
-
-    return result.slice(0, limit);
+    const full = await this.buildSpecialtyList(limit);
+    return full.slice(0, limit);
   }
 
   async getMakeModelsReference(): Promise<Record<string, string[]>> {
@@ -456,19 +537,34 @@ export class VehicleServiceDirect {
       }
     }
 
+    /**
+     * Afrozon sellers / DB-only: no `Vehicle.source` filter. `status: AVAILABLE` is enforced in
+     * {@link VehicleRepository.findMany} for all public listings.
+     */
+    if (!includeApiResults) {
+      resolvedFilters = { ...resolvedFilters };
+      delete (resolvedFilters as { source?: VehicleFilters['source'] }).source;
+    }
+
     const dbResult = await this.vehicleRepo.findMany(resolvedFilters, pagination);
     const staleVehicles = dbResult.vehicles.filter((v) => this.isPriceStale(v));
     Promise.all(
       staleVehicles.map((v) => this.refreshVehiclePrice(v).catch(() => null))
     ).catch(() => {});
 
-    /** Auto.dev has no notion of featured / recommended / specialty — mixing it in pollutes curated views. */
+    /** Auto.dev has no notion of recommended / specialty — keep those DB-only. Featured browse uses DB + API fill like before. */
     const isCuratedDbOnlyMode =
-      resolvedFilters.featured === true ||
-      resolvedFilters.recommended === true ||
-      resolvedFilters.specialty === true;
+      resolvedFilters.recommended === true || resolvedFilters.specialty === true;
 
-    const mergeAutoDev = includeApiResults && !isCuratedDbOnlyMode;
+    /**
+     * Auto.dev listings are always transformed as AVAILABLE. If the client filters by any other
+     * status (SOLD, PENDING, etc.), merging would pollute results — DB-only for that request.
+     */
+    const mergeApiAllowedByStatus =
+      !resolvedFilters.status || resolvedFilters.status === VehicleStatus.AVAILABLE;
+
+    const mergeAutoDev =
+      includeApiResults && !isCuratedDbOnlyMode && mergeApiAllowedByStatus;
 
     let apiVehicles: Vehicle[] = [];
     let fromApiCount = 0; // how many API listings made it into the response (after de-dup and price filter)
@@ -567,7 +663,7 @@ export class VehicleServiceDirect {
     }
 
     // When Auto.dev is merged we cannot know global total; meta uses hasMore + full-page heuristic.
-    // Curated-only (featured / recommended / specialty): DB total + pagination are exact.
+    // Curated-only (recommended / specialty): DB total + pagination are exact.
     const blendedApi = mergeAutoDev;
     const total = blendedApi ? 0 : dbResult.total + apiOnlyCount;
     const pages = blendedApi ? 0 : Math.ceil((dbResult.total + apiOnlyCount) / limit) || 1;
@@ -588,8 +684,12 @@ export class VehicleServiceDirect {
     };
   }
 
-  async getVehicle(identifier: string, type: 'id' | 'vin' = 'id'): Promise<Vehicle> {
-    if (type === 'vin') return this.getVehicleByVIN(identifier);
+  async getVehicle(
+    identifier: string,
+    type: 'id' | 'vin' = 'id',
+    options?: { allowNonAvailable?: boolean }
+  ): Promise<Vehicle> {
+    if (type === 'vin') return this.getVehicleByVIN(identifier, options);
     const trim = (identifier || '').trim();
     if (trim.startsWith('temp-')) {
       const suffix = trim.slice(5);
@@ -598,14 +698,14 @@ export class VehicleServiceDirect {
       if (uuidOpaque) {
         const vin = await this.redisCache.resolveTempVehiclePublicId(trim);
         if (!vin) throw ApiError.notFound('Vehicle not found or link expired');
-        return this.getVehicleByVIN(vin);
+        return this.getVehicleByVIN(vin, options);
       }
       if (suffix.length === 17 && this.looksLikeVin(suffix)) {
-        return this.getVehicleByVIN(suffix);
+        return this.getVehicleByVIN(suffix, options);
       }
       throw ApiError.badRequest('Invalid temp vehicle identifier');
     }
-    if (this.looksLikeVin(trim)) return this.getVehicleByVIN(trim);
+    if (this.looksLikeVin(trim)) return this.getVehicleByVIN(trim, options);
     if (this.isMongoObjectId(trim)) {
       let vehicle = await this.vehicleRepo.findById(trim);
       if (vehicle && this.isPriceStale(vehicle)) {
@@ -613,6 +713,9 @@ export class VehicleServiceDirect {
         if (refreshed) vehicle = refreshed;
       }
       if (vehicle) {
+        if (!options?.allowNonAvailable && vehicle.status !== VehicleStatus.AVAILABLE) {
+          throw ApiError.notFound('Vehicle not found');
+        }
         this.vehicleRepo.incrementViewCount(vehicle.id).catch((err) =>
           loggers.error('Failed to increment view count:', err)
         );
@@ -625,7 +728,10 @@ export class VehicleServiceDirect {
     );
   }
 
-  async getVehicleByVIN(vin: string): Promise<Vehicle> {
+  async getVehicleByVIN(
+    vin: string,
+    options?: { allowNonAvailable?: boolean }
+  ): Promise<Vehicle> {
     if (!vin || vin.trim().length !== 17) {
       throw ApiError.badRequest('Invalid VIN. Must be 17 characters');
     }
@@ -633,6 +739,9 @@ export class VehicleServiceDirect {
 
     const fromDb = await this.vehicleRepo.findByVIN(normalizedVin);
     if (fromDb) {
+      if (!options?.allowNonAvailable && fromDb.status !== VehicleStatus.AVAILABLE) {
+        throw ApiError.notFound('Vehicle not found');
+      }
       let vehicle = fromDb;
       if (this.isPriceStale(vehicle)) {
         const refreshed = await this.refreshVehiclePrice(vehicle);

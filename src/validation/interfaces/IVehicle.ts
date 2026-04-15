@@ -41,5 +41,10 @@ export interface AutoDevResponse<T> {
     // Condition (API filter; new | used | cpo) and drivetrain (DB + API)
     condition?: 'new' | 'used' | 'cpo';
     drivetrain?: string; // AWD, FWD, RWD, 4WD
+    /**
+     * When true, `status` filter is respected or any status may appear (internal/admin).
+     * When false/omitted, marketplace queries only return `AVAILABLE` vehicles.
+     */
+    allowAnyVehicleStatus?: boolean;
   }
   

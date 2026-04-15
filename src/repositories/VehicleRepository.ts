@@ -1,6 +1,6 @@
 import { injectable } from 'inversify';
 import prisma from '../db';
-import { Vehicle, Prisma, VehicleSource } from '../generated/prisma/client';
+import { Vehicle, Prisma, VehicleSource, VehicleStatus } from '../generated/prisma/client';
 import { VehicleFilters } from '../validation/interfaces/IVehicle';
 
 export interface VehiclePagination {
@@ -76,10 +76,7 @@ export class VehicleRepository {
         id: { in: ids },
         isActive: true,
         isHidden: false,
-        OR: [
-          { source: { not: VehicleSource.SELLER } },
-          { user: { profile: { sellerStatus: 'APPROVED' } } }
-        ]
+        status: VehicleStatus.AVAILABLE,
       },
     });
     const byId = new Map(vehicles.map((v) => [v.id, v]));
@@ -97,18 +94,13 @@ export class VehicleRepository {
     const limit = Math.min(pagination.limit || 50, 100); // Max 100 per page
     const skip = (page - 1) * limit;
 
+    /** Marketplace list: return DB rows matching filters only (no seller-profile gating). */
     const where: Prisma.VehicleWhereInput = {
       isActive: filters.isActive !== false,
-      isHidden: filters.isHidden !== true,
+      /** Must be explicit booleans; `undefined !== true` is `true` and wrongly queried `isHidden: true`. */
+      isHidden: filters.isHidden === true,
       priceUsd: { gt: 0 },
-      AND: [
-        {
-          OR: [
-            { source: { not: VehicleSource.SELLER } },
-            { user: { profile: { sellerStatus: 'APPROVED' } } }
-          ]
-        }
-      ]
+      AND: [],
     };
 
     if (filters.luxuryMakes?.length) {
@@ -118,10 +110,23 @@ export class VehicleRepository {
     }
     if (filters.model) where.model = { equals: filters.model, mode: 'insensitive' };
     if (filters.vehicleType) where.vehicleType = filters.vehicleType as any;
-    if (filters.status) where.status = filters.status;
-    if (filters.source) where.source = filters.source;
+    if (filters.allowAnyVehicleStatus) {
+      if (filters.status) where.status = filters.status;
+    } else {
+      where.status = VehicleStatus.AVAILABLE;
+    }
+    if (filters.source) {
+      where.source = filters.source;
+    }
     if (filters.dealerState) where.dealerState = filters.dealerState;
     if (filters.featured !== undefined) where.featured = filters.featured;
+    /** Match home rail `findFeaturedForHomeTrending`: only non-expired promotions when filtering featured. */
+    if (filters.featured === true) {
+      const now = new Date();
+      (where.AND as Prisma.VehicleWhereInput[]).push({
+        OR: [{ featuredUntil: null }, { featuredUntil: { gte: now } }],
+      });
+    }
     if (filters.recommended !== undefined) (where as any).recommended = filters.recommended;
     if (filters.specialty !== undefined) (where as any).specialty = filters.specialty;
 
@@ -199,6 +204,10 @@ export class VehicleRepository {
       }
     }
 
+    if (Array.isArray(where.AND) && where.AND.length === 0) {
+      delete where.AND;
+    }
+
     const [vehicles, total] = await Promise.all([
       prisma.vehicle.findMany({
         where,
@@ -239,6 +248,7 @@ export class VehicleRepository {
         featured: true,
         isActive: true,
         isHidden: false,
+        status: VehicleStatus.AVAILABLE,
         priceUsd: { gt: 0 },
         OR: [{ featuredUntil: null }, { featuredUntil: { gte: now } }],
         AND: [
@@ -265,6 +275,7 @@ export class VehicleRepository {
         recommended: true,
         isActive: true,
         isHidden: false,
+        status: VehicleStatus.AVAILABLE,
         priceUsd: { gt: 0 },
         OR: [
           { source: { not: VehicleSource.SELLER } },
@@ -285,6 +296,7 @@ export class VehicleRepository {
         specialty: true,
         isActive: true,
         isHidden: false,
+        status: VehicleStatus.AVAILABLE,
         priceUsd: { gt: 0 },
         OR: [
           { source: { not: VehicleSource.SELLER } },

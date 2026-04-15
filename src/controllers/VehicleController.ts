@@ -7,7 +7,7 @@ import { AuthenticatedRequest } from '../types/customRequest';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiResponse } from '../utils/ApiResponse';
 import { ApiError } from '../utils/ApiError';
-import { UserRole } from '../generated/prisma/client';
+import { UserRole, VehicleStatus } from '../generated/prisma/client';
 import { VehicleFilters } from '../validation/interfaces/IVehicle';
 import {
   maskRecommendedOrSpecialtyItems,
@@ -32,6 +32,27 @@ export class VehicleController {
    * Trending vehicles: ordered first, then 5 per trending rule from Auto.dev
    */
   getTrending = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const pageRaw = req.query.page;
+    const pageParsed =
+      pageRaw != null && String(pageRaw).trim() !== ''
+        ? parseInt(String(pageRaw), 10)
+        : NaN;
+    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || 24), 10) || 24));
+
+    if (Number.isFinite(pageParsed) && pageParsed >= 1) {
+      const { vehicles, total, page, limit: lim, hasMore } =
+        await this.vehicleService.getTrendingVehiclesPaginated(pageParsed, limit);
+      const payload = isVehicleVinAdmin(req) ? vehicles : maskVehiclesForPublic(vehicles);
+      const pages = Math.ceil(total / lim) || 1;
+      return res.json(
+        ApiResponse.paginated(
+          payload,
+          { page, limit: lim, total, hasMore, pages },
+          'Trending vehicles retrieved successfully'
+        )
+      );
+    }
+
     const vehicles = await this.vehicleService.getTrendingVehicles();
     const payload = isVehicleVinAdmin(req) ? vehicles : maskVehiclesForPublic(vehicles);
     return res.json(ApiResponse.success(payload, 'Trending vehicles retrieved successfully'));
@@ -43,8 +64,34 @@ export class VehicleController {
    * Optional auth: use authenticateOptional so logged-in users get personalized blend.
    */
   getRecommended = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const limit = Math.min(24, Math.max(1, parseInt(String(req.query.limit || 12), 10) || 12));
+    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || 12), 10) || 12));
+    const pageRaw = req.query.page;
+    const pageParsed =
+      pageRaw != null && String(pageRaw).trim() !== ''
+        ? parseInt(String(pageRaw), 10)
+        : NaN;
     const userId = req.user?.id;
+
+    if (Number.isFinite(pageParsed) && pageParsed >= 1) {
+      const result = await this.vehicleService.getRecommendedVehiclesPage(pageParsed, limit, userId);
+      const list = result.items;
+      const payload = isVehicleVinAdmin(req) ? list : maskRecommendedOrSpecialtyItems(list);
+      const pages = Math.ceil(result.total / result.limit) || 1;
+      return res.json(
+        ApiResponse.paginated(
+          payload,
+          {
+            page: result.page,
+            limit: result.limit,
+            total: result.total,
+            hasMore: result.hasMore,
+            pages,
+          },
+          'Recommended vehicles retrieved successfully'
+        )
+      );
+    }
+
     const list = await this.vehicleService.getRecommendedVehicles(limit, userId);
     const payload = isVehicleVinAdmin(req) ? list : maskRecommendedOrSpecialtyItems(list);
     return res.json(ApiResponse.success(payload, 'Recommended vehicles retrieved successfully'));
@@ -55,7 +102,33 @@ export class VehicleController {
    * Specialty Vehicles rail: mix of rule-driven (RecommendedDefinition.forSpecialty) and DB specialty=true.
    */
   getSpecialty = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const limit = Math.min(24, Math.max(1, parseInt(String(req.query.limit || 12), 10) || 12));
+    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || 12), 10) || 12));
+    const pageRaw = req.query.page;
+    const pageParsed =
+      pageRaw != null && String(pageRaw).trim() !== ''
+        ? parseInt(String(pageRaw), 10)
+        : NaN;
+
+    if (Number.isFinite(pageParsed) && pageParsed >= 1) {
+      const result = await this.vehicleService.getSpecialtyVehiclesPage(pageParsed, limit);
+      const list = result.items;
+      const payload = isVehicleVinAdmin(req) ? list : maskRecommendedOrSpecialtyItems(list);
+      const pages = Math.ceil(result.total / result.limit) || 1;
+      return res.json(
+        ApiResponse.paginated(
+          payload,
+          {
+            page: result.page,
+            limit: result.limit,
+            total: result.total,
+            hasMore: result.hasMore,
+            pages,
+          },
+          'Specialty vehicles retrieved successfully'
+        )
+      );
+    }
+
     const list = await this.vehicleService.getSpecialtyVehicles(limit);
     const payload = isVehicleVinAdmin(req) ? list : maskRecommendedOrSpecialtyItems(list);
     return res.json(ApiResponse.success(payload, 'Specialty vehicles retrieved successfully'));
@@ -101,6 +174,7 @@ export class VehicleController {
       const s = Array.isArray(v) ? v[0] : v;
       return typeof s === 'string' && s.trim() !== '' ? s.trim() : undefined;
     };
+    const includeApi = req.query.includeApi !== 'false';
     const filters: VehicleFilters = {};
     if (str(q.make)) filters.make = str(q.make);
     if (str(q.model)) filters.model = str(q.model);
@@ -115,8 +189,18 @@ export class VehicleController {
     const mileageMax = q.mileageMax ? parseInt(q.mileageMax as string, 10) : undefined;
     if (Number.isFinite(mileageMax)) filters.mileageMax = mileageMax;
     if (str(q.vehicleType)) filters.vehicleType = str(q.vehicleType) as VehicleFilters['vehicleType'];
-    if (str(q.status)) filters.status = str(q.status) as VehicleFilters['status'];
-    if (str(q.source)) filters.source = str(q.source) as VehicleFilters['source'];
+    /** Afrozon sellers (`includeApi=false`): service forces `AVAILABLE`; ignore `status` query here. */
+    if (includeApi) {
+      const statusStr = str(q.status);
+      if (statusStr) {
+        const normalized = statusStr.trim().replace(/\s+/g, '_').toUpperCase();
+        if ((Object.values(VehicleStatus) as string[]).includes(normalized)) {
+          filters.status = normalized as VehicleFilters['status'];
+        }
+      }
+    }
+    /** `source` is ignored when `includeApi=false` (Afrozon sellers = full DB catalog). */
+    if (str(q.source) && includeApi) filters.source = str(q.source) as VehicleFilters['source'];
     if (str(q.state)) filters.dealerState = str(q.state);
     if (q.featured !== undefined && q.featured !== '') filters.featured = q.featured === 'true';
     if (str(q.search)) filters.search = str(q.search);
@@ -146,7 +230,6 @@ export class VehicleController {
       limit: Math.min(100, Math.max(1, q.limit ? parseInt(q.limit as string, 10) : 50)),
     };
 
-    const includeApi = req.query.includeApi !== 'false';
     const categorySlug = str(q.category);
 
     const sortByParam = str(q.sortBy) as ('price' | 'year' | 'mileage' | 'createdAt') | undefined;
@@ -215,7 +298,9 @@ export class VehicleController {
       )
     }
 
-    const vehicle = await this.vehicleService.getVehicle(identifier, type);
+    const vehicle = await this.vehicleService.getVehicle(identifier, type, {
+      allowNonAvailable: isVehicleVinAdmin(req),
+    });
     const payload = isVehicleVinAdmin(req) ? vehicle : maskVehicleForPublic(vehicle);
     return res.json(ApiResponse.success(payload, 'Vehicle retrieved successfully'));
   });
