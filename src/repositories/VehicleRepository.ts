@@ -129,6 +129,9 @@ export class VehicleRepository {
     }
     if (filters.recommended !== undefined) (where as any).recommended = filters.recommended;
     if (filters.specialty !== undefined) (where as any).specialty = filters.specialty;
+    if (filters.section) {
+      where.sections = { has: filters.section.toUpperCase() };
+    }
 
     if (filters.yearMin || filters.yearMax) {
       where.year = {};
@@ -245,13 +248,18 @@ export class VehicleRepository {
     const now = new Date();
     return prisma.vehicle.findMany({
       where: {
-        featured: true,
+        OR: [
+          { featured: true },
+          { sections: { has: 'FEATURED' } }
+        ],
         isActive: true,
         isHidden: false,
         status: VehicleStatus.AVAILABLE,
         priceUsd: { gt: 0 },
-        OR: [{ featuredUntil: null }, { featuredUntil: { gte: now } }],
         AND: [
+          {
+            OR: [{ featuredUntil: null }, { featuredUntil: { gte: now } }],
+          },
           {
             OR: [
               { source: { not: VehicleSource.SELLER } },
@@ -272,14 +280,21 @@ export class VehicleRepository {
   async findRecommended(limit: number = 12): Promise<Vehicle[]> {
     return prisma.vehicle.findMany({
       where: {
-        recommended: true,
+        OR: [
+          { recommended: true },
+          { sections: { has: 'RECOMMENDED' } }
+        ],
         isActive: true,
         isHidden: false,
         status: VehicleStatus.AVAILABLE,
         priceUsd: { gt: 0 },
-        OR: [
-          { source: { not: VehicleSource.SELLER } },
-          { user: { profile: { sellerStatus: 'APPROVED' } } }
+        AND: [
+          {
+            OR: [
+              { source: { not: VehicleSource.SELLER } },
+              { user: { profile: { sellerStatus: 'APPROVED' } } }
+            ]
+          }
         ]
       },
       orderBy: [{ recommendedSortOrder: 'asc' }, { createdAt: 'desc' }],
@@ -293,14 +308,21 @@ export class VehicleRepository {
   async findSpecialty(limit: number = 12): Promise<Vehicle[]> {
     return prisma.vehicle.findMany({
       where: {
-        specialty: true,
+        OR: [
+          { specialty: true },
+          { sections: { has: 'SPECIALTY' } }
+        ],
         isActive: true,
         isHidden: false,
         status: VehicleStatus.AVAILABLE,
         priceUsd: { gt: 0 },
-        OR: [
-          { source: { not: VehicleSource.SELLER } },
-          { user: { profile: { sellerStatus: 'APPROVED' } } }
+        AND: [
+          {
+            OR: [
+              { source: { not: VehicleSource.SELLER } },
+              { user: { profile: { sellerStatus: 'APPROVED' } } }
+            ]
+          }
         ]
       } as any,
       orderBy: [{ createdAt: 'desc' }],
@@ -412,6 +434,42 @@ export class VehicleRepository {
    */
   async hardDelete(id: string): Promise<Vehicle> {
     return prisma.vehicle.delete({ where: { id } });
+  }
+
+  /**
+   * Add a section to a vehicle's sections list (deduplicated)
+   */
+  async addSectionToVehicle(id: string, section: string): Promise<Vehicle> {
+    const sectionUpper = section.toUpperCase();
+    return prisma.vehicle.update({
+      where: { id },
+      data: {
+        sections: {
+          push: sectionUpper,
+        },
+      },
+    });
+  }
+
+  /**
+   * Remove a section from a vehicle's sections list
+   */
+  async removeSectionFromVehicle(id: string, section: string): Promise<Vehicle> {
+    const sectionUpper = section.toUpperCase();
+    const vehicle = await prisma.vehicle.findUnique({
+      where: { id },
+      select: { sections: true },
+    });
+    if (!vehicle) throw new Error('Vehicle not found');
+
+    return prisma.vehicle.update({
+      where: { id },
+      data: {
+        sections: {
+          set: vehicle.sections.filter((s) => s !== sectionUpper),
+        },
+      },
+    });
   }
 }
 

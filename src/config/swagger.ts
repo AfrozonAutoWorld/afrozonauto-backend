@@ -316,7 +316,16 @@ const swaggerSpec = {
           { name: "model", in: "query", schema: { type: "string" } },
           { name: "year", in: "query", schema: { type: "integer" } },
           { name: "minPrice", in: "query", schema: { type: "number" } },
-          { name: "maxPrice", in: "query", schema: { type: "number" } }
+          { name: "maxPrice", in: "query", schema: { type: "number" } },
+          { 
+            name: "section", 
+            in: "query", 
+            schema: { 
+              type: "string",
+              enum: ["RECOMMENDED", "SPECIALTY", "FEATURED", "SPECIAL_DEALS", "DEALS"]
+            },
+            description: "Filter by assigned section tag"
+          }
         ],
         responses: { 200: { description: "List of vehicles" } }
       },
@@ -406,6 +415,48 @@ const swaggerSpec = {
         security: [{ bearerAuth: [] }],
         requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } },
         responses: { 201: { description: "Vehicle saved" } }
+      }
+    },
+    "/api/vehicles/{id}/sections": {
+      post: {
+        summary: "Assign vehicle to a platform section (Admin)",
+        description: "Tags a vehicle to appear in specified curated sections like Recommended, Specialty, or Custom ones.",
+        tags: ["Vehicles - Admin Assignments"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string" }, description: "Vehicle ID" }
+        ],
+        requestBody: { 
+          required: true, 
+          content: { 
+            "application/json": { 
+              schema: { 
+                type: "object",
+                required: ["section"],
+                properties: {
+                  section: {
+                    type: "string",
+                    enum: ["RECOMMENDED", "SPECIALTY", "FEATURED", "SPECIAL_DEALS", "DEALS"],
+                    description: "Section name (normalized to uppercase)"
+                  }
+                }
+              } 
+            } 
+          } 
+        },
+        responses: { 200: { description: "Section assigned successfully" } }
+      }
+    },
+    "/api/vehicles/{id}/sections/{section}": {
+      delete: {
+        summary: "Remove vehicle from a platform section (Admin)",
+        tags: ["Vehicles - Admin Assignments"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "string" }, description: "Vehicle ID" },
+          { name: "section", in: "path", required: true, schema: { type: "string" }, description: "Section name to remove" }
+        ],
+        responses: { 200: { description: "Section removed successfully" } }
       }
     },
 

@@ -220,9 +220,11 @@ export class VehicleController {
 
     const section = str(q.section);
     if (section === 'recommended') {
-      (filters as any).recommended = true;
+      filters.recommended = true;
     } else if (section === 'specialty') {
-      (filters as any).specialty = true;
+      filters.specialty = true;
+    } else if (section) {
+      filters.section = section;
     }
 
     const pagination = {
@@ -424,5 +426,37 @@ export class VehicleController {
     return res.status(201).json(
       ApiResponse.created(vehicle, 'Vehicle saved from API successfully')
     );
+  });
+
+  /**
+   * POST /api/vehicles/:id/sections
+   * Assign vehicle to a section (Admin only)
+   * Body: { section: string }
+   */
+  assignToSection = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    if (req.user?.role !== UserRole.SUPER_ADMIN && req.user?.role !== UserRole.OPERATIONS_ADMIN) {
+      throw ApiError.forbidden('Only admins can assign vehicles to sections');
+    }
+    const { id } = req.params;
+    const { section } = req.body;
+    if (!section) throw ApiError.badRequest('section is required');
+
+    const vehicle = await this.vehicleService.addVehicleToSection(id, section);
+    return res.json(ApiResponse.success(vehicle, `Vehicle assigned to section ${section.toUpperCase()} successfully`));
+  });
+
+  /**
+   * DELETE /api/vehicles/:id/sections/:section
+   * Remove vehicle from a section (Admin only)
+   */
+  removeFromSection = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    if (req.user?.role !== UserRole.SUPER_ADMIN && req.user?.role !== UserRole.OPERATIONS_ADMIN) {
+      throw ApiError.forbidden('Only admins can remove vehicles from sections');
+    }
+    const { id, section } = req.params;
+    if (!section) throw ApiError.badRequest('section is required');
+
+    const vehicle = await this.vehicleService.removeVehicleFromSection(id, section);
+    return res.json(ApiResponse.success(vehicle, `Vehicle removed from section ${section.toUpperCase()} successfully`));
   });
 }
