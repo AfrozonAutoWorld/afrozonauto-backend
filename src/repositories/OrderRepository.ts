@@ -384,15 +384,10 @@ export class OrderRepository {
 
     if (vehicleId) {
       where.vehicleId = vehicleId;
-    } else if (vin) {
-      // For MongoDB JSON filtering in Prisma
-      where.vehicleSnapshot = {
-        path: 'vin',
-        equals: vin
-      };
     }
 
-    return prisma.order.findFirst({
+    // Fetch potential active orders
+    const orders = await prisma.order.findMany({
       where,
       include: {
         user: {
@@ -421,6 +416,19 @@ export class OrderRepository {
         shipment: true
       }
     });
+
+    if (vehicleId) {
+       return orders[0] || null;
+    }
+
+    if (vin) {
+      return orders.find(o => {
+        const snapshot = o.vehicleSnapshot as any;
+        return snapshot?.vin === vin;
+      }) || null;
+    }
+
+    return orders[0] || null;
   }
 
 

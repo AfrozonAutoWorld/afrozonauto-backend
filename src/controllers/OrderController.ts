@@ -91,7 +91,7 @@ export class OrderController {
 
     const order = await this.service.createOrder({
       userId,
-      vehicleId,
+      vehicleId: vehicleId || vehicle.id,
       shippingMethod,
       // destinationCountry: address.country ?? undefined,
       // destinationState: address.state ?? undefined,
