@@ -377,12 +377,14 @@ export class OrderRepository {
       OrderStatus.OUT_FOR_DELIVERY,
     ];
 
+    const isMongoObjectId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
+
     const where: any = {
       userId,
       status: { in: activeStatuses }
     };
 
-    if (vehicleId) {
+    if (vehicleId && isMongoObjectId(vehicleId)) {
       where.vehicleId = vehicleId;
     }
 
