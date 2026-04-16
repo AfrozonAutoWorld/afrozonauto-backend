@@ -15,6 +15,48 @@ export class SellerVehicleService {
     /**
      * Submit a new vehicle listing
      */
+    /** Maps seller body-style labels to marketplace `vehicleType` (filters / rails). */
+    private static vehicleTypeFromBodyStyle(bodyStyle?: string): string {
+        if (!bodyStyle?.trim()) return 'CAR';
+        const b = bodyStyle.trim().toLowerCase();
+        const map: Record<string, string> = {
+            sedan: 'SEDAN',
+            suv: 'SUV',
+            hatchback: 'HATCHBACK',
+            coupe: 'COUPE',
+            convertible: 'CONVERTIBLE',
+            wagon: 'WAGON',
+            van: 'VAN',
+            'pickup truck': 'TRUCK',
+            truck: 'TRUCK',
+        };
+        return map[b] ?? 'CAR';
+    }
+
+    /** Parses "City, ST" from contact city field into dealerCity + dealerState for marketplace state filter. */
+    private static parseDealerLocation(cityField?: string): { dealerCity?: string; dealerState?: string } {
+        const raw = (cityField ?? '').trim();
+        if (!raw) return {};
+        const m = raw.match(/^(.+?),\s*([A-Za-z]{2})\s*$/);
+        if (m) {
+            return { dealerCity: m[1].trim(), dealerState: m[2].toUpperCase() };
+        }
+        return { dealerCity: raw };
+    }
+
+    /** Normalizes seller payloads: vehicle type, dealer location fields; strips non-persisted keys. */
+    private static applySellerListingNormalization(data: Record<string, unknown>): void {
+        delete data.existingImageUrls;
+        const vt = data.vehicleType;
+        if (!vt || vt === 'OTHER') {
+            data.vehicleType = SellerVehicleService.vehicleTypeFromBodyStyle(data.bodyStyle as string | undefined);
+        }
+        const loc = SellerVehicleService.parseDealerLocation(data.city as string | undefined);
+        if (loc.dealerCity) data.dealerCity = loc.dealerCity;
+        if (loc.dealerState) data.dealerState = loc.dealerState;
+        if (data.zipCode) data.dealerZipCode = data.zipCode;
+    }
+
     async submitListing(data: any, userRole?: UserRole): Promise<Vehicle> {
         const isAdmin = userRole === UserRole.SUPER_ADMIN || userRole === UserRole.OPERATIONS_ADMIN;
 
@@ -54,6 +96,8 @@ export class SellerVehicleService {
         if (!isAdmin) {
             data.status = VehicleStatus.PENDING_REVIEW;
         }
+
+        SellerVehicleService.applySellerListingNormalization(data);
 
         try {
             return await this.vehicleRepo.createSellerListing(data);
@@ -144,9 +188,10 @@ export class SellerVehicleService {
             rest.manualNotes = rest.additionalNotes;
             delete rest.additionalNotes;
         }
-        delete rest.existingImageUrls;
         delete rest.uploadedFiles;
         delete rest.userId;
+
+        SellerVehicleService.applySellerListingNormalization(rest);
 
         const updatePayload: Prisma.VehicleUpdateInput = {
             ...rest,

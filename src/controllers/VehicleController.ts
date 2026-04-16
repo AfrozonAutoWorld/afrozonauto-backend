@@ -206,6 +206,7 @@ export class VehicleController {
     if (str(q.search)) filters.search = str(q.search);
     if (str(q.bodyStyle)) filters.bodyStyle = str(q.bodyStyle);
     if (str(q.fuel)) filters.fuel = str(q.fuel);
+    else if (str(q.fuelType)) filters.fuel = str(q.fuelType);
     if (str(q.transmission)) filters.transmission = str(q.transmission);
     if (str(q.exteriorColor)) filters.exteriorColor = str(q.exteriorColor);
     if (str(q.interiorColor)) filters.interiorColor = str(q.interiorColor);

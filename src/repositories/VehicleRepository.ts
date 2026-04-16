@@ -16,6 +16,23 @@ export interface SellerListingFilters {
   year?: number;
 }
 
+/** Comma-separated multi-select from query string / filters. */
+function splitCsv(raw: string | undefined): string[] {
+  if (!raw?.trim()) return [];
+  return raw.split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+function bodyStyleWhereForOne(raw: string): Prisma.VehicleWhereInput {
+  const style = raw.trim().toLowerCase();
+  if (style === 'sedan') {
+    return { bodyStyle: { in: ['Sedan', 'Car'], mode: 'insensitive' } };
+  }
+  if (style === 'pickup truck') {
+    return { bodyStyle: { in: ['Pickup Truck', 'Pickup', 'Truck'], mode: 'insensitive' } };
+  }
+  return { bodyStyle: { equals: raw.trim(), mode: 'insensitive' } };
+}
+
 @injectable()
 export class VehicleRepository {
   /**
@@ -148,34 +165,58 @@ export class VehicleRepository {
       where.mileage = { lte: filters.mileageMax };
     }
 
-    if (filters.bodyStyle) {
-      const style = filters.bodyStyle.trim().toLowerCase();
-      if (style === 'sedan') {
-        where.bodyStyle = {
-          in: ['Sedan', 'Car'],
-          mode: 'insensitive',
-        };
-      } else if (style === 'pickup truck') {
-        where.bodyStyle = {
-          in: ['Pickup Truck', 'Pickup', 'Truck'],
-          mode: 'insensitive',
-        };
-      } else {
-        where.bodyStyle = { equals: filters.bodyStyle, mode: 'insensitive' };
-      }
+    const andList = where.AND as Prisma.VehicleWhereInput[];
+
+    const bodyStyles = splitCsv(filters.bodyStyle);
+    if (bodyStyles.length === 1) {
+      Object.assign(where, bodyStyleWhereForOne(bodyStyles[0]));
+    } else if (bodyStyles.length > 1) {
+      andList.push({ OR: bodyStyles.map((b) => bodyStyleWhereForOne(b)) });
     }
 
-    if (filters.transmission) {
-      where.transmission = { equals: filters.transmission, mode: 'insensitive' };
+    const fuels = splitCsv(filters.fuel);
+    if (fuels.length === 1) {
+      where.fuelType = { equals: fuels[0], mode: 'insensitive' };
+    } else if (fuels.length > 1) {
+      andList.push({
+        OR: fuels.map((f) => ({ fuelType: { equals: f, mode: 'insensitive' } })),
+      });
     }
-    if (filters.exteriorColor) {
-      where.exteriorColor = { equals: filters.exteriorColor, mode: 'insensitive' };
+
+    const transmissions = splitCsv(filters.transmission);
+    if (transmissions.length === 1) {
+      where.transmission = { equals: transmissions[0], mode: 'insensitive' };
+    } else if (transmissions.length > 1) {
+      andList.push({
+        OR: transmissions.map((t) => ({ transmission: { equals: t, mode: 'insensitive' } })),
+      });
     }
-    if (filters.interiorColor) {
-      where.interiorColor = { equals: filters.interiorColor, mode: 'insensitive' };
+
+    const drivetrains = splitCsv(filters.drivetrain);
+    if (drivetrains.length === 1) {
+      where.drivetrain = { equals: drivetrains[0], mode: 'insensitive' };
+    } else if (drivetrains.length > 1) {
+      andList.push({
+        OR: drivetrains.map((d) => ({ drivetrain: { equals: d, mode: 'insensitive' } })),
+      });
     }
-    if (filters.drivetrain) {
-      where.drivetrain = { equals: filters.drivetrain, mode: 'insensitive' };
+
+    const exteriorColors = splitCsv(filters.exteriorColor);
+    if (exteriorColors.length === 1) {
+      where.exteriorColor = { equals: exteriorColors[0], mode: 'insensitive' };
+    } else if (exteriorColors.length > 1) {
+      andList.push({
+        OR: exteriorColors.map((c) => ({ exteriorColor: { equals: c, mode: 'insensitive' } })),
+      });
+    }
+
+    const interiorColors = splitCsv(filters.interiorColor);
+    if (interiorColors.length === 1) {
+      where.interiorColor = { equals: interiorColors[0], mode: 'insensitive' };
+    } else if (interiorColors.length > 1) {
+      andList.push({
+        OR: interiorColors.map((c) => ({ interiorColor: { equals: c, mode: 'insensitive' } })),
+      });
     }
 
     // Search filter: only search model and VIN (not make)

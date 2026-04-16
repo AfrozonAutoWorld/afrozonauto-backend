@@ -18,8 +18,11 @@ export const uploadToCloudinary = asyncHandler(async (req: AuthenticatedRequest,
   console.log('--- Cloudinary Upload Middleware Started ---');
   console.log('Files to upload:', Array.isArray(req.files) ? req.files.length : (req.files ? Object.keys(req.files).length : 0));
 
-  // Generic: parse any string field that looks like a JSON array or object
+  // Generic: parse any string field that looks like a JSON array or object.
+  // Skip `existingImageUrls`: validated as string | array; JSON.parse turns it into an array anyway.
+  const skipJsonParseKeys = new Set(['existingImageUrls']);
   for (const key of Object.keys(req.body)) {
+    if (skipJsonParseKeys.has(key)) continue;
     if (typeof req.body[key] === 'string') {
       const trimmed = req.body[key].trim();
       if (trimmed.startsWith('[') || trimmed.startsWith('{')) {

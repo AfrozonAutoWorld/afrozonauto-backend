@@ -38,7 +38,19 @@ export function matchesVehicleTypeFilter(vehicleType: string, listing: any): boo
   }
 }
 
+function splitCsv(raw: string | undefined): string[] {
+  if (!raw?.trim()) return [];
+  return raw.split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+/** Matches if any comma-separated body style matches (single value still works). */
 export function matchesBodyStyleFilter(selectedBodyStyle: string, listing: any): boolean {
+  const parts = splitCsv(selectedBodyStyle);
+  if (parts.length === 0) return true;
+  return parts.some((p) => matchesBodyStyleFilterOne(p, listing));
+}
+
+function matchesBodyStyleFilterOne(selectedBodyStyle: string, listing: any): boolean {
   const vehicle = listing?.vehicle || listing || {};
   const rawBody = normalizeVehicleToken(vehicle.bodyStyle || listing?.bodyStyle || '');
   const rawType = normalizeVehicleToken(
@@ -49,5 +61,13 @@ export function matchesBodyStyleFilter(selectedBodyStyle: string, listing: any):
   if (!selected) return true;
   if (selected === 'minivan') return rawType.includes('minivan') || rawBody === 'van';
   return rawBody === selected;
+}
+
+/** Comma-separated OR; exact case-insensitive match on listing field. */
+export function matchesCsvFieldInsensitive(filterCsv: string | undefined, actual: unknown): boolean {
+  const parts = splitCsv(filterCsv);
+  if (parts.length === 0) return true;
+  const a = String(actual ?? '').trim().toLowerCase();
+  return parts.some((p) => a === p.toLowerCase());
 }
 

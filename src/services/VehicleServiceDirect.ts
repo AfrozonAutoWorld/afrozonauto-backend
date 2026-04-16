@@ -14,7 +14,11 @@ import { CreateVehicleDto } from '../validation/dtos/vehicle.dto';
 import { ApiError } from '../utils/ApiError';
 import loggers from '../utils/loggers';
 import { AutoDevListingsParams } from '../validation/interfaces/IAutoDev';
-import { matchesBodyStyleFilter, matchesVehicleTypeFilter } from '../utils/vehicleFilterMatching';
+import {
+  matchesBodyStyleFilter,
+  matchesCsvFieldInsensitive,
+  matchesVehicleTypeFilter,
+} from '../utils/vehicleFilterMatching';
 import { RedisCacheService } from './RedisCacheService';
 
 @injectable()
@@ -306,14 +310,22 @@ export class VehicleServiceDirect {
       else if (vt === 'CONVERTIBLE') params['vehicle.type'] = 'Convertible';
       else if (vt === 'MOTORCYCLE') params['vehicle.type'] = 'Motorcycle';
     }
-    if (filters.bodyStyle) {
+    if (filters.bodyStyle && !String(filters.bodyStyle).includes(',')) {
       // bodyStyle is its own dimension: broad style as provided by Auto.dev
       params['vehicle.bodyStyle'] = filters.bodyStyle;
     }
-    if (filters.fuel) params['vehicle.fuel'] = filters.fuel;
-    if (filters.transmission) params['vehicle.transmission'] = filters.transmission;
-    if (filters.exteriorColor) params['vehicle.exteriorColor'] = filters.exteriorColor;
-    if (filters.interiorColor) params['vehicle.interiorColor'] = filters.interiorColor;
+    if (filters.fuel && !String(filters.fuel).includes(',')) {
+      params['vehicle.fuel'] = filters.fuel;
+    }
+    if (filters.transmission && !String(filters.transmission).includes(',')) {
+      params['vehicle.transmission'] = filters.transmission;
+    }
+    if (filters.exteriorColor && !String(filters.exteriorColor).includes(',')) {
+      params['vehicle.exteriorColor'] = filters.exteriorColor;
+    }
+    if (filters.interiorColor && !String(filters.interiorColor).includes(',')) {
+      params['vehicle.interiorColor'] = filters.interiorColor;
+    }
     if (filters.zip) params.zip = filters.zip;
     if (filters.distance != null && filters.distance > 0) params.distance = filters.distance;
     if (filters.condition === 'used') {
@@ -323,7 +335,9 @@ export class VehicleServiceDirect {
     } else if (filters.condition === 'new') {
       params['retailListing.used'] = 'false';
     }
-    if (filters.drivetrain) params['vehicle.drivetrain'] = filters.drivetrain;
+    if (filters.drivetrain && !String(filters.drivetrain).includes(',')) {
+      params['vehicle.drivetrain'] = filters.drivetrain;
+    }
     if (filters.luxuryMakes?.length) params['vehicle.make'] = filters.luxuryMakes.join(',');
     return params;
   }
@@ -614,6 +628,39 @@ export class VehicleServiceDirect {
         if (filters.bodyStyle) {
           filteredListings = filteredListings.filter((listing: any) =>
             matchesBodyStyleFilter(filters.bodyStyle as string, listing)
+          );
+        }
+        const csvField = (listing: any, keys: string[]) => {
+          const vehicle = listing?.vehicle || listing || {};
+          for (const k of keys) {
+            const v = (vehicle as any)[k] ?? (listing as any)?.[k];
+            if (v != null && String(v).trim() !== '') return v;
+          }
+          return '';
+        };
+        if (filters.fuel?.includes(',')) {
+          filteredListings = filteredListings.filter((listing: any) =>
+            matchesCsvFieldInsensitive(filters.fuel, csvField(listing, ['fuel']))
+          );
+        }
+        if (filters.transmission?.includes(',')) {
+          filteredListings = filteredListings.filter((listing: any) =>
+            matchesCsvFieldInsensitive(filters.transmission, csvField(listing, ['transmission']))
+          );
+        }
+        if (filters.drivetrain?.includes(',')) {
+          filteredListings = filteredListings.filter((listing: any) =>
+            matchesCsvFieldInsensitive(filters.drivetrain, csvField(listing, ['drivetrain']))
+          );
+        }
+        if (filters.exteriorColor?.includes(',')) {
+          filteredListings = filteredListings.filter((listing: any) =>
+            matchesCsvFieldInsensitive(filters.exteriorColor, csvField(listing, ['exteriorColor']))
+          );
+        }
+        if (filters.interiorColor?.includes(',')) {
+          filteredListings = filteredListings.filter((listing: any) =>
+            matchesCsvFieldInsensitive(filters.interiorColor, csvField(listing, ['interiorColor']))
           );
         }
 

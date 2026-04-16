@@ -101,7 +101,8 @@ export class SellerVehicleController {
      */
     submitListing = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
         // Destructure to keep only Vehicle model fields (askingPrice is the UI alias for priceUsd)
-        const { uploadedFiles, askingPrice, ...vehicleData } = req.body;
+        const { uploadedFiles, askingPrice, existingImageUrls: _existingImageUrls, ...vehicleData } =
+            req.body;
 
         const imageUrls = (uploadedFiles ?? [])
             .filter((f: any) => f.fileType === 'image')

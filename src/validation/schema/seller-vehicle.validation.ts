@@ -15,6 +15,7 @@ export const createSellerVehicleSchema = Joi.object({
     drivetrain: Joi.string().allow('', null).optional(),
     fuelType: Joi.string().allow('', null).optional(),
     exteriorColor: Joi.string().allow('', null).optional(),
+    interiorColor: Joi.string().allow('', null).optional(),
     cylinders: Joi.number().integer().min(0).optional(),
 
     // Step 2: Vehicle Condition
@@ -102,8 +103,15 @@ export const createSellerVehicleSchema = Joi.object({
         Joi.array().items(Joi.string())
       ).optional(),
 
-    /** JSON string array (9 slots) of kept image URLs when updating a listing; empty string = new upload fills slot */
-    existingImageUrls: Joi.string().allow('', null).optional(),
+    /**
+     * JSON array of 9 slot URLs (or JSON string). Cloudinary middleware may parse the string into an array before Joi.
+     */
+    existingImageUrls: Joi.alternatives()
+        .try(
+            Joi.string().allow('', null),
+            Joi.array().items(Joi.string().allow('')),
+        )
+        .optional(),
 });
 
 export const updateSellerVehicleStatusSchema = Joi.object({
