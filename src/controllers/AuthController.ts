@@ -46,9 +46,11 @@ export class AuthController {
       )
     }
 
+    const normalizedEmail = email.toLowerCase().trim();
+
     // We allow both new and existing users to verify email for registration/role addition
-    await this.tokenService.sendVerificationToken(undefined, email);
-    return res.json(new ApiResponse(200, { email }, 'Verification token sent to email'));
+    await this.tokenService.sendVerificationToken(undefined, normalizedEmail);
+    return res.json(new ApiResponse(200, { email: normalizedEmail }, 'Verification token sent to email'));
   });
 
   sendRecoveryEmailToken = asyncHandler(async (req: Request, res: Response) => {
@@ -60,8 +62,10 @@ export class AuthController {
       )
     }
 
-    await this.tokenService.sendVerificationToken(undefined, recoveryEmail);
-    return res.status(200).json(ApiResponse.success({ recoveryEmail }, 'Verification token sent to recovery email'));
+    const normalizedEmail = recoveryEmail.toLowerCase().trim();
+
+    await this.tokenService.sendVerificationToken(undefined, normalizedEmail);
+    return res.status(200).json(ApiResponse.success({ recoveryEmail: normalizedEmail }, 'Verification token sent to recovery email'));
   });
 
   verify = asyncHandler(async (req: Request, res: Response) => {
@@ -70,9 +74,11 @@ export class AuthController {
     if (!email || !token) {
       return res.status(400).json(ApiError.badRequest('Email and token are required'))
     }
+
+    const normalizedEmail = email.toLowerCase().trim();
     // Ensure token is a number
     const tokenNumber = typeof token === 'string' ? parseInt(token, 10) : Number(token);
-    await this.authService.verifyUser(email, tokenNumber);
+    await this.authService.verifyUser(normalizedEmail, tokenNumber);
 
     return res.json(ApiResponse.success(null, 'Email verified successfully'));
   });
@@ -84,12 +90,14 @@ export class AuthController {
       return res.status(400).json(ApiError.badRequest('Email is required'))
     }
 
-    const validateTokenVerification = await this.tokenService.getUsedTokenForUser({ email: value.email });
+    const normalizedEmail = value.email.toLowerCase().trim();
+
+    const validateTokenVerification = await this.tokenService.getUsedTokenForUser({ email: normalizedEmail });
     if (!validateTokenVerification) {
       return res.status(400).json(ApiError.badRequest('Please verify your email before completing registration'));
     }
 
-    const existingUser = await this.userService.getUserByEmail(value?.email);
+    const existingUser = await this.userService.getUserByEmail(normalizedEmail);
     
     if (existingUser) {
       if (registerAs) {
@@ -108,13 +116,13 @@ export class AuthController {
           await this.profileService.updateProfileByUserId(existingUser.id, { firstName, lastName });
         }
         
-        await this.tokenService.deleteToken({ email: value.email });
+        await this.tokenService.deleteToken({ email: normalizedEmail });
         return res.status(200).json(ApiResponse.success({ success: true }, 'Role added to existing account successfully'));
       }
       return res.status(409).json(ApiError.badRequest('An account with this email already exists'));
     }
 
-    const user = await this.authService.register({ ...value, role: registerAs as UserRole });
+    const user = await this.authService.register({ ...value, email: normalizedEmail, role: registerAs as UserRole });
     await this.profileService.updateProfileByUserId(user.id.toString(), { firstName, lastName });
 
     if (!user) {
@@ -255,8 +263,11 @@ export class AuthController {
       return res.status(400).json(ApiError.badRequest('Email, token, and new password are required'))
     }
 
+    // Ensure token is a number
+    const tokenNumber = typeof token === 'string' ? parseInt(token, 10) : Number(token);
+
     // Pass identifier as an object with email property
-    await this.authService.resetPassword({ email }, token, newPassword);
+    await this.authService.resetPassword({ email }, tokenNumber, newPassword);
 
     return res.json(new ApiResponse(200, null, 'Password reset successful'));
   });
@@ -268,13 +279,17 @@ export class AuthController {
       return res.status(400).json(ApiError.badRequest('Email and token are required'))
     }
 
-    const userExist = await this.userService.getUserByEmail(email);
+    const normalizedEmail = email.toLowerCase().trim();
+    const userExist = await this.userService.getUserByEmail(normalizedEmail);
 
     if (!userExist) {
       return res.status(400).json(ApiError.notFound('User does not exist'))
     }
 
-    const tokenValid = await this.tokenService.validateToken(token.toString(), email);
+    // Ensure token is a number
+    const tokenNumber = typeof token === 'string' ? parseInt(token, 10) : Number(token);
+
+    const tokenValid = await this.tokenService.validateToken(tokenNumber, normalizedEmail);
 
     return res.json(new ApiResponse(200, {
       tokenValid,

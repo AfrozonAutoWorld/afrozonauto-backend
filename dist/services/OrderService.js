@@ -44,7 +44,8 @@ let OrderService = class OrderService {
             }
             // Generate request number
             const requestNumber = this.generateRequestNumber();
-            const orderData = Object.assign(Object.assign({ requestNumber, user: { connect: { id: data.userId } } }, (data.vehicleId && {
+            const isMongoObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
+            const orderData = Object.assign(Object.assign({ requestNumber, user: { connect: { id: data.userId } } }, (data.vehicleId && isMongoObjectId(data.vehicleId) && {
                 vehicle: { connect: { id: data.vehicleId } }
             })), { shippingMethod: data.shippingMethod, destinationCountry: data.destinationCountry || "Nigeria", destinationState: data.destinationState, destinationCity: data.destinationCity, destinationAddress: data.destinationAddress, deliveryInstructions: data.deliveryInstructions, customerNotes: data.customerNotes, specialRequests: data.specialRequests, tags: data.tags || [], status: client_1.OrderStatus.PENDING_QUOTE, vehicleSnapshot: data.vehicleSnapshot, paymentBreakdown: data.paymentBreakdown });
             return this.orderRepository.create(orderData);

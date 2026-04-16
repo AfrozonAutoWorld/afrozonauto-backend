@@ -45,6 +45,17 @@ let VehicleController = class VehicleController {
          * Trending vehicles: ordered first, then 5 per trending rule from Auto.dev
          */
         this.getTrending = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
+            const pageRaw = req.query.page;
+            const pageParsed = pageRaw != null && String(pageRaw).trim() !== ''
+                ? parseInt(String(pageRaw), 10)
+                : NaN;
+            const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || 24), 10) || 24));
+            if (Number.isFinite(pageParsed) && pageParsed >= 1) {
+                const { vehicles, total, page, limit: lim, hasMore } = yield this.vehicleService.getTrendingVehiclesPaginated(pageParsed, limit);
+                const payload = isVehicleVinAdmin(req) ? vehicles : (0, vinMask_1.maskVehiclesForPublic)(vehicles);
+                const pages = Math.ceil(total / lim) || 1;
+                return res.json(ApiResponse_1.ApiResponse.paginated(payload, { page, limit: lim, total, hasMore, pages }, 'Trending vehicles retrieved successfully'));
+            }
             const vehicles = yield this.vehicleService.getTrendingVehicles();
             const payload = isVehicleVinAdmin(req) ? vehicles : (0, vinMask_1.maskVehiclesForPublic)(vehicles);
             return res.json(ApiResponse_1.ApiResponse.success(payload, 'Trending vehicles retrieved successfully'));
@@ -56,8 +67,25 @@ let VehicleController = class VehicleController {
          */
         this.getRecommended = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             var _a;
-            const limit = Math.min(24, Math.max(1, parseInt(String(req.query.limit || 12), 10) || 12));
+            const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || 12), 10) || 12));
+            const pageRaw = req.query.page;
+            const pageParsed = pageRaw != null && String(pageRaw).trim() !== ''
+                ? parseInt(String(pageRaw), 10)
+                : NaN;
             const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+            if (Number.isFinite(pageParsed) && pageParsed >= 1) {
+                const result = yield this.vehicleService.getRecommendedVehiclesPage(pageParsed, limit, userId);
+                const list = result.items;
+                const payload = isVehicleVinAdmin(req) ? list : (0, vinMask_1.maskRecommendedOrSpecialtyItems)(list);
+                const pages = Math.ceil(result.total / result.limit) || 1;
+                return res.json(ApiResponse_1.ApiResponse.paginated(payload, {
+                    page: result.page,
+                    limit: result.limit,
+                    total: result.total,
+                    hasMore: result.hasMore,
+                    pages,
+                }, 'Recommended vehicles retrieved successfully'));
+            }
             const list = yield this.vehicleService.getRecommendedVehicles(limit, userId);
             const payload = isVehicleVinAdmin(req) ? list : (0, vinMask_1.maskRecommendedOrSpecialtyItems)(list);
             return res.json(ApiResponse_1.ApiResponse.success(payload, 'Recommended vehicles retrieved successfully'));
@@ -67,7 +95,24 @@ let VehicleController = class VehicleController {
          * Specialty Vehicles rail: mix of rule-driven (RecommendedDefinition.forSpecialty) and DB specialty=true.
          */
         this.getSpecialty = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
-            const limit = Math.min(24, Math.max(1, parseInt(String(req.query.limit || 12), 10) || 12));
+            const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || 12), 10) || 12));
+            const pageRaw = req.query.page;
+            const pageParsed = pageRaw != null && String(pageRaw).trim() !== ''
+                ? parseInt(String(pageRaw), 10)
+                : NaN;
+            if (Number.isFinite(pageParsed) && pageParsed >= 1) {
+                const result = yield this.vehicleService.getSpecialtyVehiclesPage(pageParsed, limit);
+                const list = result.items;
+                const payload = isVehicleVinAdmin(req) ? list : (0, vinMask_1.maskRecommendedOrSpecialtyItems)(list);
+                const pages = Math.ceil(result.total / result.limit) || 1;
+                return res.json(ApiResponse_1.ApiResponse.paginated(payload, {
+                    page: result.page,
+                    limit: result.limit,
+                    total: result.total,
+                    hasMore: result.hasMore,
+                    pages,
+                }, 'Specialty vehicles retrieved successfully'));
+            }
             const list = yield this.vehicleService.getSpecialtyVehicles(limit);
             const payload = isVehicleVinAdmin(req) ? list : (0, vinMask_1.maskRecommendedOrSpecialtyItems)(list);
             return res.json(ApiResponse_1.ApiResponse.success(payload, 'Specialty vehicles retrieved successfully'));
@@ -110,6 +155,7 @@ let VehicleController = class VehicleController {
                 const s = Array.isArray(v) ? v[0] : v;
                 return typeof s === 'string' && s.trim() !== '' ? s.trim() : undefined;
             };
+            const includeApi = req.query.includeApi !== 'false';
             const filters = {};
             if (str(q.make))
                 filters.make = str(q.make);
@@ -132,9 +178,18 @@ let VehicleController = class VehicleController {
                 filters.mileageMax = mileageMax;
             if (str(q.vehicleType))
                 filters.vehicleType = str(q.vehicleType);
-            if (str(q.status))
-                filters.status = str(q.status);
-            if (str(q.source))
+            /** Afrozon sellers (`includeApi=false`): service forces `AVAILABLE`; ignore `status` query here. */
+            if (includeApi) {
+                const statusStr = str(q.status);
+                if (statusStr) {
+                    const normalized = statusStr.trim().replace(/\s+/g, '_').toUpperCase();
+                    if (Object.values(client_1.VehicleStatus).includes(normalized)) {
+                        filters.status = normalized;
+                    }
+                }
+            }
+            /** `source` is ignored when `includeApi=false` (Afrozon sellers = full DB catalog). */
+            if (str(q.source) && includeApi)
                 filters.source = str(q.source);
             if (str(q.state))
                 filters.dealerState = str(q.state);
@@ -174,7 +229,6 @@ let VehicleController = class VehicleController {
                 page: Math.max(1, q.page ? parseInt(q.page, 10) : 1),
                 limit: Math.min(100, Math.max(1, q.limit ? parseInt(q.limit, 10) : 50)),
             };
-            const includeApi = req.query.includeApi !== 'false';
             const categorySlug = str(q.category);
             const sortByParam = str(q.sortBy);
             const sortOrderRaw = str(q.sortOrder);
@@ -221,7 +275,9 @@ let VehicleController = class VehicleController {
             if (!identifier) {
                 return res.json(ApiError_1.ApiError.badRequest('Vehicle identifier is required'));
             }
-            const vehicle = yield this.vehicleService.getVehicle(identifier, type);
+            const vehicle = yield this.vehicleService.getVehicle(identifier, type, {
+                allowNonAvailable: isVehicleVinAdmin(req),
+            });
             const payload = isVehicleVinAdmin(req) ? vehicle : (0, vinMask_1.maskVehicleForPublic)(vehicle);
             return res.json(ApiResponse_1.ApiResponse.success(payload, 'Vehicle retrieved successfully'));
         }));

@@ -47,8 +47,9 @@ let AuthService = class AuthService {
     register(data) {
         return __awaiter(this, void 0, void 0, function* () {
             var _a;
+            const normalizedEmail = data.email.toLowerCase().trim();
             const existing = yield db_1.default.user.findUnique({
-                where: { email: data.email },
+                where: { email: normalizedEmail },
             });
             if (existing) {
                 throw ApiError_1.ApiError.badRequest('User already exists');
@@ -59,7 +60,7 @@ let AuthService = class AuthService {
             const uniqueAppleId = `local_${(0, node_crypto_1.randomUUID)()}`;
             const user = yield db_1.default.user.create({
                 data: {
-                    email: data.email,
+                    email: normalizedEmail,
                     passwordHash,
                     phone: data.phone,
                     roles: { set: [(_a = data.role) !== null && _a !== void 0 ? _a : client_1.UserRole.BUYER] },
@@ -78,19 +79,20 @@ let AuthService = class AuthService {
     // ============================
     verifyUser(email, token) {
         return __awaiter(this, void 0, void 0, function* () {
+            const normalizedEmail = email.toLowerCase().trim();
             // Test token bypass for development/testing (token: 999999)
             const TEST_TOKEN = 999999;
             const isTestToken = token === TEST_TOKEN;
             const isDevelopment = process.env.NODE_ENV === 'development' || process.env.NODE_ENV !== 'production';
             if (isTestToken && isDevelopment) {
                 try {
-                    const existingUsedToken = yield this.tokenService.getUsedTokenForUser({ email }, true);
+                    const existingUsedToken = yield this.tokenService.getUsedTokenForUser({ email: normalizedEmail }, true);
                     if (existingUsedToken) {
                         return true; // Already verified
                     }
                     yield db_1.default.token.deleteMany({
                         where: {
-                            email: email,
+                            email: normalizedEmail,
                             type: client_1.TokenType.EMAIL,
                             used: false,
                         },
@@ -100,7 +102,7 @@ let AuthService = class AuthService {
                         data: {
                             token: TEST_TOKEN,
                             type: client_1.TokenType.EMAIL,
-                            email: email,
+                            email: normalizedEmail,
                             used: true,
                             usedAt: new Date(),
                         },
@@ -108,7 +110,7 @@ let AuthService = class AuthService {
                 }
                 catch (error) {
                     // If creation fails, try to find existing used token
-                    const existingUsedToken = yield this.tokenService.getUsedTokenForUser({ email }, true);
+                    const existingUsedToken = yield this.tokenService.getUsedTokenForUser({ email: normalizedEmail }, true);
                     if (!existingUsedToken) {
                         // Log the actual error for debugging
                         console.error('Test token verification error:', (error === null || error === void 0 ? void 0 : error.message) || error);
@@ -117,13 +119,13 @@ let AuthService = class AuthService {
                 }
                 return true;
             }
-            const tokenRecord = yield this.tokenService.validateToken(token, { email }, client_1.TokenType.EMAIL);
+            const tokenRecord = yield this.tokenService.validateToken(token, { email: normalizedEmail }, client_1.TokenType.EMAIL);
             if (!tokenRecord) {
                 // Check if token exists but is already used
                 const usedToken = yield db_1.default.token.findFirst({
                     where: {
                         token: Number(token),
-                        email,
+                        email: normalizedEmail,
                         type: client_1.TokenType.EMAIL,
                         used: true,
                     },
@@ -134,7 +136,7 @@ let AuthService = class AuthService {
                 // Check if any token exists for this email
                 const anyToken = yield db_1.default.token.findFirst({
                     where: {
-                        email,
+                        email: normalizedEmail,
                         type: client_1.TokenType.EMAIL,
                     },
                     orderBy: {
@@ -155,8 +157,9 @@ let AuthService = class AuthService {
     // ============================
     login(email, password) {
         return __awaiter(this, void 0, void 0, function* () {
+            const normalizedEmail = email.toLowerCase().trim();
             const user = yield db_1.default.user.findUnique({
-                where: { email },
+                where: { email: normalizedEmail },
                 include: {
                     profile: true,
                 },
@@ -190,23 +193,19 @@ let AuthService = class AuthService {
     // ============================
     sendResetToken(email) {
         return __awaiter(this, void 0, void 0, function* () {
+            const normalizedEmail = email.toLowerCase().trim();
             const user = yield db_1.default.user.findUnique({
-                where: { email },
+                where: { email: normalizedEmail },
             });
             if (!user) {
                 throw ApiError_1.ApiError.notFound('User not found');
             }
             const profile = yield this.profileService.findUserById(user.id);
-            const token = yield this.tokenService.generateToken();
-            yield this.tokenService.invalidateExistingTokens(undefined, email, client_1.TokenType.PASSWORD_RESET);
-            yield db_1.default.token.create({
-                data: {
-                    email,
-                    token,
-                    type: client_1.TokenType.PASSWORD_RESET,
-                },
-            });
-            yield this.mailService.sendPasswordReset(email, token, profile !== null && profile !== void 0 ? profile : undefined);
+            // Invalidate any existing unused reset tokens for this email
+            yield this.tokenService.invalidateExistingTokens(undefined, normalizedEmail, client_1.TokenType.PASSWORD_RESET);
+            // Create a new token using the TokenService (handles expiry)
+            const token = yield this.tokenService.createVerificationToken(client_1.TokenType.PASSWORD_RESET, undefined, normalizedEmail);
+            yield this.mailService.sendPasswordReset(normalizedEmail, token, profile !== null && profile !== void 0 ? profile : undefined);
             return user;
         });
     }
@@ -215,15 +214,15 @@ let AuthService = class AuthService {
     // ============================
     resetPassword(identifier, token, newPassword) {
         return __awaiter(this, void 0, void 0, function* () {
+            const normalizedEmail = identifier.email.toLowerCase().trim();
             // Validate the token with the email identifier
             const user = yield db_1.default.user.findUnique({
-                where: { email: identifier.email },
+                where: { email: normalizedEmail },
             });
             if (!user) {
                 throw ApiError_1.ApiError.notFound('User not found');
             }
-            const tokenRecord = yield this.tokenService.validateToken(token, { email: identifier.email }, client_1.TokenType.PASSWORD_RESET // or whatever type you use
-            );
+            const tokenRecord = yield this.tokenService.validateToken(token, { email: normalizedEmail }, client_1.TokenType.PASSWORD_RESET);
             if (!tokenRecord) {
                 throw ApiError_1.ApiError.badRequest('Invalid or expired token');
             }
@@ -241,8 +240,9 @@ let AuthService = class AuthService {
     // ============================
     resendVerification(email) {
         return __awaiter(this, void 0, void 0, function* () {
+            const normalizedEmail = email.toLowerCase().trim();
             const user = yield db_1.default.user.findUnique({
-                where: { email },
+                where: { email: normalizedEmail },
             });
             if (!user) {
                 throw ApiError_1.ApiError.notFound('User not found');
@@ -250,7 +250,7 @@ let AuthService = class AuthService {
             if (user.emailVerified) {
                 throw ApiError_1.ApiError.badRequest('Email already verified');
             }
-            yield this.tokenService.sendVerificationToken(user.id, user.email);
+            yield this.tokenService.sendVerificationToken(user.id, normalizedEmail);
             return true;
         });
     }

@@ -452,7 +452,7 @@ model Order {
 
   // Relations
   userId String @db.ObjectId
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Vehicle Reference (optional)
   vehicleId String?  @db.ObjectId
@@ -1131,6 +1131,7 @@ model Vehicle {
   recommended          Boolean @default(false)
   recommendedSortOrder Int     @default(0)
   specialty            Boolean @default(false)
+  sections             String[] @default([]) // For curated sections (e.g. "RECOMMENDED", "SPECIAL_DEALS")
 
   // Metadata
   viewCount    Int @default(0)

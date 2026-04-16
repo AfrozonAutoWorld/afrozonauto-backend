@@ -90,7 +90,7 @@ let OrderController = class OrderController {
             const paymentBreakdown = yield this.pricingService.calculateTotalUsd(vehiclePrice, shippingMethod);
             const order = yield this.service.createOrder({
                 userId,
-                vehicleId,
+                vehicleId: vehicleId || vehicle.id,
                 shippingMethod,
                 // destinationCountry: address.country ?? undefined,
                 // destinationState: address.state ?? undefined,

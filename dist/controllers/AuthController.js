@@ -72,26 +72,29 @@ let AuthController = class AuthController {
             if (!email) {
                 return res.status(400).json(ApiError_1.ApiError.badRequest('Email address is required'));
             }
+            const normalizedEmail = email.toLowerCase().trim();
             // We allow both new and existing users to verify email for registration/role addition
-            yield this.tokenService.sendVerificationToken(undefined, email);
-            return res.json(new ApiResponse_1.ApiResponse(200, { email }, 'Verification token sent to email'));
+            yield this.tokenService.sendVerificationToken(undefined, normalizedEmail);
+            return res.json(new ApiResponse_1.ApiResponse(200, { email: normalizedEmail }, 'Verification token sent to email'));
         }));
         this.sendRecoveryEmailToken = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             const { recoveryEmail } = req.body;
             if (!recoveryEmail) {
                 return res.status(400).json(ApiError_1.ApiError.badRequest('Recovery email address is required'));
             }
-            yield this.tokenService.sendVerificationToken(undefined, recoveryEmail);
-            return res.status(200).json(ApiResponse_1.ApiResponse.success({ recoveryEmail }, 'Verification token sent to recovery email'));
+            const normalizedEmail = recoveryEmail.toLowerCase().trim();
+            yield this.tokenService.sendVerificationToken(undefined, normalizedEmail);
+            return res.status(200).json(ApiResponse_1.ApiResponse.success({ recoveryEmail: normalizedEmail }, 'Verification token sent to recovery email'));
         }));
         this.verify = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
             const { email, token } = req.body;
             if (!email || !token) {
                 return res.status(400).json(ApiError_1.ApiError.badRequest('Email and token are required'));
             }
+            const normalizedEmail = email.toLowerCase().trim();
             // Ensure token is a number
             const tokenNumber = typeof token === 'string' ? parseInt(token, 10) : Number(token);
-            yield this.authService.verifyUser(email, tokenNumber);
+            yield this.authService.verifyUser(normalizedEmail, tokenNumber);
             return res.json(ApiResponse_1.ApiResponse.success(null, 'Email verified successfully'));
         }));
         this.register = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
@@ -100,11 +103,12 @@ let AuthController = class AuthController {
             if (!value.email) {
                 return res.status(400).json(ApiError_1.ApiError.badRequest('Email is required'));
             }
-            const validateTokenVerification = yield this.tokenService.getUsedTokenForUser({ email: value.email });
+            const normalizedEmail = value.email.toLowerCase().trim();
+            const validateTokenVerification = yield this.tokenService.getUsedTokenForUser({ email: normalizedEmail });
             if (!validateTokenVerification) {
                 return res.status(400).json(ApiError_1.ApiError.badRequest('Please verify your email before completing registration'));
             }
-            const existingUser = yield this.userService.getUserByEmail(value === null || value === void 0 ? void 0 : value.email);
+            const existingUser = yield this.userService.getUserByEmail(normalizedEmail);
             if (existingUser) {
                 if (registerAs) {
                     // If the user already has the role, just return success
@@ -120,12 +124,12 @@ let AuthController = class AuthController {
                     if (firstName || lastName) {
                         yield this.profileService.updateProfileByUserId(existingUser.id, { firstName, lastName });
                     }
-                    yield this.tokenService.deleteToken({ email: value.email });
+                    yield this.tokenService.deleteToken({ email: normalizedEmail });
                     return res.status(200).json(ApiResponse_1.ApiResponse.success({ success: true }, 'Role added to existing account successfully'));
                 }
                 return res.status(409).json(ApiError_1.ApiError.badRequest('An account with this email already exists'));
             }
-            const user = yield this.authService.register(Object.assign(Object.assign({}, value), { role: registerAs }));
+            const user = yield this.authService.register(Object.assign(Object.assign({}, value), { email: normalizedEmail, role: registerAs }));
             yield this.profileService.updateProfileByUserId(user.id.toString(), { firstName, lastName });
             if (!user) {
                 return res.status(500).json(ApiError_1.ApiError.internal('User registration failed'));
@@ -230,8 +234,10 @@ let AuthController = class AuthController {
             if (!email || !token || !newPassword) {
                 return res.status(400).json(ApiError_1.ApiError.badRequest('Email, token, and new password are required'));
             }
+            // Ensure token is a number
+            const tokenNumber = typeof token === 'string' ? parseInt(token, 10) : Number(token);
             // Pass identifier as an object with email property
-            yield this.authService.resetPassword({ email }, token, newPassword);
+            yield this.authService.resetPassword({ email }, tokenNumber, newPassword);
             return res.json(new ApiResponse_1.ApiResponse(200, null, 'Password reset successful'));
         }));
         this.tokenValidation = (0, asyncHandler_1.asyncHandler)((req, res) => __awaiter(this, void 0, void 0, function* () {
@@ -239,11 +245,14 @@ let AuthController = class AuthController {
             if (!email || !token) {
                 return res.status(400).json(ApiError_1.ApiError.badRequest('Email and token are required'));
             }
-            const userExist = yield this.userService.getUserByEmail(email);
+            const normalizedEmail = email.toLowerCase().trim();
+            const userExist = yield this.userService.getUserByEmail(normalizedEmail);
             if (!userExist) {
                 return res.status(400).json(ApiError_1.ApiError.notFound('User does not exist'));
             }
-            const tokenValid = yield this.tokenService.validateToken(token.toString(), email);
+            // Ensure token is a number
+            const tokenNumber = typeof token === 'string' ? parseInt(token, 10) : Number(token);
+            const tokenValid = yield this.tokenService.validateToken(tokenNumber, normalizedEmail);
             return res.json(new ApiResponse_1.ApiResponse(200, {
                 tokenValid,
             }, 'Token validation completed'));

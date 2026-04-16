@@ -845,6 +845,18 @@ export class VehicleServiceDirect {
     });
   }
 
+  async addVehicleToSection(vehicleId: string, section: string): Promise<Vehicle> {
+    const vehicle = await this.vehicleRepo.findById(vehicleId);
+    if (!vehicle) throw ApiError.notFound('Vehicle not found');
+    return this.vehicleRepo.addSectionToVehicle(vehicleId, section);
+  }
+
+  async removeVehicleFromSection(vehicleId: string, section: string): Promise<Vehicle> {
+    const vehicle = await this.vehicleRepo.findById(vehicleId);
+    if (!vehicle) throw ApiError.notFound('Vehicle not found');
+    return this.vehicleRepo.removeSectionFromVehicle(vehicleId, section);
+  }
+
   async syncFromAutoDev(vin: string): Promise<Vehicle> {
     const existing = await this.vehicleRepo.findByVIN(vin);
     try {

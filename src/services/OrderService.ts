@@ -40,10 +40,12 @@ export class OrderService {
     // Generate request number
     const requestNumber = this.generateRequestNumber();
     
+    const isMongoObjectId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
+    
     const orderData: Prisma.OrderCreateInput = {
       requestNumber,
       user: { connect: { id: data.userId } },
-    ...(data.vehicleId && { 
+    ...(data.vehicleId && isMongoObjectId(data.vehicleId) && { 
       vehicle: { connect: { id: data.vehicleId } } 
     }),
       shippingMethod: data.shippingMethod,

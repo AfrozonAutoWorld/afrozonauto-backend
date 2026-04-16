@@ -30,8 +30,9 @@ export class AuthService {
     phone?: string;
     role?: UserRole;
   }): Promise<User> {
+    const normalizedEmail = data.email.toLowerCase().trim();
     const existing = await prisma.user.findUnique({
-      where: { email: data.email },
+      where: { email: normalizedEmail },
     });
 
     if (existing) {
@@ -46,7 +47,7 @@ export class AuthService {
 
     const user = await prisma.user.create({
       data: {
-        email: data.email,
+        email: normalizedEmail,
         passwordHash,
         phone: data.phone,
         roles: { set: [data.role ?? UserRole.BUYER] },
@@ -66,24 +67,22 @@ export class AuthService {
   // VERIFY EMAIL
   // ============================
   async verifyUser(email: string, token: number): Promise<boolean> {
+    const normalizedEmail = email.toLowerCase().trim();
     // Test token bypass for development/testing (token: 999999)
     const TEST_TOKEN = 999999;
     const isTestToken = token === TEST_TOKEN;
     const isDevelopment = process.env.NODE_ENV === 'development' || process.env.NODE_ENV !== 'production';
 
     if (isTestToken && isDevelopment) {
-
       try {
-   
-        const existingUsedToken = await this.tokenService.getUsedTokenForUser({ email }, true);
+        const existingUsedToken = await this.tokenService.getUsedTokenForUser({ email: normalizedEmail }, true);
         if (existingUsedToken) {
           return true; // Already verified
         }
 
-
         await prisma.token.deleteMany({
           where: {
-            email: email,
+            email: normalizedEmail,
             type: TokenType.EMAIL,
             used: false,
           },
@@ -94,14 +93,14 @@ export class AuthService {
           data: {
             token: TEST_TOKEN,
             type: TokenType.EMAIL,
-            email: email,
+            email: normalizedEmail,
             used: true,
             usedAt: new Date(),
           },
         });
       } catch (error: any) {
         // If creation fails, try to find existing used token
-        const existingUsedToken = await this.tokenService.getUsedTokenForUser({ email }, true);
+        const existingUsedToken = await this.tokenService.getUsedTokenForUser({ email: normalizedEmail }, true);
         if (!existingUsedToken) {
           // Log the actual error for debugging
           console.error('Test token verification error:', error?.message || error);
@@ -111,14 +110,14 @@ export class AuthService {
       return true;
     }
 
-    const tokenRecord = await this.tokenService.validateToken(token, { email }, TokenType.EMAIL);
+    const tokenRecord = await this.tokenService.validateToken(token, { email: normalizedEmail }, TokenType.EMAIL);
 
     if (!tokenRecord) {
       // Check if token exists but is already used
       const usedToken = await prisma.token.findFirst({
         where: {
           token: Number(token),
-          email,
+          email: normalizedEmail,
           type: TokenType.EMAIL,
           used: true,
         },
@@ -131,7 +130,7 @@ export class AuthService {
       // Check if any token exists for this email
       const anyToken = await prisma.token.findFirst({
         where: {
-          email,
+          email: normalizedEmail,
           type: TokenType.EMAIL,
         },
         orderBy: {
@@ -156,8 +155,9 @@ export class AuthService {
   // LOGIN
   // ============================
   async login(email: string, password: string): Promise<User> {
+    const normalizedEmail = email.toLowerCase().trim();
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
       include: {
         profile: true,
       },
@@ -199,8 +199,9 @@ export class AuthService {
   // SEND PASSWORD RESET
   // ============================
   async sendResetToken(email: string): Promise<User> {
+    const normalizedEmail = email.toLowerCase().trim();
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
     });
 
     if (!user) {
@@ -209,24 +210,22 @@ export class AuthService {
 
     const profile = await this.profileService.findUserById(user.id);
 
-    const token = await this.tokenService.generateToken();
-
+    // Invalidate any existing unused reset tokens for this email
     await this.tokenService.invalidateExistingTokens(
       undefined,
-      email,
+      normalizedEmail,
       TokenType.PASSWORD_RESET
     );
 
-    await prisma.token.create({
-      data: {
-        email,
-        token,
-        type: TokenType.PASSWORD_RESET,
-      },
-    });
+    // Create a new token using the TokenService (handles expiry)
+    const token = await this.tokenService.createVerificationToken(
+      TokenType.PASSWORD_RESET,
+      undefined,
+      normalizedEmail
+    );
 
     await this.mailService.sendPasswordReset(
-      email,
+      normalizedEmail,
       token,
       profile ?? undefined
     );
@@ -242,9 +241,11 @@ export class AuthService {
     token: number, 
     newPassword: string
   ) {
+    const normalizedEmail = identifier.email.toLowerCase().trim();
+    
     // Validate the token with the email identifier
     const user = await prisma.user.findUnique({
-      where: { email: identifier.email },
+      where: { email: normalizedEmail },
     });
 
     if (!user) {
@@ -253,8 +254,8 @@ export class AuthService {
 
     const tokenRecord = await this.tokenService.validateToken(
       token, 
-      { email: identifier.email }, 
-      TokenType.PASSWORD_RESET // or whatever type you use
+      { email: normalizedEmail }, 
+      TokenType.PASSWORD_RESET
     );
 
     if (!tokenRecord) {
@@ -277,8 +278,9 @@ export class AuthService {
   // RESEND VERIFICATION
   // ============================
   async resendVerification(email: string): Promise<boolean> {
+    const normalizedEmail = email.toLowerCase().trim();
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
     });
 
     if (!user) {
@@ -289,7 +291,7 @@ export class AuthService {
       throw ApiError.badRequest('Email already verified');
     }
 
-    await this.tokenService.sendVerificationToken(user.id, user.email);
+    await this.tokenService.sendVerificationToken(user.id, normalizedEmail);
 
     return true;
   }

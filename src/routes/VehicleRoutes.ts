@@ -61,6 +61,10 @@ class VehicleRoutes {
         this.router.post('/admin/categories', authenticate, authorize([UserRole.SUPER_ADMIN, UserRole.OPERATIONS_ADMIN]), this.categoryController.create);
         this.router.put('/admin/categories/:id', authenticate, authorize([UserRole.SUPER_ADMIN, UserRole.OPERATIONS_ADMIN]), this.categoryController.update);
         this.router.delete('/admin/categories/:id', authenticate, authorize([UserRole.SUPER_ADMIN, UserRole.OPERATIONS_ADMIN]), this.categoryController.delete);
+        
+        // Admin: section assignments
+        this.router.post('/:id/sections', authenticate, authorize([UserRole.SUPER_ADMIN, UserRole.OPERATIONS_ADMIN]), this.controller.assignToSection);
+        this.router.delete('/:id/sections/:section', authenticate, authorize([UserRole.SUPER_ADMIN, UserRole.OPERATIONS_ADMIN]), this.controller.removeFromSection);
 
         this.router.get('/:identifier', this.controller.getVehicle);
 
