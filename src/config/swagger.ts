@@ -2334,8 +2334,7 @@ const swaggerSpec = {
         summary: "Submit a vehicle listing (Seller or Admin)",
         description: `Submit a vehicle listing. Accessible by **verified sellers** and **admins** (OPERATIONS_ADMIN / SUPER_ADMIN).
 
-- **Seller** submissions: status is set to \`PENDING_REVIEW\` and await admin approval.
-- **Admin** submissions: status is set to \`AVAILABLE\` immediately — no review step needed.
+- **Verified seller** and **admin** submissions: status is set to \`AVAILABLE\` immediately (only verified sellers can list).
 
 Send as **multipart/form-data** so images can be included.
 
@@ -2438,7 +2437,7 @@ Send as **multipart/form-data** so images can be included.
           }
         },
         responses: {
-          201: { description: "Seller: listing submitted and pending review. Admin: listing published immediately as AVAILABLE." },
+          201: { description: "Listing created with status AVAILABLE (published on the marketplace)." },
           400: { description: "Validation error — see details array" },
           403: { description: "User is not a verified seller (admins bypass this check)" }
         }

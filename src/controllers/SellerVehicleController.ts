@@ -120,7 +120,7 @@ export class SellerVehicleController {
             userId: req.user?.id ?? null,
         }, req.user?.role as UserRole | undefined);
 
-        return res.status(201).json(ApiResponse.created(listing, 'Vehicle listing submitted for review'));
+        return res.status(201).json(ApiResponse.created(listing, 'Vehicle listing published successfully'));
     });
 
     /**

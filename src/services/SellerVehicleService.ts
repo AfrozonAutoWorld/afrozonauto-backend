@@ -67,11 +67,6 @@ export class SellerVehicleService {
             }
         }
 
-        // Admin-submitted vehicles go live immediately; seller submissions await review
-        if (isAdmin) {
-            data.status = VehicleStatus.AVAILABLE;
-        }
-
         // additionalNotes (UI field) → manualNotes (Vehicle model field)
         if (data.additionalNotes !== undefined) {
             data.manualNotes = data.additionalNotes;
@@ -93,9 +88,8 @@ export class SellerVehicleService {
         }
 
         data.source = VehicleSource.SELLER;
-        if (!isAdmin) {
-            data.status = VehicleStatus.PENDING_REVIEW;
-        }
+        /** Only verified sellers can reach this flow; publish as AVAILABLE on the marketplace. */
+        data.status = VehicleStatus.AVAILABLE;
 
         SellerVehicleService.applySellerListingNormalization(data);
 
