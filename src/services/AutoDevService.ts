@@ -148,28 +148,52 @@ export class AutoDevService {
     }
 
     const url = `${this.baseUrl}/api/models`;
-    try {
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-      });
+    const headers = {
+      Authorization: `Bearer ${this.apiKey}`,
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    };
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        loggers.error(`Auto.dev models reference error (${response.status}): ${response.statusText}`, {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText.substring(0, 200),
-        });
-        throw new Error(`Auto.dev API error: ${response.statusText} (Status: ${response.status})`);
+    const fallback = (): AutoDevMakeModelsReference => this.makeModelsCache?.data ?? {};
+
+    const maxAttempts = 3;
+    let lastStatus = 0;
+    let lastBody = '';
+
+    try {
+      let response: Response | undefined;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        response = await fetch(url, { headers });
+        lastStatus = response.status;
+        if (response.ok) {
+          break;
+        }
+        lastBody = await response.text();
+        const retryable = response.status >= 500 && attempt < maxAttempts;
+        if (retryable) {
+          loggers.warn(
+            `Auto.dev GET /api/models returned ${response.status}; retry ${attempt}/${maxAttempts}`,
+            { body: lastBody.substring(0, 120) }
+          );
+          await new Promise((r) => setTimeout(r, 400 * attempt));
+          continue;
+        }
+        break;
       }
 
-      const json: any = await response.json();
+      if (!response!.ok) {
+        loggers.warn(
+          `Auto.dev make/models unavailable (HTTP ${lastStatus}). Using cached reference or empty map until the service recovers.`,
+          { body: lastBody.substring(0, 200) }
+        );
+        return fallback();
+      }
+
+      const json: any = await response!.json();
       const payload = (json?.data ?? json) as any;
       if (payload?.error) {
-        throw new Error(payload.error?.message || 'Auto.dev API error');
+        loggers.warn('Auto.dev /api/models payload error:', payload.error);
+        return fallback();
       }
 
       // Normalize possible response shapes into { [make]: string[] }
@@ -195,12 +219,8 @@ export class AutoDevService {
       this.makeModelsCache = { fetchedAt: now, data: map };
       return map;
     } catch (error: any) {
-      if (this.makeModelsCache?.data) {
-        loggers.warn('Auto.dev fetchMakeModelsReference failed; returning cached copy:', error?.message || error);
-        return this.makeModelsCache.data;
-      }
-      loggers.error('Auto.dev fetchMakeModelsReference error:', error);
-      throw error;
+      loggers.warn('Auto.dev fetchMakeModelsReference network/parse error; using cache or empty map:', error?.message || error);
+      return fallback();
     }
   }
 

@@ -10,13 +10,16 @@ export interface AutoDevResponse<T> {
 
 
   export interface VehicleFilters {
+    /** Comma-separated OR (e.g. Toyota,Honda). Matches DB + Auto.dev listings. */
     make?: string;
+    /** Comma-separated OR for model names. */
     model?: string;
     yearMin?: number;
     yearMax?: number;
     priceMin?: number;
     priceMax?: number;
     mileageMax?: number;
+    /** Comma-separated OR (e.g. SUV,CAR). */
     vehicleType?: string;
     status?: VehicleStatus;
     source?: VehicleSource;

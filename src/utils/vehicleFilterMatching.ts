@@ -4,7 +4,13 @@ export function normalizeVehicleToken(value: unknown): string {
     .replace(/[^a-z0-9]/g, '');
 }
 
-export function matchesVehicleTypeFilter(vehicleType: string, listing: any): boolean {
+/** Comma-separated OR; used for filters.make, filters.model, filters.vehicleType, etc. */
+export function splitCsv(raw: string | undefined | null): string[] {
+  if (!raw?.trim()) return [];
+  return raw.split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+function matchesVehicleTypeFilterOne(vehicleType: string, listing: any): boolean {
   const vt = String(vehicleType || '').toUpperCase();
   const vehicle = listing?.vehicle || listing || {};
   const rawBody = normalizeVehicleToken(vehicle.bodyStyle || listing?.bodyStyle || '');
@@ -38,9 +44,11 @@ export function matchesVehicleTypeFilter(vehicleType: string, listing: any): boo
   }
 }
 
-function splitCsv(raw: string | undefined): string[] {
-  if (!raw?.trim()) return [];
-  return raw.split(',').map((s) => s.trim()).filter(Boolean);
+/** Comma-separated vehicle types: match if any token matches (OR). */
+export function matchesVehicleTypeFilter(vehicleType: string, listing: any): boolean {
+  const parts = splitCsv(vehicleType);
+  if (parts.length === 0) return true;
+  return parts.some((p) => matchesVehicleTypeFilterOne(p, listing));
 }
 
 /** Matches if any comma-separated body style matches (single value still works). */

@@ -18,6 +18,7 @@ import {
   matchesBodyStyleFilter,
   matchesCsvFieldInsensitive,
   matchesVehicleTypeFilter,
+  splitCsv,
 } from '../utils/vehicleFilterMatching';
 import { RedisCacheService } from './RedisCacheService';
 
@@ -268,16 +269,49 @@ export class VehicleServiceDirect {
     return { page, limit, count: apiListings.length, byMake, byMakeModel, sample };
   }
 
+  /** Maps one or more app vehicleType tokens to Auto.dev `vehicle.bodyStyle` / `vehicle.type` (comma OR per field). */
+  private applyVehicleTypeCsvToAutoDevParams(
+    vehicleTypeCsv: string | undefined,
+    params: AutoDevListingsParams
+  ): void {
+    const bodyStyles = new Set<string>();
+    const types = new Set<string>();
+    for (const token of splitCsv(vehicleTypeCsv)) {
+      const vt = String(token).toUpperCase();
+      if (vt === 'CAR' || vt === 'SEDAN') bodyStyles.add('Car');
+      else if (vt === 'SUV') bodyStyles.add('SUV');
+      else if (vt === 'TRUCK') bodyStyles.add('Truck');
+      else if (vt === 'VAN') bodyStyles.add('Van');
+      else if (vt === 'COUPE') types.add('Coupe');
+      else if (vt === 'HATCHBACK') types.add('Hatchback');
+      else if (vt === 'WAGON') types.add('Wagon');
+      else if (vt === 'CONVERTIBLE') types.add('Convertible');
+      else if (vt === 'MOTORCYCLE') types.add('Motorcycle');
+    }
+    if (bodyStyles.size) params['vehicle.bodyStyle'] = [...bodyStyles].join(',');
+    if (types.size) params['vehicle.type'] = [...types].join(',');
+  }
+
+  /**
+   * Auto.dev often returns **no rows** when many comma-separated filters are sent at once (AND/OR
+   * semantics differ by field). For any dimension with **multiple** OR values, we omit that key
+   * from the API request and rely on {@link VehicleServiceDirect.getVehicles} post-filters instead.
+   */
   private filtersToAutoDevParams(
     filters: VehicleFilters,
     page?: number,
     limit?: number
   ): AutoDevListingsParams {
+    const multi = (v: string | undefined) => Boolean(v?.includes(','));
     const params: AutoDevListingsParams = {};
     if (page != null && page >= 1) params.page = page;
     if (limit != null && limit >= 1) params.limit = Math.min(limit, 100);
-    if (filters.make) params['vehicle.make'] = filters.make;
-    if (filters.model) params['vehicle.model'] = filters.model;
+    if (filters.make && !multi(filters.make)) {
+      params['vehicle.make'] = filters.make;
+    }
+    if (filters.model && !multi(filters.model)) {
+      params['vehicle.model'] = filters.model;
+    }
     if (filters.yearMin != null && filters.yearMax != null && filters.yearMin === filters.yearMax) {
       params['vehicle.year'] = String(filters.yearMin);
     } else if (filters.yearMin != null || filters.yearMax != null) {
@@ -296,35 +330,23 @@ export class VehicleServiceDirect {
     if (filters.dealerState) {
       params['retailListing.state'] = filters.dealerState;
     }
-    if (filters.vehicleType) {
-      const vt = String(filters.vehicleType).toUpperCase();
-      // Broad buckets map to Auto.dev broad bodyStyle.
-      if (vt === 'CAR' || vt === 'SEDAN') params['vehicle.bodyStyle'] = 'Car';
-      else if (vt === 'SUV') params['vehicle.bodyStyle'] = 'SUV';
-      else if (vt === 'TRUCK') params['vehicle.bodyStyle'] = 'Truck';
-      else if (vt === 'VAN') params['vehicle.bodyStyle'] = 'Van';
-      // Specific buckets map to Auto.dev type.
-      else if (vt === 'COUPE') params['vehicle.type'] = 'Coupe';
-      else if (vt === 'HATCHBACK') params['vehicle.type'] = 'Hatchback';
-      else if (vt === 'WAGON') params['vehicle.type'] = 'Wagon';
-      else if (vt === 'CONVERTIBLE') params['vehicle.type'] = 'Convertible';
-      else if (vt === 'MOTORCYCLE') params['vehicle.type'] = 'Motorcycle';
+    if (filters.vehicleType && !multi(filters.vehicleType)) {
+      this.applyVehicleTypeCsvToAutoDevParams(filters.vehicleType, params);
     }
-    if (filters.bodyStyle && !String(filters.bodyStyle).includes(',')) {
-      // bodyStyle is its own dimension: broad style as provided by Auto.dev
-      params['vehicle.bodyStyle'] = filters.bodyStyle;
+    if (filters.bodyStyle?.trim() && !multi(filters.bodyStyle)) {
+      params['vehicle.bodyStyle'] = filters.bodyStyle.trim();
     }
-    if (filters.fuel && !String(filters.fuel).includes(',')) {
-      params['vehicle.fuel'] = filters.fuel;
+    if (filters.fuel?.trim() && !multi(filters.fuel)) {
+      params['vehicle.fuel'] = filters.fuel.trim();
     }
-    if (filters.transmission && !String(filters.transmission).includes(',')) {
-      params['vehicle.transmission'] = filters.transmission;
+    if (filters.transmission?.trim() && !multi(filters.transmission)) {
+      params['vehicle.transmission'] = filters.transmission.trim();
     }
-    if (filters.exteriorColor && !String(filters.exteriorColor).includes(',')) {
-      params['vehicle.exteriorColor'] = filters.exteriorColor;
+    if (filters.exteriorColor?.trim() && !multi(filters.exteriorColor)) {
+      params['vehicle.exteriorColor'] = filters.exteriorColor.trim();
     }
-    if (filters.interiorColor && !String(filters.interiorColor).includes(',')) {
-      params['vehicle.interiorColor'] = filters.interiorColor;
+    if (filters.interiorColor?.trim() && !multi(filters.interiorColor)) {
+      params['vehicle.interiorColor'] = filters.interiorColor.trim();
     }
     if (filters.zip) params.zip = filters.zip;
     if (filters.distance != null && filters.distance > 0) params.distance = filters.distance;
@@ -335,8 +357,8 @@ export class VehicleServiceDirect {
     } else if (filters.condition === 'new') {
       params['retailListing.used'] = 'false';
     }
-    if (filters.drivetrain && !String(filters.drivetrain).includes(',')) {
-      params['vehicle.drivetrain'] = filters.drivetrain;
+    if (filters.drivetrain?.trim() && !multi(filters.drivetrain)) {
+      params['vehicle.drivetrain'] = filters.drivetrain.trim();
     }
     if (filters.luxuryMakes?.length) params['vehicle.make'] = filters.luxuryMakes.join(',');
     return params;
@@ -589,20 +611,39 @@ export class VehicleServiceDirect {
       try {
         // Where to start on Auto.dev: no filters → page 5 (avoid Hummer-heavy 1–4); with filters → page 1.
         const isBrowsingAll =
-          !resolvedFilters.make &&
-          !resolvedFilters.model &&
+          splitCsv(resolvedFilters.make).length === 0 &&
+          splitCsv(resolvedFilters.model).length === 0 &&
           !resolvedFilters.search &&
-          !resolvedFilters.vehicleType &&
+          splitCsv(resolvedFilters.vehicleType).length === 0 &&
           !categorySlug;
         const apiPageBase = isBrowsingAll ? 5 : 1;
         const apiPage = apiPageBase + (page - 1);
-        const apiLimit = limit;
+        const csvMulti = (v: string | undefined) => Boolean(v?.includes(','));
+        const needsBroadApiFetch =
+          csvMulti(resolvedFilters.make) ||
+          csvMulti(resolvedFilters.model) ||
+          csvMulti(resolvedFilters.bodyStyle) ||
+          csvMulti(resolvedFilters.vehicleType) ||
+          csvMulti(resolvedFilters.fuel) ||
+          csvMulti(resolvedFilters.transmission) ||
+          csvMulti(resolvedFilters.exteriorColor) ||
+          csvMulti(resolvedFilters.interiorColor) ||
+          csvMulti(resolvedFilters.drivetrain);
+        const apiLimit = needsBroadApiFetch ? Math.min(100, Math.max(limit, 48)) : limit;
 
         const apiParams = this.filtersToAutoDevParams(resolvedFilters, apiPage, apiLimit);
         const apiListings = await this.autoDevService.fetchListingsWithParams(apiParams);
         apiRawCount = apiListings.length;
 
         let filteredListings = apiListings;
+        const csvField = (listing: any, keys: string[]) => {
+          const vehicle = listing?.vehicle || listing || {};
+          for (const k of keys) {
+            const v = (vehicle as any)[k] ?? (listing as any)?.[k];
+            if (v != null && String(v).trim() !== '') return v;
+          }
+          return '';
+        };
         if (filters.search?.trim()) {
           const searchTerm = filters.search.trim().toLowerCase();
           const isFullVIN =
@@ -612,10 +653,21 @@ export class VehicleServiceDirect {
             const model = (vehicle.model || listing.model || '').toLowerCase();
             const vin = (listing.vin || vehicle.vin || '').toUpperCase();
             if (isFullVIN && vin === searchTerm.toUpperCase()) return true;
-            if (!filters.model && model.includes(searchTerm)) return true;
+            if (splitCsv(filters.model).length === 0 && model.includes(searchTerm)) return true;
             if (vin.includes(searchTerm.toUpperCase())) return true;
             return false;
           });
+        }
+
+        if (filters.make?.includes(',')) {
+          filteredListings = filteredListings.filter((listing: any) =>
+            matchesCsvFieldInsensitive(filters.make, csvField(listing, ['make']))
+          );
+        }
+        if (filters.model?.includes(',')) {
+          filteredListings = filteredListings.filter((listing: any) =>
+            matchesCsvFieldInsensitive(filters.model, csvField(listing, ['model']))
+          );
         }
 
         // Safety net: enforce vehicleType/bodyStyle after fetch.
@@ -630,14 +682,6 @@ export class VehicleServiceDirect {
             matchesBodyStyleFilter(filters.bodyStyle as string, listing)
           );
         }
-        const csvField = (listing: any, keys: string[]) => {
-          const vehicle = listing?.vehicle || listing || {};
-          for (const k of keys) {
-            const v = (vehicle as any)[k] ?? (listing as any)?.[k];
-            if (v != null && String(v).trim() !== '') return v;
-          }
-          return '';
-        };
         if (filters.fuel?.includes(',')) {
           filteredListings = filteredListings.filter((listing: any) =>
             matchesCsvFieldInsensitive(filters.fuel, csvField(listing, ['fuel']))
@@ -705,7 +749,9 @@ export class VehicleServiceDirect {
     const allVehicles: Vehicle[] = [...dbResult.vehicles, ...apiVehicles];
 
     if (sortBy) {
-      const demoteHummers = !resolvedFilters.make && !resolvedFilters.vehicleType;
+      const demoteHummers =
+        splitCsv(resolvedFilters.make).length === 0 &&
+        splitCsv(resolvedFilters.vehicleType).length === 0;
       this.sortVehiclesInPlace(allVehicles, sortBy, sortOrder, demoteHummers);
     }
 

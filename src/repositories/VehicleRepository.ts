@@ -2,6 +2,7 @@ import { injectable } from 'inversify';
 import prisma from '../db';
 import { Vehicle, Prisma, VehicleSource, VehicleStatus } from '../generated/prisma/client';
 import { VehicleFilters } from '../validation/interfaces/IVehicle';
+import { splitCsv } from '../utils/vehicleFilterMatching';
 
 export interface VehiclePagination {
   page?: number;
@@ -14,12 +15,6 @@ export interface SellerListingFilters {
   make?: string;
   model?: string;
   year?: number;
-}
-
-/** Comma-separated multi-select from query string / filters. */
-function splitCsv(raw: string | undefined): string[] {
-  if (!raw?.trim()) return [];
-  return raw.split(',').map((s) => s.trim()).filter(Boolean);
 }
 
 function bodyStyleWhereForOne(raw: string): Prisma.VehicleWhereInput {
@@ -119,14 +114,40 @@ export class VehicleRepository {
       priceUsd: { gt: 0 },
       AND: [],
     };
+    const andList = where.AND as Prisma.VehicleWhereInput[];
 
     if (filters.luxuryMakes?.length) {
       where.make = { in: filters.luxuryMakes };
     } else if (filters.make) {
-      where.make = { equals: filters.make, mode: 'insensitive' };
+      const makes = splitCsv(filters.make);
+      if (makes.length === 1) {
+        where.make = { equals: makes[0], mode: 'insensitive' };
+      } else if (makes.length > 1) {
+        andList.push({
+          OR: makes.map((m) => ({ make: { equals: m, mode: 'insensitive' } })),
+        });
+      }
     }
-    if (filters.model) where.model = { equals: filters.model, mode: 'insensitive' };
-    if (filters.vehicleType) where.vehicleType = filters.vehicleType as any;
+    if (filters.model) {
+      const models = splitCsv(filters.model);
+      if (models.length === 1) {
+        where.model = { equals: models[0], mode: 'insensitive' };
+      } else if (models.length > 1) {
+        andList.push({
+          OR: models.map((m) => ({ model: { equals: m, mode: 'insensitive' } })),
+        });
+      }
+    }
+    if (filters.vehicleType) {
+      const vts = splitCsv(filters.vehicleType);
+      if (vts.length === 1) {
+        where.vehicleType = vts[0] as any;
+      } else if (vts.length > 1) {
+        andList.push({
+          OR: vts.map((vt) => ({ vehicleType: vt as any })),
+        });
+      }
+    }
     if (filters.allowAnyVehicleStatus) {
       if (filters.status) where.status = filters.status;
     } else {
@@ -167,8 +188,6 @@ export class VehicleRepository {
     if (filters.mileageMax) {
       where.mileage = { lte: filters.mileageMax };
     }
-
-    const andList = where.AND as Prisma.VehicleWhereInput[];
 
     const bodyStyles = splitCsv(filters.bodyStyle);
     if (bodyStyles.length === 1) {
@@ -230,7 +249,7 @@ export class VehicleRepository {
       const isFullVIN = searchTerm.length === 17 && /^[A-HJ-NPR-Z0-9]{17}$/i.test(searchTerm);
       
       // Search model (if not already filtered)
-      if (!filters.model) {
+      if (!splitCsv(filters.model).length) {
         searchConditions.push({ model: { contains: searchTerm, mode: 'insensitive' } });
       }
       
