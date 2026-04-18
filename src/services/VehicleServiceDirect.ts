@@ -767,16 +767,26 @@ export class VehicleServiceDirect {
           }
           return '';
         };
-        if (filters.search?.trim()) {
-          const searchTerm = filters.search.trim().toLowerCase();
+        if (resolvedFilters.search?.trim()) {
+          const searchTerm = resolvedFilters.search.trim().toLowerCase();
           const isFullVIN =
             searchTerm.length === 17 && /^[a-hj-npr-z0-9]{17}$/i.test(searchTerm);
           filteredListings = apiListings.filter((listing: any) => {
             const vehicle = listing.vehicle || listing;
             const model = (vehicle.model || listing.model || '').toLowerCase();
+            const make = (vehicle.make || listing.make || '').toLowerCase();
+            const bodyStyle = (vehicle.bodyStyle || listing.bodyStyle || '').toLowerCase();
             const vin = (listing.vin || vehicle.vin || '').toUpperCase();
             if (isFullVIN && vin === searchTerm.toUpperCase()) return true;
-            if (splitCsv(filters.model).length === 0 && model.includes(searchTerm)) return true;
+            if (splitCsv(resolvedFilters.model).length === 0) {
+              if (model.includes(searchTerm)) return true;
+            }
+            if (splitCsv(resolvedFilters.make).length === 0) {
+              if (make.includes(searchTerm)) return true;
+            }
+            if (splitCsv(resolvedFilters.bodyStyle as string | undefined).length === 0) {
+              if (bodyStyle.includes(searchTerm)) return true;
+            }
             if (vin.includes(searchTerm.toUpperCase())) return true;
             return false;
           });

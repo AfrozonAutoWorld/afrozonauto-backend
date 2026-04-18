@@ -1,4 +1,5 @@
 import { injectable } from 'inversify';
+import { applyVpicReferenceExclusions } from '../config/vpicReferenceExclusions';
 import loggers from '../utils/loggers';
 import { AutoDevMakeModelsReference } from '../validation/interfaces/IAutoDev';
 
@@ -66,7 +67,8 @@ export class NhtsaVpicService {
       await sleep(BETWEEN_REQUESTS_MS);
       const bulk = await this.fetchBulkModelsWithRetry();
       const rows = bulk.Results ?? [];
-      const map = this.groupModelsByMake(rows, allowedMakeIds);
+      const raw = this.groupModelsByMake(rows, allowedMakeIds);
+      const map = applyVpicReferenceExclusions(raw);
       this.cache = { fetchedAt: now, data: map };
       return map;
     } catch (e: any) {
