@@ -3,7 +3,8 @@ import { TYPES } from '../config/types';
 import { VehicleRepository, VehiclePagination } from '../repositories/VehicleRepository';
 import { SavedVehicleRepository } from '../repositories/SavedVehicleRepository';
 import { VehicleFilters } from '../validation/interfaces/IVehicle';
-import { AutoDevService,  } from './AutoDevService';
+import { AutoDevService } from './AutoDevService';
+import { NhtsaVpicService } from './NhtsaVpicService';
 import { TrendingService } from './TrendingService';
 import { RecommendedService } from './RecommendedService';
 import { CategoryService } from './CategoryService';
@@ -34,6 +35,7 @@ export class VehicleServiceDirect {
     @inject(TYPES.VehicleRepository) private vehicleRepo: VehicleRepository,
     @inject(TYPES.SavedVehicleRepository) private savedVehicleRepo: SavedVehicleRepository,
     @inject(TYPES.AutoDevService) private autoDevService: AutoDevService,
+    @inject(TYPES.NhtsaVpicService) private nhtsaVpicService: NhtsaVpicService,
     @inject(TYPES.TrendingService) private trendingService: TrendingService,
     @inject(TYPES.RecommendedService) private recommendedService: RecommendedService,
     @inject(TYPES.CategoryService) private categoryService: CategoryService,
@@ -229,9 +231,15 @@ export class VehicleServiceDirect {
 
   async getMakeModelsReference(): Promise<Record<string, string[]>> {
     try {
-      return await this.autoDevService.fetchMakeModelsReference();
+      const vpic = await this.nhtsaVpicService.fetchMakeModelsReference();
+      // Previously: `return await this.autoDevService.fetchMakeModelsReference();`
+      // Optional blend with Auto.dev make/model reference (union per make):
+      // import { mergeMakeModelMaps } from './NhtsaVpicService';
+      // const autoDev = await this.autoDevService.fetchMakeModelsReference();
+      // return mergeMakeModelMaps(vpic, autoDev);
+      return vpic;
     } catch (error) {
-      loggers.warn('Auto.dev make/models unavailable, returning empty reference map', error);
+      loggers.warn('NHTSA vPIC make/models unavailable, returning empty reference map', error);
       return {};
     }
   }

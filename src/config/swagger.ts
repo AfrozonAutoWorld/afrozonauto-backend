@@ -391,7 +391,8 @@ const swaggerSpec = {
     "/api/vehicles/reference/models": {
       get: {
         summary: "Get make/model reference list",
-        description: "Returns all makes and their corresponding models for use in dropdowns and filters.",
+        description:
+          "Returns make → model names from NHTSA vPIC (US catalog: passenger car, MPV, truck makes; models from vPIC bulk dataset). Cached 24h. Listing search still uses Auto.dev for inventory; matching is case-insensitive.",
         tags: ["Vehicles"],
         responses: { 200: { description: "Make–model map" } }
       }

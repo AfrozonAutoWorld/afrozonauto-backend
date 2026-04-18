@@ -34,6 +34,7 @@ import { TrendingDefinitionController } from '../controllers/TrendingDefinitionC
 import { RecommendedDefinitionController } from '../controllers/RecommendedDefinitionController';
 import { VehicleCategoryController } from '../controllers/VehicleCategoryController';
 import { AutoDevService } from '../services/AutoDevService';
+import { NhtsaVpicService } from '../services/NhtsaVpicService';
 import { RedisCacheService } from '../services/RedisCacheService';
 import { PaymentController } from '../controllers/PaymentController';
 import { PaymentService } from '../services/PaymentService';
@@ -118,6 +119,7 @@ container.bind<TrendingDefinitionController>(TYPES.TrendingDefinitionController)
 container.bind<RecommendedDefinitionController>(TYPES.RecommendedDefinitionController).to(RecommendedDefinitionController);
 container.bind<VehicleCategoryController>(TYPES.VehicleCategoryController).to(VehicleCategoryController);
 container.bind<AutoDevService>(TYPES.AutoDevService).to(AutoDevService);
+container.bind<NhtsaVpicService>(TYPES.NhtsaVpicService).to(NhtsaVpicService);
 container.bind<RedisCacheService>(TYPES.RedisCacheService).to(RedisCacheService).inSingletonScope();
 // Testimonial bindings
 container.bind<TestimonialRepository>(TYPES.TestimonialRepository).to(TestimonialRepository);

@@ -25,6 +25,7 @@ export const TYPES = {
     VehicleService: Symbol.for('VehicleService'),
     VehicleController: Symbol.for('VehicleController'),
     AutoDevService: Symbol.for('AutoDevService'),
+    NhtsaVpicService: Symbol.for('NhtsaVpicService'),
     RedisCacheService: Symbol.for('RedisCacheService'),
     TrendingDefinitionRepository: Symbol.for('TrendingDefinitionRepository'),
     RecommendedDefinitionRepository: Symbol.for('RecommendedDefinitionRepository'),

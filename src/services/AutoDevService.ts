@@ -135,8 +135,13 @@ export class AutoDevService {
   /**
    * Reference: fetch makes -> models mapping from Auto.dev
    * Docs: GET /api/models
+   *
+   * **Listing dropdowns** now use {@link NhtsaVpicService} (NHTSA vPIC). This method is retained so
+   * callers can switch back or blend with `mergeMakeModelMaps` in `VehicleServiceDirect.getMakeModelsReference`.
+   * Previous implementation is preserved in the block comment below.
    */
-  async fetchMakeModelsReference(forceRefresh: boolean = false): Promise<AutoDevMakeModelsReference> {
+  async fetchMakeModelsReference(_forceRefresh: boolean = false): Promise<AutoDevMakeModelsReference> {
+    /*
     if (!this.apiKey) {
       loggers.warn('AUTO_DEV_API_KEY is not configured. Cannot fetch models reference from Auto.dev API.');
       throw new Error('Auto.dev API key is not configured');
@@ -196,7 +201,6 @@ export class AutoDevService {
         return fallback();
       }
 
-      // Normalize possible response shapes into { [make]: string[] }
       let map: AutoDevMakeModelsReference = {};
       if (Array.isArray(payload)) {
         for (const item of payload) {
@@ -222,6 +226,8 @@ export class AutoDevService {
       loggers.warn('Auto.dev fetchMakeModelsReference network/parse error; using cache or empty map:', error?.message || error);
       return fallback();
     }
+    */
+    return this.makeModelsCache?.data ?? {};
   }
 
   /**

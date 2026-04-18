@@ -145,7 +145,8 @@ export class VehicleController {
 
   /**
    * GET /api/vehicles/reference/models
-   * Proxy Auto.dev models reference (make -> models). Cached in AutoDevService.
+   * Make → models from NHTSA vPIC (car / MPV / truck makes; bulk model list). Cached in NhtsaVpicService.
+   * Auto.dev catalog was used previously; see AutoDevService.fetchMakeModelsReference (commented).
    */
   getMakeModelsReference = asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
     const data = await this.vehicleService.getMakeModelsReference();
