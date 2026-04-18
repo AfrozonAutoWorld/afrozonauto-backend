@@ -338,9 +338,11 @@ const swaggerSpec = {
     },
     "/api/vehicles/trending": {
       get: {
-        summary: "Get trending vehicles",
+        summary: "Get featured + trending rail",
+        description:
+          "Database vehicles with featured=true first, then Auto.dev listings per active trending definitions. No order-popularity merge.",
         tags: ["Vehicles"],
-        responses: { 200: { description: "List of trending vehicles" } }
+        responses: { 200: { description: "List of featured vehicles" } }
       }
     },
     "/api/vehicles/recommended": {

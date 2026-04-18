@@ -29,7 +29,7 @@ export class VehicleController {
 
   /**
    * GET /api/vehicles/trending
-   * Trending vehicles: ordered first, then 5 per trending rule from Auto.dev
+   * Featured DB vehicles first, then Auto.dev per active trending definitions (admin). No order-popularity merge.
    */
   getTrending = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const pageRaw = req.query.page;

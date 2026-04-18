@@ -17,6 +17,10 @@ import { AutoDevListingsParams } from '../validation/interfaces/IAutoDev';
 import {
   matchesBodyStyleFilter,
   matchesCsvFieldInsensitive,
+  matchesCsvMakeFilterInsensitive,
+  autoDevVehicleModelParamForMake,
+  listingMatchesMakeModelPairedFilter,
+  matchesCsvModelFilterInsensitive,
   matchesVehicleTypeFilter,
   splitCsv,
 } from '../utils/vehicleFilterMatching';
@@ -364,6 +368,114 @@ export class VehicleServiceDirect {
     return params;
   }
 
+  /**
+   * Per-make `vehicle.model` for Auto.dev. With **paired** make/model lists, only the model token at
+   * the same index is sent for that make (when counts align or for the min-length zip).
+   */
+  private applyAutoDevModelParamForMake(
+    params: AutoDevListingsParams,
+    resolvedFilters: VehicleFilters,
+    ctx: { make: string; makeIndex: number; makeCount: number }
+  ): void {
+    const { make, makeIndex, makeCount } = ctx;
+    const models = splitCsv(resolvedFilters.model ?? '');
+    if (models.length === 0) {
+      delete params['vehicle.model'];
+      return;
+    }
+
+    if (makeCount > 1 && models.length === makeCount) {
+      const token = models[makeIndex];
+      const p = autoDevVehicleModelParamForMake(make, token);
+      if (p === undefined) delete params['vehicle.model'];
+      else params['vehicle.model'] = p;
+      return;
+    }
+
+    if (makeCount > 1 && models.length > 1 && models.length !== makeCount) {
+      const k = Math.min(makeCount, models.length);
+      if (makeIndex >= k) {
+        delete params['vehicle.model'];
+        return;
+      }
+      const p = autoDevVehicleModelParamForMake(make, models[makeIndex]);
+      if (p === undefined) delete params['vehicle.model'];
+      else params['vehicle.model'] = p;
+      return;
+    }
+
+    const p = autoDevVehicleModelParamForMake(make, resolvedFilters.model);
+    if (p === undefined) {
+      delete params['vehicle.model'];
+    } else {
+      params['vehicle.model'] = p;
+    }
+  }
+
+  /**
+   * When several makes are selected (comma OR), we must not omit `vehicle.make` and fetch a single
+   * unfiltered page — that returns random inventory and post-filter drops everything. One Auto.dev
+   * request per make (merged, de-duped by VIN) keeps results relevant.
+   */
+  private async fetchAutoDevListingsForFilters(
+    resolvedFilters: VehicleFilters,
+    apiPage: number,
+    apiLimit: number
+  ): Promise<any[]> {
+    const makeTokens = splitCsv(resolvedFilters.make);
+    if (makeTokens.length <= 1) {
+      const params = this.filtersToAutoDevParams(resolvedFilters, apiPage, apiLimit);
+      const sm = makeTokens[0] ?? '';
+      this.applyAutoDevModelParamForMake(params, resolvedFilters, {
+        make: sm,
+        makeIndex: 0,
+        makeCount: makeTokens.length || 1,
+      });
+      return this.autoDevService.fetchListingsWithParams(params);
+    }
+
+    const perMakeLimit = Math.min(
+      100,
+      Math.max(Math.ceil(apiLimit / makeTokens.length), 24)
+    );
+    const batches = await Promise.all(
+      makeTokens.map(async (make, index) => {
+        const params = this.filtersToAutoDevParams(
+          { ...resolvedFilters, make },
+          apiPage,
+          perMakeLimit
+        );
+        // Category `luxuryMakes` can overwrite `vehicle.make` in filtersToAutoDevParams — user make wins.
+        params['vehicle.make'] = make;
+        this.applyAutoDevModelParamForMake(params, resolvedFilters, {
+          make,
+          makeIndex: index,
+          makeCount: makeTokens.length,
+        });
+        return this.autoDevService.fetchListingsWithParams(params);
+      })
+    );
+
+    // Round-robin interleave so one make (often higher inventory / sort bias) does not monopolize
+    // the first rows before merge-time sort — matches Auto.dev’s mixed bag when using comma params.
+    const merged: any[] = [];
+    const seenVin = new Set<string>();
+    const maxLen = Math.max(0, ...batches.map((b) => b.length));
+    for (let i = 0; i < maxLen; i++) {
+      for (const batch of batches) {
+        const listing = batch[i];
+        if (!listing) continue;
+        const vin = listing?.vin;
+        if (vin) {
+          if (seenVin.has(vin)) continue;
+          seenVin.add(vin);
+        }
+        merged.push(listing);
+      }
+    }
+    return merged;
+  }
+
   private isPriceStale(vehicle: Vehicle): boolean {
     if (!vehicle.lastApiSync || vehicle.source !== VehicleSource.API) return false;
     const now = new Date();
@@ -631,8 +743,11 @@ export class VehicleServiceDirect {
           csvMulti(resolvedFilters.drivetrain);
         const apiLimit = needsBroadApiFetch ? Math.min(100, Math.max(limit, 48)) : limit;
 
-        const apiParams = this.filtersToAutoDevParams(resolvedFilters, apiPage, apiLimit);
-        const apiListings = await this.autoDevService.fetchListingsWithParams(apiParams);
+        const apiListings = await this.fetchAutoDevListingsForFilters(
+          resolvedFilters,
+          apiPage,
+          apiLimit
+        );
         apiRawCount = apiListings.length;
 
         let filteredListings = apiListings;
@@ -659,14 +774,22 @@ export class VehicleServiceDirect {
           });
         }
 
-        if (filters.make?.includes(',')) {
+        if (filters.make && filters.model) {
           filteredListings = filteredListings.filter((listing: any) =>
-            matchesCsvFieldInsensitive(filters.make, csvField(listing, ['make']))
+            listingMatchesMakeModelPairedFilter(
+              filters.make,
+              filters.model,
+              csvField(listing, ['make']),
+              csvField(listing, ['model'])
+            )
           );
-        }
-        if (filters.model?.includes(',')) {
+        } else if (filters.make) {
           filteredListings = filteredListings.filter((listing: any) =>
-            matchesCsvFieldInsensitive(filters.model, csvField(listing, ['model']))
+            matchesCsvMakeFilterInsensitive(filters.make, csvField(listing, ['make']))
+          );
+        } else if (filters.model) {
+          filteredListings = filteredListings.filter((listing: any) =>
+            matchesCsvModelFilterInsensitive(filters.model, csvField(listing, ['model']))
           );
         }
 

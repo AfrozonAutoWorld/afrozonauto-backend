@@ -10,9 +10,14 @@ export interface AutoDevResponse<T> {
 
 
   export interface VehicleFilters {
-    /** Comma-separated OR (e.g. Toyota,Honda). Matches DB + Auto.dev listings. */
+    /**
+     * Comma-separated list of makes. Combined with `model`:
+     * - **Same count as `model`:** positional pairs — (make₀ ∧ model₀) ∨ (make₁ ∧ model₁) ∨ …
+     * - **One model, several makes:** that model is applied per OEM rules (some makes may be unrestricted).
+     * - **One make, several models:** make ∧ (model₀ ∨ model₁ ∨ …).
+     */
     make?: string;
-    /** Comma-separated OR for model names. */
+    /** Comma-separated model names; pairing with `make` follows the rules above. */
     model?: string;
     yearMin?: number;
     yearMax?: number;

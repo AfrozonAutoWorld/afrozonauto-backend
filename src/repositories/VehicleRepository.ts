@@ -2,7 +2,7 @@ import { injectable } from 'inversify';
 import prisma from '../db';
 import { Vehicle, Prisma, VehicleSource, VehicleStatus } from '../generated/prisma/client';
 import { VehicleFilters } from '../validation/interfaces/IVehicle';
-import { splitCsv } from '../utils/vehicleFilterMatching';
+import { buildMakeModelPrismaWhere, splitCsv } from '../utils/vehicleFilterMatching';
 
 export interface VehiclePagination {
   page?: number;
@@ -120,7 +120,10 @@ export class VehicleRepository {
       where.make = { in: filters.luxuryMakes };
     } else if (filters.make) {
       const makes = splitCsv(filters.make);
-      if (makes.length === 1) {
+      const models = filters.model ? splitCsv(filters.model) : [];
+      if (makes.length > 1 && models.length > 0) {
+        andList.push(buildMakeModelPrismaWhere(makes, models));
+      } else if (makes.length === 1) {
         where.make = { equals: makes[0], mode: 'insensitive' };
       } else if (makes.length > 1) {
         andList.push({
@@ -129,13 +132,17 @@ export class VehicleRepository {
       }
     }
     if (filters.model) {
+      const makes = splitCsv(filters.make);
       const models = splitCsv(filters.model);
-      if (models.length === 1) {
-        where.model = { equals: models[0], mode: 'insensitive' };
-      } else if (models.length > 1) {
-        andList.push({
-          OR: models.map((m) => ({ model: { equals: m, mode: 'insensitive' } })),
-        });
+      const combinedMultiMakeModel = makes.length > 1 && models.length > 0;
+      if (!combinedMultiMakeModel) {
+        if (models.length === 1) {
+          where.model = { equals: models[0], mode: 'insensitive' };
+        } else if (models.length > 1) {
+          andList.push({
+            OR: models.map((m) => ({ model: { equals: m, mode: 'insensitive' } })),
+          });
+        }
       }
     }
     if (filters.vehicleType) {
@@ -301,17 +308,14 @@ export class VehicleRepository {
   }
 
   /**
-   * Featured platform listings for the home "Featured Vehicles" rail, shown before
-   * order-popularity and Auto.dev fills. Respects seller visibility (approved sellers only).
+   * Platform listings explicitly marked `featured` for the home / featured browse rail.
+   * Respects seller visibility (approved sellers only). No `sections` fallback — flag must be set.
    */
   async findFeaturedForHomeTrending(limit: number = 24): Promise<Vehicle[]> {
     const now = new Date();
     return prisma.vehicle.findMany({
       where: {
-        OR: [
-          { featured: true },
-          { sections: { has: 'FEATURED' } }
-        ],
+        featured: true,
         isActive: true,
         isHidden: false,
         status: VehicleStatus.AVAILABLE,

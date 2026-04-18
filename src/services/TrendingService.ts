@@ -1,31 +1,31 @@
 import { inject, injectable } from 'inversify';
 import { TYPES } from '../config/types';
-import { OrderRepository } from '../repositories/OrderRepository';
 import { VehicleRepository } from '../repositories/VehicleRepository';
 import { TrendingDefinitionRepository } from '../repositories/TrendingDefinitionRepository';
-import { AutoDevService } from '../services/AutoDevService';
-import { RedisCacheService } from '../services/RedisCacheService';
+import { AutoDevService } from './AutoDevService';
+import { RedisCacheService } from './RedisCacheService';
 import { VehicleTransformer } from '../helpers/vehicle-transformer';
-import { Vehicle } from '../generated/prisma/client';
+import { TrendingDefinition, Vehicle } from '../generated/prisma/client';
 import loggers from '../utils/loggers';
 
-const MAX_ORDERED_VEHICLES = 15;
+/** Max DB featured rows before Auto.dev trending-definition fills. */
+const FEATURED_TRENDING_POOL = 300;
 
 @injectable()
 export class TrendingService {
   constructor(
-    @inject(TYPES.OrderRepository) private orderRepo: OrderRepository,
-    @inject(TYPES.VehicleRepository) private vehicleRepo: VehicleRepository,
-    @inject(TYPES.TrendingDefinitionRepository) private trendingRepo: TrendingDefinitionRepository,
-    @inject(TYPES.AutoDevService) private autoDevService: AutoDevService,
-    @inject(TYPES.RedisCacheService) private redisCache: RedisCacheService
+    @inject(TYPES.VehicleRepository) private readonly vehicleRepo: VehicleRepository,
+    @inject(TYPES.TrendingDefinitionRepository)
+    private readonly trendingRepo: TrendingDefinitionRepository,
+    @inject(TYPES.AutoDevService) private readonly autoDevService: AutoDevService,
+    @inject(TYPES.RedisCacheService) private readonly redisCache: RedisCacheService
   ) {}
 
   /**
-   * Get trending vehicles for the home "Featured Vehicles" rail:
-   * (0) DB listings with featured=true (admin/seller, within optional featuredUntil),
-   * (1) vehicles people ordered (any marketplace-visible source),
-   * (2) up to maxFetchCount per trending rule from Auto.dev.
+   * Home / featured rail:
+   * (1) DB vehicles with `featured === true` (and valid featured window),
+   * (2) then Auto.dev listings per active {@link TrendingDefinition} (deduped by VIN).
+   * Does not merge order-popularity.
    */
   async getTrendingVehicles(): Promise<Vehicle[]> {
     const result: Vehicle[] = [];
@@ -37,60 +37,49 @@ export class TrendingService {
       result.push(v);
     };
 
-    // 0. DB featured first (admin/manual + approved seller listings with featured=true)
     try {
-      const featured = await this.vehicleRepo.findFeaturedForHomeTrending(24);
+      const featured = await this.vehicleRepo.findFeaturedForHomeTrending(FEATURED_TRENDING_POOL);
       for (const v of featured) pushByVin(v);
     } catch (e) {
       loggers.warn('TrendingService: failed to load featured vehicles', e);
     }
 
-    // 1. Vehicles from orders (most ordered first) — any marketplace-visible source
-    try {
-      const orderedVehicleIds = await this.orderRepo.findOrderedVehicleIds(MAX_ORDERED_VEHICLES);
-      const orderedVehicles = await this.vehicleRepo.findManyByIds(orderedVehicleIds);
-      for (const v of orderedVehicles) {
-        pushByVin(v);
-      }
-    } catch (e) {
-      loggers.warn('TrendingService: failed to load ordered vehicles', e);
-    }
-
-    // 2. Curated: up to maxFetchCount per trending definition from Auto.dev
     const definitions = await this.trendingRepo.findManyActive();
     for (const def of definitions) {
       try {
-        const params: Record<string, string | number> = {
-          'vehicle.make': def.make,
-          'vehicle.year': `${def.yearStart}-${def.yearEnd}`,
-          limit: def.maxFetchCount,
-        };
-        if (def.model?.trim()) params['vehicle.model'] = def.model.trim();
-        const listings = await this.autoDevService.fetchListingsWithParams(params as any);
-        for (const listing of listings) {
-          const vin = (listing as any).vin || (listing as any).vehicle?.vin;
-          if (vin && !seenVins.has(vin)) {
-            seenVins.add(vin);
-            const vehicleData = VehicleTransformer.fromAutoDevListing(listing, []);
-            vehicleData.apiData = { listing, raw: listing, isTemporary: true };
-            vehicleData.apiSyncStatus = 'PENDING';
-            vehicleData.id = await this.redisCache.registerTempVehiclePublicId(vin);
-            result.push(vehicleData as Vehicle);
-          }
-        }
+        await this.appendDefinitionListings(def, seenVins, result);
       } catch (e) {
-        loggers.warn(`TrendingService: failed for rule ${def.make} ${def.model || ''} ${def.yearStart}-${def.yearEnd}`, e);
+        loggers.warn(
+          `TrendingService: failed for rule ${def.make} ${def.model || ''} ${def.yearStart}-${def.yearEnd}`,
+          e
+        );
       }
     }
 
     return result;
   }
 
-  async getMaxFetchCount(): Promise<number> {
-    const defs = await this.trendingRepo.findManyActive() as any[];
-    if (!defs.length) return 1;
-    const values = defs
-      .map((d) => (typeof d.maxFetchCount === 'number' && d.maxFetchCount > 0 ? d.maxFetchCount : 1));
-    return values.length ? Math.max(...values) : 1;
+  private async appendDefinitionListings(
+    def: TrendingDefinition,
+    seenVins: Set<string>,
+    result: Vehicle[]
+  ): Promise<void> {
+    const params: Record<string, string | number> = {
+      'vehicle.make': def.make,
+      'vehicle.year': `${def.yearStart}-${def.yearEnd}`,
+      limit: typeof def.maxFetchCount === 'number' && def.maxFetchCount > 0 ? def.maxFetchCount : 5,
+    };
+    if (def.model?.trim()) params['vehicle.model'] = def.model.trim();
+    const listings = await this.autoDevService.fetchListingsWithParams(params as any);
+    for (const listing of listings) {
+      const vin = (listing as any).vin || (listing as any).vehicle?.vin;
+      if (!vin || seenVins.has(vin)) continue;
+      seenVins.add(vin);
+      const vehicleData = VehicleTransformer.fromAutoDevListing(listing, []);
+      vehicleData.apiData = { listing, raw: listing, isTemporary: true };
+      vehicleData.apiSyncStatus = 'PENDING';
+      vehicleData.id = await this.redisCache.registerTempVehiclePublicId(vin);
+      result.push(vehicleData as Vehicle);
+    }
   }
 }
